@@ -16,3 +16,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for multiple modules (filters, content enhancements, chat improvements)
 - Dark theme UI
 - GitHub integration and settings page
+- Automated release workflow with changelog generation
