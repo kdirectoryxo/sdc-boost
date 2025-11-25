@@ -65,33 +65,28 @@ jobs:
           echo "ZIP file: $ZIP_FILE"
           echo "ZIP name: $ZIP_NAME"
       
-      - name: Read changelog
+      - name: Extract changelog for release
         id: changelog
         run: |
           if [ -f CHANGELOG.md ]; then
-            # Extract the latest changelog entry
-            CHANGELOG=$(awk '/^## \[/{p=1} p && /^## \[/{if(p>1) exit; p++} p' CHANGELOG.md | sed '/^## \[/d' | sed '/^$/d' | head -n -1)
-            if [ -z "$CHANGELOG" ]; then
-              CHANGELOG="See the commit history for details."
+            # Extract the latest changelog entry (everything from first ## [version] to next ## or end)
+            awk '/^## \[/{if(p) exit; p=1} p' CHANGELOG.md | sed '/^## \[/d' > /tmp/changelog_section.md
+            if [ ! -s /tmp/changelog_section.md ]; then
+              echo "See the commit history for details." > /tmp/changelog_section.md
             fi
           else
-            CHANGELOG="See the commit history for details."
+            echo "See the commit history for details." > /tmp/changelog_section.md
           fi
-          # Escape for JSON
-          CHANGELOG=$(echo "$CHANGELOG" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-          echo "content<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
       
       - name: Create GitHub Release
         id: create_release
         run: |
-          cat > /tmp/release_notes.md << 'EOF'
-          ${{ steps.changelog.outputs.content }}
+          cat > /tmp/release_notes.md << EOF
+          $(cat /tmp/changelog_section.md)
           
           ## Downloads
           
-          - Chrome Web Store ZIP: `${{ steps.zip_file.outputs.name }}`
+          - Chrome Web Store ZIP: \`${{ steps.zip_file.outputs.name }}\`
           EOF
           
           gh release create "v${{ steps.version.outputs.version }}" \
