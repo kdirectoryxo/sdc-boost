@@ -1,0 +1,9 @@
+{
+    "all": true,
+    "commit": true,
+    "tag": true,
+    "push": false,
+    "files": [
+        "package.json"
+    ]
+}
