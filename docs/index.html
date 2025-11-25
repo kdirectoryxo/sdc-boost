@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDC Boost - Browser Extension for SDC.com</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(26, 26, 26, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #333;
+            padding: 1rem 2rem;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: #e0e0e0;
+        }
+
+        .nav-logo img {
+            width: 32px;
+            height: 32px;
+        }
+
+        .nav-logo span {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: white;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #999;
+            text-decoration: none;
+            transition: color 0.2s;
+            font-size: 0.95rem;
+        }
+
+        .nav-links a:hover {
+            color: white;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.5rem 1.25rem;
+            background: #333;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.2s;
+            border: 1px solid #444;
+            font-size: 0.95rem;
+        }
+
+        .btn:hover {
+            background: #444;
+            border-color: #555;
+        }
+
+        .btn-primary {
+            background: #d4af37;
+            border-color: #b8941f;
+            color: #1a1a1a;
+            font-weight: 500;
+        }
+
+        .btn-primary:hover {
+            background: #f4e4bc;
+            border-color: #d4af37;
+        }
+
+        /* Hero Section */
+        .hero {
+            margin-top: 80px;
+            padding: 4rem 2rem;
+            text-align: center;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero-logo {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 2rem;
+            display: block;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        .hero-subtitle {
+            font-size: 1.5rem;
+            color: #999;
+            margin-bottom: 2rem;
+        }
+
+        .hero-description {
+            font-size: 1.1rem;
+            color: #ccc;
+            max-width: 700px;
+            margin: 0 auto 2.5rem;
+            line-height: 1.8;
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Section Styles */
+        section {
+            padding: 5rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .section-subtitle {
+            font-size: 1.2rem;
+            color: #999;
+            text-align: center;
+            margin-bottom: 3rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 2rem;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: #444;
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            color: white;
+            margin-bottom: 0.75rem;
+        }
+
+        .feature-card .category {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: #333;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #d4af37;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card p {
+            color: #ccc;
+            line-height: 1.7;
+        }
+
+        /* Installation Section */
+        .install-steps {
+            display: grid;
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .install-step {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 2rem;
+            display: flex;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .step-number {
+            width: 48px;
+            height: 48px;
+            background: #d4af37;
+            color: #1a1a1a;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .step-content h3 {
+            color: white;
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-content p {
+            color: #ccc;
+            line-height: 1.7;
+        }
+
+        /* Privacy Section */
+        .privacy-highlights {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+
+        .privacy-item {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .privacy-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .privacy-item h3 {
+            color: white;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .privacy-item p {
+            color: #999;
+            font-size: 0.95rem;
+        }
+
+        /* Screenshots Section */
+        .screenshots-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .screenshot-card {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .screenshot-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .screenshot-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Footer */
+        footer {
+            background: #111;
+            border-top: 1px solid #333;
+            padding: 3rem 2rem;
+            margin-top: 5rem;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 3rem;
+        }
+
+        .footer-section h3 {
+            color: white;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+        }
+
+        .footer-section p,
+        .footer-section a {
+            color: #999;
+            text-decoration: none;
+            display: block;
+            margin-bottom: 0.5rem;
+            transition: color 0.2s;
+        }
+
+        .footer-section a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            max-width: 1200px;
+            margin: 2rem auto 0;
+            padding-top: 2rem;
+            border-top: 1px solid #333;
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1.2rem;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            nav {
+                padding: 1rem;
+            }
+
+            .nav-links {
+                gap: 1rem;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav>
+        <a href="/sdc-boost/" class="nav-logo">
+            <img src="sdc-boost-logo.svg" alt="SDC Boost Logo">
+            <span>SDC Boost</span>
+        </a>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#installation">Installation</a>
+            <a href="#privacy">Privacy</a>
+            <a href="privacy-policy.html">Privacy Policy</a>
+            <a href="https://github.com/kdirectoryxo/sdc-boost" target="_blank" rel="noopener noreferrer"
+                class="btn">GitHub</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <img src="sdc-boost-logo.svg" alt="SDC Boost Logo" class="hero-logo">
+        <h1>SDC Boost</h1>
+        <p class="hero-subtitle">Browser Extension for SDC.com</p>
+        <p class="hero-description">
+            A powerful browser extension designed to enhance your browsing experience on SDC.com with customizable
+            modules and features.
+            Built with privacy in mind - all data is stored locally on your device.
+        </p>
+        <div class="hero-cta">
+            <a href="https://github.com/kdirectoryxo/sdc-boost" target="_blank" rel="noopener noreferrer"
+                class="btn btn-primary">View on GitHub</a>
+            <a href="#installation" class="btn">Get Started</a>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features">
+        <h2 class="section-title">Powerful Features</h2>
+        <p class="section-subtitle">Customize your SDC.com experience with our modular extension</p>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🔍</div>
+                <span class="category">Filtering</span>
+                <h3>Age Filter</h3>
+                <p>Hide member cards based on customizable age ranges. Set your preferred minimum and maximum age to
+                    filter out members outside your preferences.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">✨</div>
+                <span class="category">Filtering</span>
+                <h3>Age Highlighter</h3>
+                <p>Highlight member cards that match your preferred age criteria with customizable colors. Easily spot
+                    members within your age range.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🚫</div>
+                <span class="category">Content</span>
+                <h3>Ad Blocker</h3>
+                <p>Block and hide advertisements on SDC.com for a cleaner, distraction-free browsing experience. Remove
+                    member card ads and other promotional content.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">💬</div>
+                <span class="category">Chat</span>
+                <h3>Chat Scroll Fix</h3>
+                <p>Prevents auto-scroll to bottom when loading older messages, giving you better control over your chat
+                    experience and allowing you to read message history comfortably.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📤</div>
+                <span class="category">Chat</span>
+                <h3>Chat Export</h3>
+                <p>Export your chat conversations to markdown format for backup or analysis. Includes AI-powered
+                    summarization to save conversations as notes automatically.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎨</div>
+                <span class="category">UI</span>
+                <h3>Navbar Boost Button</h3>
+                <p>Quick access to SDC Boost settings directly from the navigation bar. Open the module control panel
+                    with a single click from anywhere on SDC.com.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation Section -->
+    <section id="installation">
+        <h2 class="section-title">Installation</h2>
+        <p class="section-subtitle">Get started with SDC Boost in just a few steps</p>
+
+        <div class="install-steps">
+            <div class="install-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>From Chrome Web Store</h3>
+                    <p>Visit the Chrome Web Store and search for "SDC Boost" or click "Add to Chrome" to install the
+                        extension directly.</p>
+                </div>
+            </div>
+
+            <div class="install-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Manual Installation (Development)</h3>
+                    <p>Clone the repository, install dependencies with <code
+                            style="background: #333; padding: 0.2rem 0.4rem; border-radius: 4px;">bun install</code>,
+                        build with <code
+                            style="background: #333; padding: 0.2rem 0.4rem; border-radius: 4px;">bun run build</code>,
+                        and load the extension from <code
+                            style="background: #333; padding: 0.2rem 0.4rem; border-radius: 4px;">.output/chrome-mv3</code>
+                        directory in Chrome's extension manager.</p>
+                </div>
+            </div>
+
+            <div class="install-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Configure Your Modules</h3>
+                    <p>Click the SDC Boost icon in your browser toolbar or use the navbar boost button to open the
+                        module control panel. Enable and configure the modules you want to use.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Privacy Section -->
+    <section id="privacy">
+        <h2 class="section-title">Privacy First</h2>
+        <p class="section-subtitle">Your data stays on your device, always</p>
+
+        <div class="privacy-highlights">
+            <div class="privacy-item">
+                <div class="privacy-icon">🔒</div>
+                <h3>Local Storage Only</h3>
+                <p>All data is stored locally on your device using your browser's storage API</p>
+            </div>
+
+            <div class="privacy-item">
+                <div class="privacy-icon">🚫</div>
+                <h3>No External Servers</h3>
+                <p>We don't collect, transmit, or store any data on external servers</p>
+            </div>
+
+            <div class="privacy-item">
+                <div class="privacy-icon">👁️</div>
+                <h3>No Tracking</h3>
+                <p>No analytics, no tracking, no data collection - complete privacy</p>
+            </div>
+
+            <div class="privacy-item">
+                <div class="privacy-icon">🔐</div>
+                <h3>Transparent</h3>
+                <p>Open source code means you can verify everything we do</p>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 3rem;">
+            <a href="privacy-policy.html" class="btn btn-primary">Read Full Privacy Policy</a>
+        </div>
+    </section>
+
+    <!-- Screenshots Section -->
+    <section id="screenshots">
+        <h2 class="section-title">Screenshots</h2>
+        <p class="section-subtitle">See SDC Boost in action</p>
+
+        <div class="screenshots-grid">
+            <div class="screenshot-card">
+                <img src="../store-images/screenshot-1280x800.png" alt="SDC Boost Screenshot 1" loading="lazy">
+            </div>
+            <div class="screenshot-card">
+                <img src="../store-images/screenshot-640x400.png" alt="SDC Boost Screenshot 2" loading="lazy">
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>SDC Boost</h3>
+                <p>A powerful browser extension to enhance your SDC.com experience with customizable modules and
+                    features.</p>
+            </div>
+
+            <div class="footer-section">
+                <h3>Links</h3>
+                <a href="https://github.com/kdirectoryxo/sdc-boost" target="_blank" rel="noopener noreferrer">GitHub
+                    Repository</a>
+                <a href="privacy-policy.html">Privacy Policy</a>
+                <a href="#features">Features</a>
+                <a href="#installation">Installation</a>
+            </div>
+
+            <div class="footer-section">
+                <h3>Privacy</h3>
+                <p>All data stored locally on your device. No external servers. No tracking. Complete privacy.</p>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>&copy; 2024 SDC Boost. Made with ❤️ for the SDC.com community.</p>
+        </div>
+    </footer>
+</body>
+
+</html>

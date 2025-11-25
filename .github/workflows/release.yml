@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.3)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      
+      - name: Get version from tag or input
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            # Extract version from tag (remove 'v' prefix)
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected version: $VERSION"
+      
+      - name: Verify version matches package.json
+        id: verify_version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$PKG_VERSION" != "${{ steps.version.outputs.version }}" ]; then
+            echo "⚠️  Warning: Tag version (${{ steps.version.outputs.version }}) doesn't match package.json ($PKG_VERSION)"
+            echo "Proceeding anyway..."
+          fi
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        run: bun install
+      
+      - name: Build and zip extension
+        run: bun run zip
+      
+      - name: Get ZIP filename
+        id: zip_file
+        run: |
+          ZIP_FILE=$(ls .output/*-chrome.zip | head -n 1)
+          ZIP_NAME=$(basename "$ZIP_FILE")
+          echo "file=$ZIP_FILE" >> $GITHUB_OUTPUT
+          echo "name=$ZIP_NAME" >> $GITHUB_OUTPUT
+          echo "ZIP file: $ZIP_FILE"
+          echo "ZIP name: $ZIP_NAME"
+      
+      - name: Read changelog
+        id: changelog
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            # Extract the latest changelog entry
+            CHANGELOG=$(awk '/^## \[/{p=1} p && /^## \[/{if(p>1) exit; p++} p' CHANGELOG.md | sed '/^## \[/d' | sed '/^$/d' | head -n -1)
+            if [ -z "$CHANGELOG" ]; then
+              CHANGELOG="See the commit history for details."
+            fi
+          else
+            CHANGELOG="See the commit history for details."
+          fi
+          # Escape for JSON
+          CHANGELOG=$(echo "$CHANGELOG" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Create GitHub Release
+        id: create_release
+        run: |
+          cat > /tmp/release_notes.md << 'EOF'
+          ${{ steps.changelog.outputs.content }}
+          
+          ## Downloads
+          
+          - Chrome Web Store ZIP: `${{ steps.zip_file.outputs.name }}`
+          EOF
+          
+          gh release create "v${{ steps.version.outputs.version }}" \
+            --title "Release v${{ steps.version.outputs.version }}" \
+            --notes-file /tmp/release_notes.md \
+            "${{ steps.zip_file.outputs.file }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
+      
+      - name: Submit to Chrome Web Store
+        run: |
+          bunx wxt submit \
+            --chrome-zip ${{ steps.zip_file.outputs.file }}
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+

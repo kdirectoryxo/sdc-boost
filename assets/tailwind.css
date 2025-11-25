@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    @apply m-0 p-0 w-full bg-[#1a1a1a] text-[#e0e0e0] font-sans;
+    border: none !important;
+    outline: none !important;
+  }
+
+  /* Popup-specific styles */
+  body[data-popup] {
+    @apply h-full overflow-hidden;
+  }
+
+  /* Options page styles */
+  body[data-options] {
+    @apply min-h-screen;
+  }
+
+  #app {
+    @apply w-full m-0 p-0 block;
+    border: none !important;
+    outline: none !important;
+  }
+
+  /* Popup app container */
+  #app[data-popup] {
+    @apply h-full overflow-hidden;
+  }
+
+  /* Options app container */
+  #app[data-options] {
+    @apply min-h-screen;
+  }
+}
+

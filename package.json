@@ -1,0 +1,41 @@
+{
+  "name": "sdc-boost",
+  "description": "SDC Boost - Browser extension to enhance SDC.com with powerful modules and features",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "compile": "vue-tsc --noEmit",
+    "postinstall": "wxt prepare",
+    "generate-icons": "node scripts/generate-icons.js",
+    "generate-store-images": "node scripts/generate-store-images.js",
+    "release": "git pull --rebase && bumpp --no-push && conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md && git commit --amend --no-edit && git push --follow-tags",
+    "release:patch": "git pull --rebase && bumpp --patch --no-push && conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md && git commit --amend --no-edit && git push --follow-tags",
+    "release:minor": "git pull --rebase && bumpp --minor --no-push && conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md && git commit --amend --no-edit && git push --follow-tags",
+    "release:major": "git pull --rebase && bumpp --major --no-push && conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md && git commit --amend --no-edit && git push --follow-tags"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.4.0",
+    "vue": "^3.5.21"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@tailwindcss/vite": "^4.1.17",
+    "@wxt-dev/module-vue": "^1.0.2",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.9.2",
+    "vue-tsc": "^3.0.6",
+    "wxt": "^0.20.6",
+    "bumpp": "^9.4.0",
+    "conventional-changelog-cli": "^4.1.0"
+  }
+}
