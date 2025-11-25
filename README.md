@@ -6,7 +6,7 @@
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/kdirectoryxo/sdc-boost)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Chrome Web Store](https://img.shields.io/badge/Chrome-Web%20Store-4285F4?logo=google-chrome&logoColor=white)](https://chrome.google.com/webstore)
+[![Chrome Web Store](https://img.shields.io/badge/Chrome-Web%20Store-4285F4?logo=google-chrome&logoColor=white)](https://chrome.google.com/webstore/detail/gjlcgihpgdceeeacppojeffplhmmjffj)
 
 [Features](#-features) • [Installation](#-installation) • [Development](#-development) • [Modules](#-modules) • [Privacy](#-privacy)
 
@@ -55,8 +55,8 @@ SDC Boost is a modular browser extension designed to enhance your browsing exper
 
 ## 📦 Installation
 
-### From Chrome Web Store (Coming Soon)
-1. Visit the [Chrome Web Store](https://chrome.google.com/webstore) (link will be available after publication)
+### From Chrome Web Store
+1. Visit the [Chrome Web Store listing](https://chrome.google.com/webstore/detail/gjlcgihpgdceeeacppojeffplhmmjffj)
 2. Click "Add to Chrome"
 3. Confirm the installation
 
@@ -347,7 +347,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/kdirectoryxo/sdc-boost/issues)
-- **Chrome Web Store**: [Extension Listing](https://chrome.google.com/webstore) (coming soon)
+- **Chrome Web Store**: [Extension Listing](https://chrome.google.com/webstore/detail/gjlcgihpgdceeeacppojeffplhmmjffj)
 
 ---
 
