@@ -32,6 +32,8 @@ async function saveApiKey() {
   try {
     await setAIApiKey(apiKey.value);
     saved.value = true;
+    // Trigger a custom event to notify ModuleControlPanel to refresh API key status
+    window.dispatchEvent(new CustomEvent('api-key-changed', { detail: { hasKey: apiKey.value.trim().length > 0 } }));
     setTimeout(() => {
       saved.value = false;
     }, 2000);

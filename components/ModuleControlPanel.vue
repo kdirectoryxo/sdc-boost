@@ -318,7 +318,10 @@ function handleCategoryIconsSettingChange(event: CustomEvent) {
   showCategoryIcons.value = event.detail.show;
 }
 
-let apiKeyCheckInterval: ReturnType<typeof setInterval> | null = null;
+function handleApiKeyChanged(event: CustomEvent) {
+  // Immediately update the API key status when it changes
+  checkApiKey();
+}
 
 onMounted(async () => {
   await checkApiKey();
@@ -326,18 +329,15 @@ onMounted(async () => {
   await loadFilterByActiveSetting();
   loadModules();
   
-  // Listen for storage changes to update API key status
-  // This will update when user saves API key in settings
-  apiKeyCheckInterval = setInterval(checkApiKey, 1000);
+  // Listen for API key changes
+  window.addEventListener('api-key-changed', handleApiKeyChanged as EventListener);
   
   // Listen for category icons setting changes
   window.addEventListener('category-icons-setting-changed', handleCategoryIconsSettingChange as EventListener);
 });
 
 onUnmounted(() => {
-  if (apiKeyCheckInterval) {
-    clearInterval(apiKeyCheckInterval);
-  }
+  window.removeEventListener('api-key-changed', handleApiKeyChanged as EventListener);
   window.removeEventListener('category-icons-setting-changed', handleCategoryIconsSettingChange as EventListener);
 });
 </script>
