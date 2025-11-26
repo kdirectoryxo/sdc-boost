@@ -10,7 +10,7 @@ export class AgeFilterModule extends BaseModule {
             {
                 key: 'minAge',
                 label: 'Minimum Age',
-                description: 'Hide cards below this age',
+                description: 'Hide cards at or above this age',
                 type: 'number',
                 default: 20,
                 min: 18,
@@ -20,11 +20,11 @@ export class AgeFilterModule extends BaseModule {
             {
                 key: 'maxAge',
                 label: 'Maximum Age',
-                description: 'Hide cards above this age',
+                description: 'Hide cards at or below this age',
                 type: 'number',
-                default: 100,
+                default: 40,
                 min: 18,
-                max: 40,
+                max: 100,
                 step: 1,
             },
         ];
@@ -48,6 +48,7 @@ export class AgeFilterModule extends BaseModule {
         this.cleanupObserver();
         this.removeAllStyling();
         window.removeEventListener('hashchange', this.handleHashChange);
+        window.removeEventListener('popstate', this.handleHashChange);
     }
 
     /**
@@ -121,8 +122,9 @@ export class AgeFilterModule extends BaseModule {
             card.style.display = '';
         }
 
-        // Hide if below min age or above max age
-        if (minAge < configMinAge || maxAge > configMaxAge) {
+        // INVERTED LOGIC: Hide if within the age range (between min and max)
+        // Both ages should be within the configured range to be hidden
+        if (minAge >= configMinAge && maxAge <= configMaxAge) {
             if (cardWidthParent) {
                 cardWidthParent.style.display = 'none';
             } else {
@@ -201,9 +203,36 @@ export class AgeFilterModule extends BaseModule {
      */
     private setupHashChangeListener(): void {
         window.addEventListener('hashchange', this.handleHashChange);
+        // Also listen for popstate (browser back/forward)
+        window.addEventListener('popstate', this.handleHashChange);
     }
 
     private handleHashChange = (): void => {
-        setTimeout(() => this.processAllCards(), 500);
+        // Wait for cards to appear in the DOM after navigation
+        // Check multiple times with increasing delays
+        let attempts = 0;
+        const maxAttempts = 20; // Try for up to 4 seconds (20 * 200ms)
+
+        const checkForCards = () => {
+            attempts++;
+            const cards = document.querySelectorAll('.member-card-container.member-card');
+
+            if (cards.length > 0) {
+                // Cards found, process them immediately and set up observer
+                this.processAllCards();
+                // Re-setup observer in case the container changed
+                this.setupMutationObserver();
+            } else if (attempts < maxAttempts) {
+                // No cards yet, keep checking
+                setTimeout(checkForCards, 200);
+            } else {
+                // Max attempts reached, cards might not be on this page
+                // Still set up observer in case they load later
+                this.setupMutationObserver();
+            }
+        };
+
+        // Start checking after a brief initial delay
+        setTimeout(checkForCards, 100);
     };
 }
