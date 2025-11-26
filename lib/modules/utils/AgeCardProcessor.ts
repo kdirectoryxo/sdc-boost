@@ -10,6 +10,11 @@ export class AgeCardProcessor {
     private scrollMutationObserver: MutationObserver | null = null;
     private modulePrefix: string;
     private processCardsCallback: () => void;
+    private isProcessing: boolean = false;
+    private navigationDebounceTimer: number | null = null;
+    private lastProcessedCardCount: number = 0;
+    private navigationInProgress: boolean = false;
+    private urlChanged: boolean = false;
 
     constructor(modulePrefix: string, processCardsCallback: () => void) {
         this.modulePrefix = modulePrefix;
@@ -66,13 +71,20 @@ export class AgeCardProcessor {
      */
     setupCardMutationObserver(onMutations?: (shouldProcess: boolean) => void): void {
         const handleMutations = (mutations: MutationRecord[]) => {
+            // Skip if we're currently processing (to avoid infinite loops)
+            if (this.isProcessing) {
+                return;
+            }
+
             let shouldProcess = false;
 
             mutations.forEach((mutation) => {
-                if (mutation.addedNodes.length > 0) {
+                // Only process if actual nodes were added (not just attribute changes)
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
                     // Check if any added nodes are member cards or contain member cards
                     mutation.addedNodes.forEach((node) => {
-                        if (node instanceof Element) {
+                        if (node instanceof Element && node.nodeType === Node.ELEMENT_NODE) {
+                            // Only trigger if it's a real DOM addition, not a display change
                             if (node.classList?.contains('member-card-container') ||
                                 node.querySelector?.('.member-card-container.member-card')) {
                                 shouldProcess = true;
@@ -88,7 +100,7 @@ export class AgeCardProcessor {
                     if (onMutations) {
                         onMutations(true);
                     } else {
-                        this.processCardsCallback();
+                        this.safeProcessCards();
                     }
                 }, 100);
             }
@@ -123,10 +135,10 @@ export class AgeCardProcessor {
      */
     setupCardNavigationWatcher(): void {
         console.log(`[${this.modulePrefix}] Setting up navigation watcher`);
-        
+
         // Watch for URL changes via polling
         this.setupURLPolling();
-        
+
         // Watch for loading state changes
         this.watchLoadingState();
     }
@@ -147,6 +159,8 @@ export class AgeCardProcessor {
                     new: currentUrl
                 });
                 this.lastKnownUrl = currentUrl;
+                this.navigationInProgress = true;
+                this.urlChanged = true; // Mark that URL actually changed
                 this.handleNavigation();
             }
         }, 500); // Check every 500ms
@@ -178,13 +192,18 @@ export class AgeCardProcessor {
                 mutation.addedNodes.forEach((node) => {
                     if (node instanceof Element && node.classList?.contains('circularProgress')) {
                         console.log(`[${this.modulePrefix}] Loading state appeared`);
+                        this.navigationInProgress = true;
                     }
                 });
                 mutation.removedNodes.forEach((node) => {
                     if (node instanceof Element && node.classList?.contains('circularProgress')) {
                         console.log(`[${this.modulePrefix}] Loading state disappeared - navigation complete`);
-                        // Wait a bit for cards to load, then process
-                        setTimeout(() => this.handleNavigation(), 300);
+                        // Wait a bit for cards to load, then process (debounced)
+                        this.debouncedHandleNavigation(300);
+                        // Reset flag after a delay
+                        setTimeout(() => {
+                            this.navigationInProgress = false;
+                        }, 1000);
                     }
                 });
             });
@@ -197,24 +216,45 @@ export class AgeCardProcessor {
 
         // Also watch for when the grid container gets cleared and refilled
         this.gridObserver = new MutationObserver((mutations) => {
+            // Skip if we're currently processing (to avoid infinite loops)
+            if (this.isProcessing) {
+                return;
+            }
+
             mutations.forEach((mutation) => {
                 // Check if cards were removed (navigation starting)
                 if (mutation.removedNodes.length > 0) {
-                    const hadCards = Array.from(mutation.removedNodes).some(node => 
-                        node instanceof Element && node.querySelector?.('.member-card-container.member-card')
+                    const hadCards = Array.from(mutation.removedNodes).some(node =>
+                        node instanceof Element &&
+                        !(node instanceof HTMLElement && node.style.display === 'none') &&
+                        node.querySelector?.('.member-card-container.member-card')
                     );
                     if (hadCards) {
                         console.log(`[${this.modulePrefix}] Cards removed - navigation starting`);
+                        // Only mark navigation in progress if URL changed or we see significant removal
+                        const removedCount = Array.from(mutation.removedNodes).filter(node =>
+                            node instanceof Element &&
+                            node.querySelector?.('.member-card-container.member-card')
+                        ).length;
+                        // If many cards removed at once, it's likely navigation
+                        if (removedCount > 5) {
+                            this.navigationInProgress = true;
+                        }
                     }
                 }
                 // Check if cards were added (navigation complete)
-                if (mutation.addedNodes.length > 0) {
+                // ONLY trigger if we know navigation was in progress (not just infinite scroll)
+                if (mutation.addedNodes.length > 0 && this.navigationInProgress) {
                     const hasCards = Array.from(mutation.addedNodes).some(node =>
-                        node instanceof Element && node.querySelector?.('.member-card-container.member-card')
+                        node instanceof Element &&
+                        node.nodeType === Node.ELEMENT_NODE &&
+                        (node.classList?.contains('member-card-container') ||
+                            node.querySelector?.('.member-card-container.member-card'))
                     );
                     if (hasCards) {
                         console.log(`[${this.modulePrefix}] Cards added - navigation complete, processing...`);
-                        setTimeout(() => this.handleNavigation(), 300);
+                        // Debounce to prevent rapid-fire triggers
+                        this.debouncedHandleNavigation(300);
                     }
                 }
             });
@@ -227,13 +267,66 @@ export class AgeCardProcessor {
     }
 
     /**
+     * Safely process cards with processing flag to prevent re-triggering
+     */
+    private safeProcessCards(): void {
+        if (this.isProcessing) {
+            return;
+        }
+        this.isProcessing = true;
+        try {
+            this.processCardsCallback();
+            this.lastProcessedCardCount = document.querySelectorAll('.member-card-container.member-card').length;
+        } finally {
+            // Use a small delay before clearing the flag to prevent rapid re-triggers
+            setTimeout(() => {
+                this.isProcessing = false;
+            }, 200);
+        }
+    }
+
+    /**
+     * Debounced version of handleNavigation to prevent rapid-fire calls
+     */
+    private debouncedHandleNavigation(delay: number = 300): void {
+        if (this.navigationDebounceTimer !== null) {
+            clearTimeout(this.navigationDebounceTimer);
+        }
+        this.navigationDebounceTimer = window.setTimeout(() => {
+            this.navigationDebounceTimer = null;
+            this.handleNavigation();
+        }, delay);
+    }
+
+    /**
      * Handle navigation - wait for cards to appear and process them
      */
     private handleNavigation(): void {
+        // Prevent re-entry if already processing
+        if (this.isProcessing) {
+            console.log(`[${this.modulePrefix}] Already processing, skipping navigation handler`);
+            return;
+        }
+
+        const currentCardCount = document.querySelectorAll('.member-card-container.member-card').length;
+        const wasUrlChange = this.urlChanged;
+
+        // Reset URL change flag
+        this.urlChanged = false;
+
+        // If card count hasn't changed significantly AND URL didn't change, 
+        // this might be a false trigger (e.g., from filtering operations)
+        // BUT if URL changed, always process (cards might not have loaded yet)
+        if (!wasUrlChange && Math.abs(currentCardCount - this.lastProcessedCardCount) < 5 && currentCardCount > 0) {
+            console.log(`[${this.modulePrefix}] Card count similar (${currentCardCount} vs ${this.lastProcessedCardCount}), likely filtering, skipping`);
+            return;
+        }
+
         console.log(`[${this.modulePrefix}] Navigation detected:`, {
             href: window.location.href,
             hash: window.location.hash,
-            pathname: window.location.pathname
+            pathname: window.location.pathname,
+            urlChanged: wasUrlChange
         });
 
         // Wait for cards to appear in the DOM after navigation
@@ -249,7 +342,8 @@ export class AgeCardProcessor {
             if (cards.length > 0) {
                 console.log(`[${this.modulePrefix}] Cards found! Processing...`);
                 // Cards found, process them immediately and re-setup observer
-                this.processCardsCallback();
+                this.safeProcessCards();
+                this.lastProcessedCardCount = cards.length;
                 // Re-setup observer in case the container changed
                 this.setupCardMutationObserver();
                 console.log(`[${this.modulePrefix}] Processing complete and observer re-setup`);
@@ -287,6 +381,11 @@ export class AgeCardProcessor {
             this.urlPollInterval = null;
         }
 
+        if (this.navigationDebounceTimer !== null) {
+            clearTimeout(this.navigationDebounceTimer);
+            this.navigationDebounceTimer = null;
+        }
+
         if (this.loadingObserver) {
             this.loadingObserver.disconnect();
             this.loadingObserver = null;
@@ -301,6 +400,10 @@ export class AgeCardProcessor {
             this.scrollMutationObserver.disconnect();
             this.scrollMutationObserver = null;
         }
+
+        this.isProcessing = false;
+        this.lastProcessedCardCount = 0;
+        this.navigationInProgress = false;
     }
 }
 

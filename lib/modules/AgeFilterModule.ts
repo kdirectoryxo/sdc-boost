@@ -7,6 +7,7 @@ import { AgeCardProcessor } from './utils/AgeCardProcessor';
  */
 export class AgeFilterModule extends BaseModule {
     private cardProcessor: AgeCardProcessor;
+    private styleElement: HTMLStyleElement | null = null;
 
     constructor() {
         const configOptions: ModuleConfigOption[] = [
@@ -46,6 +47,7 @@ export class AgeFilterModule extends BaseModule {
 
     async init(): Promise<void> {
         console.log('[AgeFilter] Initializing module...');
+        this.injectScrollabilityFix();
         this.processAllCards();
         this.cardProcessor.setupCardMutationObserver();
         this.cardProcessor.setupCardNavigationWatcher();
@@ -55,7 +57,38 @@ export class AgeFilterModule extends BaseModule {
     async cleanup(): Promise<void> {
         this.cleanupObserver();
         this.removeAllStyling();
+        this.removeScrollabilityFix();
         this.cardProcessor.cleanup();
+    }
+
+    /**
+     * Inject CSS to ensure infinite scroll container remains scrollable
+     * even when cards are filtered/hidden
+     */
+    private injectScrollabilityFix(): void {
+        if (this.styleElement) {
+            return; // Already injected
+        }
+
+        this.styleElement = document.createElement('style');
+        this.styleElement.id = 'sdc-boost-age-filter-scroll-fix';
+        this.styleElement.textContent = `
+            /* Ensure infinite scroll container remains scrollable when cards are filtered */
+            .infinite-scroll-component__outerdiv {
+                min-height: 100vh !important;
+            }
+        `;
+        document.head.appendChild(this.styleElement);
+    }
+
+    /**
+     * Remove the scrollability fix CSS
+     */
+    private removeScrollabilityFix(): void {
+        if (this.styleElement) {
+            this.styleElement.remove();
+            this.styleElement = null;
+        }
     }
 
     /**
@@ -122,5 +155,69 @@ export class AgeFilterModule extends BaseModule {
             }
         });
         console.log('[AgeFilter] Finished processing all cards');
+
+        // After filtering, check if we need to load more content
+        this.checkAndTriggerInfiniteScroll();
+    }
+
+    /**
+     * Check if there are enough visible cards after filtering,
+     * and trigger infinite scroll if needed
+     */
+    private checkAndTriggerInfiniteScroll(): void {
+        // Wait a bit for DOM to update after filtering
+        setTimeout(() => {
+            // Find the scrollable container (could be .infinite-scroll-component or its parent)
+            const scrollContainer = document.querySelector('.infinite-scroll-component') as HTMLElement;
+            const outerDiv = document.querySelector('.infinite-scroll-component__outerdiv') as HTMLElement;
+
+            // Use the actual scrollable element (usually the inner one)
+            const actualScrollContainer = scrollContainer || outerDiv;
+            if (!actualScrollContainer) {
+                return;
+            }
+
+            // Count visible cards (not hidden)
+            const allCards = document.querySelectorAll('.card-width');
+            const visibleCards = Array.from(allCards).filter(card => {
+                const style = window.getComputedStyle(card);
+                return style.display !== 'none';
+            });
+
+            // Check if container is scrollable and if we're near the bottom
+            const scrollHeight = actualScrollContainer.scrollHeight;
+            const clientHeight = actualScrollContainer.clientHeight;
+            const scrollTop = actualScrollContainer.scrollTop;
+            const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+            const isScrollable = scrollHeight > clientHeight;
+            const isNearBottom = distanceFromBottom < 200; // Within 200px of bottom
+
+            console.log(`[AgeFilter] Scroll check:`, {
+                visibleCards: visibleCards.length,
+                totalCards: allCards.length,
+                scrollHeight,
+                clientHeight,
+                scrollTop,
+                distanceFromBottom,
+                isScrollable,
+                isNearBottom
+            });
+
+            // If we have few visible cards OR we're near the bottom, trigger loading
+            // by scrolling to bottom (which will trigger infinite scroll)
+            if (visibleCards.length < 15 || (isScrollable && isNearBottom)) {
+                console.log(`[AgeFilter] Triggering infinite scroll - visible cards: ${visibleCards.length}`);
+
+                // Scroll to bottom to trigger infinite scroll
+                actualScrollContainer.scrollTop = actualScrollContainer.scrollHeight;
+
+                // Wait a bit and dispatch scroll events to ensure infinite scroll detects it
+                setTimeout(() => {
+                    actualScrollContainer.dispatchEvent(new Event('scroll', { bubbles: true }));
+                    // Also try triggering on window in case the library listens there
+                    window.dispatchEvent(new Event('scroll', { bubbles: true }));
+                }, 50);
+            }
+        }, 150);
     }
 }
