@@ -14,7 +14,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
             {
                 key: 'minAge',
                 label: 'Minimum Age',
-                description: 'Hide cards where both ages are within the range (minimum bound)',
+                description: 'Show cards at or above this age (hide cards below)',
                 type: 'number',
                 default: 20,
                 min: 18,
@@ -24,7 +24,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
             {
                 key: 'maxAge',
                 label: 'Maximum Age',
-                description: 'Hide cards where both ages are within the range (maximum bound)',
+                description: 'Show cards at or below this age (hide cards above)',
                 type: 'number',
                 default: 40,
                 min: 18,
@@ -42,7 +42,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
             {
                 key: 'minAge',
                 label: 'Minimum Age',
-                description: 'Highlight cards where both ages are within the range (minimum bound)',
+                description: 'Highlight cards at or above this age (within range)',
                 type: 'number',
                 default: 20,
                 min: 18,
@@ -52,7 +52,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
             {
                 key: 'maxAge',
                 label: 'Maximum Age',
-                description: 'Highlight cards where both ages are within the range (maximum bound)',
+                description: 'Highlight cards at or below this age (within range)',
                 type: 'number',
                 default: 30,
                 min: 18,
