@@ -44,6 +44,7 @@ SDC Boost is a modular browser extension designed to enhance your browsing exper
 
 ### 🎨 UI Modules
 - **Navbar Boost Button**: Quick access to SDC Boost settings directly from the navigation bar
+- **Enhanced Click**: Make images and names clickable throughout SDC.com with right-click support to open profiles in new tabs. Works on member cards, chat headers, and chat items
 
 ### ⚙️ Configuration
 - **Module Control Panel**: Intuitive interface to manage all modules
