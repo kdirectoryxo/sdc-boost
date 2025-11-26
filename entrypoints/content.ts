@@ -5,6 +5,7 @@ import { AdBlockModule } from '@/lib/modules/AdBlockModule';
 import { ChatScrollFixModule } from '@/lib/modules/ChatScrollFixModule';
 import { ChatExportModule } from '@/lib/modules/ChatExportModule';
 import { NavbarBoostButtonModule } from '@/lib/modules/NavbarBoostButtonModule';
+import { EnhancedClickModule } from '@/lib/modules/EnhancedClickModule';
 import { toast } from '@/lib/toast';
 import { confirm } from '@/lib/confirm';
 
@@ -36,6 +37,9 @@ export default defineContentScript({
 
     const navbarBoostButtonModule = new NavbarBoostButtonModule();
     moduleManager.register(navbarBoostButtonModule);
+
+    const enhancedClickModule = new EnhancedClickModule();
+    moduleManager.register(enhancedClickModule);
 
     // Initialize modules based on stored state
     moduleManager.initialize().catch(console.error);

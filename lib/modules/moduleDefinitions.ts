@@ -137,5 +137,55 @@ export const moduleDefinitions: ModuleDefinition[] = [
         category: 'UI',
         configOptions: [],
     },
+    {
+        id: 'enhanced-click',
+        name: 'Enhanced Click',
+        description: 'Enhance click functionality on member cards and chat. Make images and names clickable with right-click support.',
+        category: 'UI',
+        configOptions: [
+            {
+                key: 'enableCardImage',
+                label: 'Enable Card Image Click',
+                description: 'Make card images clickable to open profile',
+                type: 'boolean',
+                default: true,
+            },
+            {
+                key: 'enableCardName',
+                label: 'Enable Card Name Click',
+                description: 'Make card names clickable to open profile',
+                type: 'boolean',
+                default: true,
+            },
+            {
+                key: 'enableChatHeaderImage',
+                label: 'Enable Chat Header Image Click',
+                description: 'Make chat header images clickable to open profile',
+                type: 'boolean',
+                default: true,
+            },
+            {
+                key: 'enableChatHeaderName',
+                label: 'Enable Chat Header Name Click',
+                description: 'Make chat header names clickable to open profile',
+                type: 'boolean',
+                default: true,
+            },
+            {
+                key: 'enableChatItemImage',
+                label: 'Enable Chat Item Image Click',
+                description: 'Make chat item images clickable to open profile',
+                type: 'boolean',
+                default: true,
+            },
+            {
+                key: 'enableChatItemName',
+                label: 'Enable Chat Item Name Click',
+                description: 'Make chat item names clickable to open profile',
+                type: 'boolean',
+                default: true,
+            },
+        ],
+    },
 ];
 
