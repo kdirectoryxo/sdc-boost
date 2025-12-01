@@ -315,3 +315,4 @@ class Confirm {
 // Export singleton instance
 export const confirm = new Confirm();
 
+

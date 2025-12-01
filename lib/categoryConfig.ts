@@ -37,3 +37,4 @@ export function getCategoryConfig(category: string): CategoryConfig {
   };
 }
 
+

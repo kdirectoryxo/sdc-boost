@@ -24,3 +24,4 @@ export { getProfileV2, getCurrentNote } from './profile';
 // Re-export note utility functions
 export { noteContainsSummary, extractSummaryFromNote, getNoteBeforeSummary } from './notes';
 
+

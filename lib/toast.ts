@@ -221,3 +221,4 @@ class Toast {
 // Export singleton instance
 export const toast = new Toast();
 
+
