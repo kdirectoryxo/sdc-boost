@@ -1,6 +1,6 @@
 {
   "name": "sdc-boost",
-  "description": "SDC Boost - Browser extension to enhance SDC.com with powerful modules and features",
+  "description": "SDC Boost - Browser extension to enhance SDC.com with powerful modules and features.",
   "private": true,
   "version": "1.0.1",
   "type": "module",
