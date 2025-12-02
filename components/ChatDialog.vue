@@ -47,11 +47,28 @@ const dropdownButtonRefs = ref<Map<number, HTMLElement>>(new Map()); // Store re
 const optimisticMessageTempIds = ref<Map<string, string>>(new Map()); // Track optimistic messages: tempId -> message content
 const optimisticMessages = ref<Map<string, MessengerMessage>>(new Map()); // Track optimistic messages by tempId
 const messengerCounter = ref<number>(0); // Track messenger counter from counters manager
+const folderUnreadCountsMap = ref<Map<number, number>>(new Map()); // Track folder unread counts
 
 // Computed property for quoted message
 const quotedMessage = computed(() => {
   return quotedMessageRef.value;
 });
+
+// Watch chatList and update folder counts immediately
+watch(chatList, () => {
+  const counts = new Map<number, number>();
+  
+  // Calculate counts for each folder from current chat list
+  chatList.value.forEach(chat => {
+    const folderId = chat.folder_id || 0;
+    if (chat.unread_counter > 0) {
+      const current = counts.get(folderId) || 0;
+      counts.set(folderId, current + chat.unread_counter);
+    }
+  });
+  
+  folderUnreadCountsMap.value = counts;
+}, { immediate: true, deep: true });
 
 // Helper function to sort chats: pinned first, then by date_time
 function sortChats(chats: MessengerChatItem[]): MessengerChatItem[] {
@@ -139,6 +156,8 @@ async function fetchInboxChats(): Promise<void> {
     });
     // Final reload to ensure everything is up to date
     await loadChatsFromStorage();
+    // Refresh counters to update the count immediately
+    await countersManager.refresh();
   } catch (err) {
     console.error('[ChatDialog] Failed to sync inbox chats:', err);
     await loadChatsFromStorage();
@@ -165,6 +184,8 @@ async function fetchFolderChats(folderId: number): Promise<void> {
     });
     // Final reload to ensure everything is up to date
     await loadChatsFromStorage();
+    // Refresh counters to update the count immediately
+    await countersManager.refresh();
   } catch (err) {
     console.error(`[ChatDialog] Failed to sync folder ${folderId} chats:`, err);
     await loadChatsFromStorage();
@@ -191,6 +212,8 @@ async function fetchAllChats(): Promise<void> {
     });
     // Final reload to ensure everything is up to date
     await loadChatsFromStorage();
+    // Refresh counters to update the count immediately
+    await countersManager.refresh();
   } catch (err) {
     console.error('[ChatDialog] Failed to sync chats:', err);
     error.value = 'Failed to load chats. Please try again.';
@@ -262,16 +285,15 @@ function getFolderName(folderId: number | undefined | null): string {
 
 /**
  * Get unread count for a folder
+ * Reads from reactive folderUnreadCountsMap which updates immediately as chats are loaded
  */
 function getFolderUnreadCount(folderId: number): number {
-  return chatList.value
-    .filter(chat => (chat.folder_id || 0) === folderId && chat.unread_counter > 0)
-    .reduce((sum, chat) => sum + chat.unread_counter, 0);
+  return folderUnreadCountsMap.value.get(folderId) || 0;
 }
 
 /**
  * Get unread count for inbox (folder_id = 0 or null)
- * Uses counters.messenger from counters manager (correct value)
+ * Uses raw API messenger counter from counters manager (counts chats, not messages)
  */
 function getInboxUnreadCount(): number {
   return messengerCounter.value;
@@ -279,7 +301,7 @@ function getInboxUnreadCount(): number {
 
 /**
  * Get total unread count across all chats
- * Uses counters.messenger from counters manager (correct value)
+ * Uses raw API messenger counter from counters manager (counts chats, not messages)
  */
 function getTotalUnreadCount(): number {
   return messengerCounter.value;
@@ -808,15 +830,28 @@ function setupEventListeners() {
     typingStates.value.set(groupId, state?.isTyping || false);
   });
 
-  // Listen for counter updates
+  // Listen for counter updates - use raw API messenger counter (counts chats, not messages)
   countersUnsubscribe = countersManager.onUpdate((counters) => {
-    messengerCounter.value = counters.messenger || 0;
+    // Always use raw API counter instead of calculated value from local chats
+    const rawApiCount = countersManager.getRawApiMessengerCounter();
+    if (rawApiCount !== null) {
+      messengerCounter.value = rawApiCount;
+    } else {
+      // Fallback to counters.messenger if raw API counter not available yet (initial load)
+      messengerCounter.value = counters.messenger || 0;
+    }
   });
   
-  // Initialize counter value
-  const currentCounters = countersManager.getCounters();
-  if (currentCounters) {
-    messengerCounter.value = currentCounters.messenger || 0;
+  // Initialize counter value - use raw API messenger counter
+  const rawApiCount = countersManager.getRawApiMessengerCounter();
+  if (rawApiCount !== null) {
+    messengerCounter.value = rawApiCount;
+  } else {
+    // Fallback to counters.messenger if raw API counter not available yet
+    const currentCounters = countersManager.getCounters();
+    if (currentCounters) {
+      messengerCounter.value = currentCounters.messenger || 0;
+    }
   }
 
   // Listen for new message events
