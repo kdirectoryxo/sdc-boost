@@ -1,10 +1,11 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch, onUnmounted } from 'vue';
-import { getMessengerLatest } from '@/lib/sdc-api';
-import type { MessengerChatItem } from '@/lib/sdc-api-types';
+import { getMessengerFolders, syncAllChats, syncInboxChats, syncFolderChats } from '@/lib/sdc-api';
+import type { MessengerChatItem, MessengerFolder } from '@/lib/sdc-api-types';
 import ChatListItem from '@/components/ChatListItem.vue';
 import { websocketManager } from '@/lib/websocket-manager';
 import { chatStorage } from '@/lib/chat-storage';
+import { folderStorage } from '@/lib/folder-storage';
 
 interface Props {
   modelValue: boolean;
@@ -17,10 +18,12 @@ const emit = defineEmits<{
 }>();
 
 const chatList = ref<MessengerChatItem[]>([]);
+const folders = ref<MessengerFolder[]>([]);
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 const searchQuery = ref('');
 const selectedChat = ref<MessengerChatItem | null>(null);
+const selectedFolderId = ref<number | null>(null); // null = all chats, 0 = inbox (no folder), number = specific folder
 const isRefreshing = ref(false);
 
 // Helper function to sort chats: pinned first, then by date_time
@@ -65,55 +68,20 @@ function getChatKey(chat: MessengerChatItem | null): string {
   return `group_${chat.group_id}`;
 }
 
-// Helper function to deduplicate chats
-// For regular chats: use group_id
-// For broadcast messages (clubs/companies): use id_broadcast if available, otherwise db_id
-// since the same company can have multiple broadcasts
-function deduplicateChats(chats: MessengerChatItem[]): MessengerChatItem[] {
-  const seen = new Map<string, MessengerChatItem>();
-  for (const chat of chats) {
-    // For broadcast messages (clubs/companies), use id_broadcast if available
-    // Otherwise fall back to db_id (for broadcasts without id_broadcast)
-    // For regular chats, use group_id
-    const isBroadcast = chat.broadcast || chat.type === 100;
-    let key: string;
-    
-    if (isBroadcast) {
-      // Use id_broadcast if available (unique per broadcast), otherwise db_id
-      if (chat.id_broadcast !== undefined && chat.id_broadcast !== null) {
-        key = `broadcast_${chat.db_id}_${chat.id_broadcast}`;
-      } else {
-        key = `broadcast_${chat.db_id}`;
-      }
-    } else {
-      key = `group_${chat.group_id}`;
-    }
-    
-    if (!seen.has(key)) {
-      seen.set(key, chat);
-    } else {
-      // Keep the one with more recent date_time
-      const existing = seen.get(key)!;
-      const getTime = (c: MessengerChatItem): number => {
-        if (!c.date_time || c.date_time === '') return 0;
-        const parsed = new Date(c.date_time).getTime();
-        return isNaN(parsed) ? 0 : parsed;
-      };
-      const existingTime = getTime(existing);
-      const newTime = getTime(chat);
-      if (newTime > existingTime) {
-        seen.set(key, chat);
-      }
-    }
-  }
-  return Array.from(seen.values());
-}
 
 // Filter and sort chats client-side
 const filteredChats = computed(() => {
   let chats = chatList.value;
 
-  // Client-side filtering
+  // Filter by folder
+  if (selectedFolderId.value !== null) {
+    chats = chats.filter(chat => {
+      const chatFolderId = chat.folder_id || 0;
+      return chatFolderId === selectedFolderId.value;
+    });
+  }
+
+  // Client-side search filtering
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase();
     chats = chats.filter(chat => 
@@ -128,8 +96,49 @@ const filteredChats = computed(() => {
 });
 
 /**
- * Fetch all chats from API and store in IndexedDB
- * Uses pagination to fetch all available chats
+ * Sync inbox chats (messenger_latest) from API and store in IndexedDB
+ */
+async function fetchInboxChats(): Promise<void> {
+  if (isRefreshing.value) return;
+  
+  isRefreshing.value = true;
+  error.value = null;
+
+  try {
+    await syncInboxChats();
+    await loadChatsFromStorage();
+  } catch (err) {
+    console.error('[ChatDialog] Failed to sync inbox chats:', err);
+    await loadChatsFromStorage();
+  } finally {
+    isRefreshing.value = false;
+  }
+}
+
+/**
+ * Sync chats for a specific folder from API and store in IndexedDB
+ * @param folderId The folder ID to sync chats for
+ */
+async function fetchFolderChats(folderId: number): Promise<void> {
+  if (isRefreshing.value) return;
+  
+  isRefreshing.value = true;
+  error.value = null;
+
+  try {
+    await syncFolderChats(folderId);
+    await loadChatsFromStorage();
+  } catch (err) {
+    console.error(`[ChatDialog] Failed to sync folder ${folderId} chats:`, err);
+    await loadChatsFromStorage();
+  } finally {
+    isRefreshing.value = false;
+  }
+}
+
+/**
+ * Sync all chats from API and store in IndexedDB
+ * Syncs from messenger_latest and from each folder
  */
 async function fetchAllChats(): Promise<void> {
   if (isRefreshing.value) return;
@@ -138,57 +147,11 @@ async function fetchAllChats(): Promise<void> {
   error.value = null;
 
   try {
-    console.log('[ChatDialog] Fetching all chats from API...');
-    const allChats: MessengerChatItem[] = [];
-    let page = 0;
-    let hasMore = true;
-
-    // Fetch all pages
-    while (hasMore) {
-      const response = await getMessengerLatest(page);
-      const chats = response.info.chat_list || [];
-      
-      if (chats.length === 0) {
-        hasMore = false;
-        break;
-      }
-
-      allChats.push(...chats);
-      
-      // Check if there are more pages
-      const urlMore = response.info.url_more;
-      if (!urlMore || urlMore === '-1' || urlMore === '') {
-        hasMore = false;
-      } else {
-        // Extract next page number from url_more
-        const match = urlMore.match(/page=(\d+)/);
-        if (match) {
-          const nextPage = parseInt(match[1], 10);
-          if (nextPage > page) {
-            page = nextPage;
-          } else {
-            hasMore = false;
-          }
-        } else {
-          hasMore = false;
-        }
-      }
-    }
-
-    console.log(`[ChatDialog] Fetched ${allChats.length} chats from API`);
-
-    // Deduplicate chats
-    const deduplicatedChats = deduplicateChats(allChats);
-
-    // Upsert to IndexedDB
-    await chatStorage.upsertChats(deduplicatedChats);
-
-    // Load from IndexedDB and update UI
+    await syncAllChats();
     await loadChatsFromStorage();
   } catch (err) {
-    console.error('[ChatDialog] Failed to fetch chats:', err);
+    console.error('[ChatDialog] Failed to sync chats:', err);
     error.value = 'Failed to load chats. Please try again.';
-    // Try to load from storage anyway
     await loadChatsFromStorage();
   } finally {
     isRefreshing.value = false;
@@ -209,6 +172,78 @@ async function loadChatsFromStorage(): Promise<void> {
   }
 }
 
+/**
+ * Fetch folders from API and store in IndexedDB
+ */
+async function fetchFolders(): Promise<void> {
+  try {
+    console.log('[ChatDialog] Fetching folders from API...');
+    const response = await getMessengerFolders();
+    
+    if (response.info.code === 200) {
+      const folderList = response.info.folders || [];
+      
+      // Upsert to IndexedDB
+      await folderStorage.upsertFolders(folderList);
+      
+      // Load from IndexedDB and update UI
+      await loadFoldersFromStorage();
+    }
+  } catch (err) {
+    console.error('[ChatDialog] Failed to fetch folders:', err);
+    // Try to load from storage anyway
+    await loadFoldersFromStorage();
+  }
+}
+
+/**
+ * Load folders from IndexedDB
+ */
+async function loadFoldersFromStorage(): Promise<void> {
+  try {
+    const folderList = await folderStorage.getAllFolders();
+    folders.value = folderList;
+    console.log(`[ChatDialog] Loaded ${folderList.length} folders from IndexedDB`);
+  } catch (err) {
+    console.error('[ChatDialog] Failed to load folders from storage:', err);
+  }
+}
+
+/**
+ * Get folder name by ID
+ */
+function getFolderName(folderId: number | undefined | null): string {
+  if (!folderId || folderId === 0) return '';
+  const folder = folders.value.find(f => f.id === folderId);
+  return folder ? folder.name : '';
+}
+
+/**
+ * Get unread count for a folder
+ */
+function getFolderUnreadCount(folderId: number): number {
+  return chatList.value
+    .filter(chat => (chat.folder_id || 0) === folderId && chat.unread_counter > 0)
+    .reduce((sum, chat) => sum + chat.unread_counter, 0);
+}
+
+/**
+ * Get unread count for inbox (folder_id = 0 or null)
+ */
+function getInboxUnreadCount(): number {
+  return chatList.value
+    .filter(chat => !chat.folder_id || chat.folder_id === 0)
+    .reduce((sum, chat) => sum + chat.unread_counter, 0);
+}
+
+/**
+ * Get total unread count across all chats
+ */
+function getTotalUnreadCount(): number {
+  return chatList.value
+    .reduce((sum, chat) => sum + chat.unread_counter, 0);
+}
+
 // Search is now client-side only, no need for debounced API calls
 
 function handleChatClick(chat: MessengerChatItem) {
@@ -226,19 +261,60 @@ let unsubscribeSeen: (() => void) | null = null;
 let unsubscribeMessage: (() => void) | null = null;
 let unsubscribeOnline: (() => void) | null = null;
 
+// Track if initial load is complete to avoid refetching on mount
+const isInitialLoad = ref(true);
+
+// Watch for folder selection changes to refetch in background
+watch(selectedFolderId, async (newFolderId, oldFolderId) => {
+  // Skip on initial load
+  if (isInitialLoad.value) {
+    return;
+  }
+  
+  // Skip if already refreshing
+  if (isRefreshing.value) {
+    return;
+  }
+  
+  // Refetch in background based on selection
+  if (newFolderId === null) {
+    // "All Chats" selected - refetch all chats
+    console.log('[ChatDialog] Refetching all chats in background...');
+    fetchAllChats().catch(console.error);
+  } else if (newFolderId === 0) {
+    // "Inbox" selected - refetch inbox chats (messenger_latest)
+    console.log('[ChatDialog] Refetching inbox chats in background...');
+    fetchInboxChats().catch(console.error);
+  } else if (newFolderId !== null) {
+    // Specific folder selected - refetch that folder's chats
+    console.log(`[ChatDialog] Refetching folder ${newFolderId} chats in background...`);
+    fetchFolderChats(newFolderId).catch(console.error);
+  }
+});
+
 // Watch for modelValue changes to fetch data when dialog opens
 watch(() => props.modelValue, async (newValue) => {
   if (newValue) {
+    // Reset initial load flag
+    isInitialLoad.value = true;
+    
     // Load from IndexedDB first (fast)
     await loadChatsFromStorage();
+    await loadFoldersFromStorage();
     
-    // Then fetch fresh data from API and update IndexedDB
+    // Fetch folders first, then fetch all chats (which includes folder chats)
+    await fetchFolders();
     await fetchAllChats();
+    
+    // Mark initial load as complete
+    isInitialLoad.value = false;
     
     // Set up WebSocket listeners
     setupWebSocketListeners();
   } else {
     cleanupWebSocketListeners();
+    // Reset initial load flag when dialog closes
+    isInitialLoad.value = true;
   }
 }, { immediate: true });
 
@@ -289,10 +365,19 @@ function cleanupWebSocketListeners() {
 
 onMounted(async () => {
   if (props.modelValue) {
+    // Reset initial load flag
+    isInitialLoad.value = true;
+    
     // Load from IndexedDB first
     await loadChatsFromStorage();
-    // Then fetch fresh data
+    await loadFoldersFromStorage();
+    // Fetch folders first, then fetch all chats (which includes folder chats)
+    await fetchFolders();
     await fetchAllChats();
+    
+    // Mark initial load as complete
+    isInitialLoad.value = false;
+    
     setupWebSocketListeners();
   }
 });
@@ -340,7 +425,75 @@ onUnmounted(() => {
 
       <!-- Main Content -->
       <div class="flex flex-1 overflow-hidden">
-        <!-- Left Sidebar - Chat List -->
+        <!-- Left Sidebar - Folders -->
+        <div class="w-[200px] border-r border-[#333] flex flex-col bg-[#0f0f0f] overflow-y-auto shrink-0">
+          <div class="p-4 border-b border-[#333] shrink-0">
+            <h3 class="text-sm font-semibold text-[#999] uppercase tracking-wide">Folders</h3>
+          </div>
+          <div class="flex-1 overflow-y-auto">
+            <!-- All Chats -->
+            <button
+              @click="selectedFolderId = null"
+              :class="[
+                'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#1a1a1a] transition-colors',
+                selectedFolderId === null ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
+              ]"
+            >
+              <div class="flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999]">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span class="text-white text-sm">All Chats</span>
+              </div>
+              <span v-if="getTotalUnreadCount() > 0" class="px-2 py-0.5 bg-blue-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
+                {{ getTotalUnreadCount() > 99 ? '99+' : getTotalUnreadCount() }}
+              </span>
+            </button>
+
+            <!-- Inbox (no folder) -->
+            <button
+              @click="selectedFolderId = 0"
+              :class="[
+                'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#1a1a1a] transition-colors',
+                selectedFolderId === 0 ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
+              ]"
+            >
+              <div class="flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999]">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+                <span class="text-white text-sm">Inbox</span>
+              </div>
+              <span v-if="getInboxUnreadCount() > 0" class="px-2 py-0.5 bg-blue-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
+                {{ getInboxUnreadCount() > 99 ? '99+' : getInboxUnreadCount() }}
+              </span>
+            </button>
+
+            <!-- Folder List -->
+            <div v-for="folder in folders" :key="folder.id" class="border-t border-[#333]">
+              <button
+                @click="selectedFolderId = folder.id"
+                :class="[
+                  'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#1a1a1a] transition-colors',
+                  selectedFolderId === folder.id ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
+                ]"
+              >
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] shrink-0">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                  </svg>
+                  <span class="text-white text-sm truncate">{{ folder.name }}</span>
+                </div>
+                <span v-if="getFolderUnreadCount(folder.id) > 0" class="px-2 py-0.5 bg-blue-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center shrink-0 ml-2">
+                  {{ getFolderUnreadCount(folder.id) > 99 ? '99+' : getFolderUnreadCount(folder.id) }}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Middle Sidebar - Chat List -->
         <div class="w-[35%] border-r border-[#333] flex flex-col bg-[#0f0f0f]">
           <!-- Search Bar -->
           <div class="p-4 border-b border-[#333] shrink-0">
@@ -375,16 +528,9 @@ onUnmounted(() => {
                 :key="getChatKey(chat)"
                 :chat="chat"
                 :selected="getChatKey(selectedChat) === getChatKey(chat)"
+                :folder-name="getFolderName(chat.folder_id)"
                 @click="handleChatClick(chat)"
               />
-            </div>
-            
-            <!-- Refresh indicator -->
-            <div v-if="isRefreshing" class="flex items-center justify-center py-2 border-t border-[#333]">
-              <div class="flex items-center gap-2 text-sm text-[#999]">
-                <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <span>Refreshing...</span>
-              </div>
             </div>
           </div>
         </div>

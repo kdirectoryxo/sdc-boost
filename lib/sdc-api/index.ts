@@ -15,7 +15,10 @@ export type {
     Community,
     MessengerLatestResponse,
     MessengerChatItem,
-    MessengerLatestInfo
+    MessengerLatestInfo,
+    MessengerFoldersResponse,
+    MessengerFolder,
+    MessengerTemplate
 } from '../sdc-api-types';
 
 // Re-export utility functions
@@ -28,7 +31,15 @@ export { getProfileV2, getCurrentNote } from './profile';
 export { noteContainsSummary, extractSummaryFromNote, getNoteBeforeSummary } from './notes';
 
 // Re-export messenger functions
-export { getMessengerLatest, getMessengerIOV2 } from './messenger';
+export { 
+    getMessengerLatest, 
+    getMessengerIOV2, 
+    getMessengerFolders, 
+    getMessengerFolderItems,
+    syncAllChats,
+    syncInboxChats,
+    syncFolderChats
+} from './messenger';
 
 // Re-export counters functions
 export { getCounters } from './counters';

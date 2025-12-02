@@ -5,6 +5,7 @@ import type { MessengerChatItem } from '@/lib/sdc-api-types';
 interface Props {
   chat: MessengerChatItem;
   selected?: boolean;
+  folderName?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -68,9 +69,14 @@ function handleClick() {
       <!-- Content -->
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between mb-1">
-          <h3 :class="['font-semibold truncate', nameColor]">
-            {{ chat.account_id }}
-          </h3>
+          <div class="flex items-center gap-2 min-w-0 flex-1">
+            <h3 :class="['font-semibold truncate', nameColor]">
+              {{ chat.account_id }}
+            </h3>
+            <span v-if="folderName" class="px-1.5 py-0.5 bg-[#333] text-[#999] text-xs rounded shrink-0">
+              {{ folderName }}
+            </span>
+          </div>
           <span class="text-xs text-[#666] shrink-0 ml-2">
             {{ chat.time_elapsed }}
           </span>
