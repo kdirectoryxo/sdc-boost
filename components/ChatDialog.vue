@@ -85,38 +85,52 @@ const activeFilterCount = computed(() => {
 });
 
 /**
- * Filter messages based on search query
+ * Get search query for messages
+ * Uses messageSearchQuery if set, otherwise uses chat searchQuery
+ */
+const messageSearchQueryComputed = computed(() => {
+  return messageSearchQuery.value.trim() || searchQuery.value.trim();
+});
+
+/**
+ * Track which messages match the search query (but don't filter - show all messages)
  */
 const filteredMessages = computed(() => {
-  const query = messageSearchQuery.value.trim().toLowerCase();
+  // Always return all messages - don't filter
+  const query = messageSearchQueryComputed.value.toLowerCase();
   
   if (!query) {
     messageSearchResults.value = [];
     return messages.value;
   }
   
-  // Filter messages that contain the query
-  const filtered = messages.value.filter(message => {
+  // Find messages that contain the query and store their IDs
+  const matchingMessages = messages.value.filter(message => {
     return message.message.toLowerCase().includes(query);
   });
   
-  // Store matching message IDs
-  messageSearchResults.value = filtered.map(msg => msg.message_id);
+  // Store matching message IDs for navigation
+  messageSearchResults.value = matchingMessages.map(msg => msg.message_id);
   
-  return filtered;
+  // Return all messages (not filtered)
+  return messages.value;
 });
 
 /**
  * Highlight matching text in message content
  * Escapes HTML to prevent XSS and wraps matches in <mark> tags
+ * Uses messageSearchQuery if available, otherwise falls back to chat searchQuery
  */
-function highlightText(text: string, query: string): string {
-  if (!query.trim()) {
+function highlightText(text: string, query?: string): string {
+  // Use provided query, or messageSearchQuery, or searchQuery (chat search) as fallback
+  const searchTerm = query || messageSearchQuery.value.trim() || searchQuery.value.trim();
+  
+  if (!searchTerm) {
     return escapeHtml(text);
   }
   
   const escapedText = escapeHtml(text);
-  const escapedQuery = escapeHtml(query);
+  const escapedQuery = escapeHtml(searchTerm);
   
   // Create case-insensitive regex
   const regex = new RegExp(`(${escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -137,11 +151,11 @@ function escapeHtml(text: string): string {
  * Navigate to next search result
  */
 function navigateToNextResult(): void {
-  if (!isSearchActive.value || filteredMessages.value.length === 0) {
+  if (!isSearchActive.value || messageSearchResults.value.length === 0) {
     return;
   }
   
-  currentSearchIndex.value = (currentSearchIndex.value + 1) % filteredMessages.value.length;
+  currentSearchIndex.value = (currentSearchIndex.value + 1) % messageSearchResults.value.length;
   scrollToCurrentResult();
 }
 
@@ -149,12 +163,12 @@ function navigateToNextResult(): void {
  * Navigate to previous search result
  */
 function navigateToPreviousResult(): void {
-  if (!isSearchActive.value || filteredMessages.value.length === 0) {
+  if (!isSearchActive.value || messageSearchResults.value.length === 0) {
     return;
   }
   
   currentSearchIndex.value = currentSearchIndex.value <= 0 
-    ? filteredMessages.value.length - 1 
+    ? messageSearchResults.value.length - 1 
     : currentSearchIndex.value - 1;
   scrollToCurrentResult();
 }
@@ -163,35 +177,67 @@ function navigateToPreviousResult(): void {
  * Scroll to the currently selected search result
  */
 async function scrollToCurrentResult(): Promise<void> {
-  if (currentSearchIndex.value < 0 || !messagesContainer.value) {
+  if (currentSearchIndex.value < 0 || !messagesContainer.value || messageSearchResults.value.length === 0) {
     return;
   }
   
-  const currentMessage = filteredMessages.value[currentSearchIndex.value];
+  // Get the message ID from the search results
+  const targetMessageId = messageSearchResults.value[currentSearchIndex.value];
+  if (!targetMessageId) {
+    return;
+  }
+  
+  // Find the message in the messages array
+  const currentMessage = messages.value.find(msg => msg.message_id === targetMessageId);
   if (!currentMessage) {
     return;
   }
   
+  // Wait for DOM to update
   await nextTick();
+  await new Promise(resolve => setTimeout(resolve, 50)); // Extra wait for DOM
   
-  // Find the message element
+  // Find the message element - match the ID format used in the template exactly
+  // Template uses: message-${message.message_id > 0 ? message.message_id : `opt_${index}_${message.date2}`}
+  const messageIndex = filteredMessages.value.indexOf(currentMessage);
   const messageId = currentMessage.message_id > 0 
     ? `message-${currentMessage.message_id}`
-    : `message-opt_${currentMessage.extra1 || filteredMessages.value.indexOf(currentMessage)}_${currentMessage.date2}`;
+    : `message-opt_${messageIndex}_${currentMessage.date2}`;
   
-  const messageElement = document.getElementById(messageId);
+  // Try to find the element
+  let messageElement = document.getElementById(messageId);
   
-  if (messageElement) {
-    messageElement.scrollIntoView({ 
-      behavior: 'smooth', 
-      block: 'center' 
+  // If not found, try alternative ID formats
+  if (!messageElement) {
+    // Try with messages.value index instead
+    const altIndex = messages.value.indexOf(currentMessage);
+    const altMessageId = currentMessage.message_id > 0 
+      ? `message-${currentMessage.message_id}`
+      : `message-opt_${altIndex}_${currentMessage.date2}`;
+    messageElement = document.getElementById(altMessageId);
+  }
+  
+  if (messageElement && messagesContainer.value) {
+    // Calculate scroll position relative to the container
+    const containerRect = messagesContainer.value.getBoundingClientRect();
+    const elementRect = messageElement.getBoundingClientRect();
+    const relativeTop = elementRect.top - containerRect.top;
+    const currentScrollTop = messagesContainer.value.scrollTop;
+    const targetScrollTop = currentScrollTop + relativeTop - (containerRect.height / 2) + (elementRect.height / 2);
+    
+    // Scroll the container
+    messagesContainer.value.scrollTo({
+      top: Math.max(0, targetScrollTop),
+      behavior: 'smooth'
     });
     
     // Highlight the message briefly
     messageElement.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-[#1a1a1a]', 'transition-all');
     setTimeout(() => {
-      messageElement.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-[#1a1a1a]', 'transition-all');
+      messageElement?.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-[#1a1a1a]', 'transition-all');
     }, 1500);
+  } else {
+    console.warn(`[ChatDialog] Could not find message element with ID: ${messageId}, message_id: ${currentMessage.message_id}, index: ${messageIndex}`);
   }
 }
 
@@ -307,79 +353,116 @@ function getChatKey(chat: MessengerChatItem | null): string {
 // Filtered chats using IndexedDB queries
 const filteredChats = ref<MessengerChatItem[]>([]);
 const isLoadingFilteredChats = ref(false);
+let currentSearchPromise: Promise<void> | null = null;
 
 // Function to search chats using IndexedDB
 async function updateFilteredChats(): Promise<void> {
+  // Capture the current search query at the start
+  const currentQuery = searchQuery.value.trim();
+  
+  // If there's already a search in progress, wait for it to complete
+  if (currentSearchPromise) {
+    await currentSearchPromise;
+    // After waiting, check if searchQuery has changed - if so, start a new search
+    if (searchQuery.value.trim() !== currentQuery) {
+      return updateFilteredChats();
+    }
+  }
+  
   isLoadingFilteredChats.value = true;
   
-  try {
-    const hasSearchQuery = searchQuery.value.trim().length > 0;
+  // Create a promise for this search
+  currentSearchPromise = (async () => {
+    try {
+      const hasSearchQuery = currentQuery.length > 0;
     
-    // First, get chat metadata matches (exact matches will be prioritized in searchChats)
-    const chatMetadataMatches = await chatStorage.searchChats({
-      query: hasSearchQuery ? searchQuery.value.trim() : undefined,
-      folderId: selectedFolderId.value,
-      unreadOnly: filterUnread.value,
-      pinnedOnly: filterPinned.value,
-      onlineOnly: filterOnline.value,
-    });
-    
-    // If we have a search query, also search in saved messages
-    let messageSearchMatches: MessengerChatItem[] = [];
-    if (hasSearchQuery) {
-      const matchingGroupIds = await messageStorage.searchMessages(
-        searchQuery.value.trim(),
-        selectedFolderId.value ?? undefined
-      );
+      // First, get chat metadata matches (exact matches will be prioritized in searchChats)
+      const chatMetadataMatches = await chatStorage.searchChats({
+        query: hasSearchQuery ? currentQuery : undefined,
+        folderId: selectedFolderId.value,
+        unreadOnly: filterUnread.value,
+        pinnedOnly: filterPinned.value,
+        onlineOnly: filterOnline.value,
+      });
       
-      if (matchingGroupIds.size > 0) {
-        // Get chats that match the message search, applying other filters
-        const allChatsForMessages = await chatStorage.searchChats({
-          folderId: selectedFolderId.value,
-          unreadOnly: filterUnread.value,
-          pinnedOnly: filterPinned.value,
-          onlineOnly: filterOnline.value,
-        });
-        
-        // Filter to only include chats with matching messages
-        messageSearchMatches = allChatsForMessages.filter(chat => matchingGroupIds.has(chat.group_id));
-        
-        // Remove chats that are already in chatMetadataMatches to avoid duplicates
-        const chatMetadataGroupIds = new Set(chatMetadataMatches.map(c => c.group_id));
-        messageSearchMatches = messageSearchMatches.filter(chat => !chatMetadataGroupIds.has(chat.group_id));
+      // If we have a search query, also search in saved messages
+      let messageSearchMatches: MessengerChatItem[] = [];
+      if (hasSearchQuery) {
+        const matchingGroupIds = await messageStorage.searchMessages(
+          currentQuery,
+          selectedFolderId.value ?? undefined
+        );
+      
+        if (matchingGroupIds.size > 0) {
+          // Get chats that match the message search, applying other filters
+          const allChatsForMessages = await chatStorage.searchChats({
+            folderId: selectedFolderId.value,
+            unreadOnly: filterUnread.value,
+            pinnedOnly: filterPinned.value,
+            onlineOnly: filterOnline.value,
+          });
+          
+          // Filter to only include chats with matching messages
+          messageSearchMatches = allChatsForMessages.filter(chat => matchingGroupIds.has(chat.group_id));
+          
+          // Remove chats that are already in chatMetadataMatches to avoid duplicates
+          const chatMetadataGroupIds = new Set(chatMetadataMatches.map(c => c.group_id));
+          messageSearchMatches = messageSearchMatches.filter(chat => !chatMetadataGroupIds.has(chat.group_id));
+        }
       }
+      
+      // Combine results: exact matches first (from chatMetadataMatches), then partial chat matches, then message matches
+      const allChats = [...chatMetadataMatches, ...messageSearchMatches];
+      
+      // Only update if searchQuery hasn't changed while we were searching
+      if (searchQuery.value.trim() === currentQuery || (!hasSearchQuery && !searchQuery.value.trim())) {
+        filteredChats.value = allChats;
+      }
+    } catch (error) {
+      console.error('[ChatDialog] Error searching chats:', error);
+      // Only update if searchQuery hasn't changed
+      if (searchQuery.value.trim() === currentQuery || (!currentQuery && !searchQuery.value.trim())) {
+        filteredChats.value = [];
+      }
+    } finally {
+      isLoadingFilteredChats.value = false;
+      currentSearchPromise = null;
     }
-    
-    // Combine results: exact matches first (from chatMetadataMatches), then partial chat matches, then message matches
-    const allChats = [...chatMetadataMatches, ...messageSearchMatches];
-    
-    filteredChats.value = allChats;
-  } catch (error) {
-    console.error('[ChatDialog] Error searching chats:', error);
-    filteredChats.value = [];
-  } finally {
-    isLoadingFilteredChats.value = false;
-  }
+  })();
+  
+  await currentSearchPromise;
 }
 
 // Debounce search to avoid too many IndexedDB queries
 let searchDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // Watch for changes that require re-searching
-watch([searchQuery, selectedFolderId, filterUnread, filterPinned, filterOnline], async () => {
+watch([searchQuery, selectedFolderId, filterUnread, filterPinned, filterOnline], async (newValues, oldValues) => {
   // Clear previous timeout
   if (searchDebounceTimeout) {
     clearTimeout(searchDebounceTimeout);
+    searchDebounceTimeout = null;
   }
   
-  // Debounce search queries, but not folder/filter changes
-  if (searchQuery.value.trim()) {
+  // Check if searchQuery changed (user is typing)
+  const searchQueryChanged = !oldValues || newValues[0] !== oldValues[0];
+  const hasSearchQuery = searchQuery.value.trim().length > 0;
+  
+  // Debounce search queries when user is typing, but execute immediately for folder/filter changes
+  if (searchQueryChanged && hasSearchQuery) {
+    // User is typing - debounce the search to wait for them to finish
     searchDebounceTimeout = setTimeout(async () => {
-      await updateFilteredChats();
+      // Double-check searchQuery still has value (user might have cleared it)
+      if (searchQuery.value.trim()) {
+        await updateFilteredChats();
+      } else {
+        // Search was cleared, update without query
+        await updateFilteredChats();
+      }
       searchDebounceTimeout = null;
-    }, 300);
+    }, 500); // 500ms debounce to allow user to finish typing
   } else {
-    // No debounce for non-search changes
+    // Folder/filter changed or search cleared - execute immediately
     await updateFilteredChats();
   }
 }, { immediate: false });
@@ -1028,7 +1111,16 @@ async function handleChatClick(chat: MessengerChatItem) {
   isLoadingMessages.value = false; // Reset loading state when switching chats
   isSyncing.value = false; // Reset syncing state when switching chats
   typingManager.reset(); // Reset typing when switching chats
-  clearSearch(); // Clear search when switching chats
+  
+  // If there's a chat search query, use it to highlight messages
+  // Capture the full search query value to avoid race conditions
+  const currentSearchQuery = searchQuery.value.trim();
+  if (currentSearchQuery) {
+    messageSearchQuery.value = currentSearchQuery;
+    console.log(`[ChatDialog] Setting message search query to: "${currentSearchQuery}"`);
+  } else {
+    clearSearch(); // Clear message search if no chat search query
+  }
   
   // Optimistically decrease unread counter by 1 if it has one
   let chatToUse = chat;
@@ -1122,10 +1214,17 @@ watch(selectedFolderId, async (newFolderId, oldFolderId) => {
   }
 });
 
+// Watch chat search query - if a chat is open, update message search to highlight
+// Don't auto-update messageSearchQuery while user is typing in chat search
+// Only update when a chat is clicked (handled in handleChatClick)
+// This prevents race conditions where only the first character gets set
+
 // Watch for search query changes to auto-scroll to first result
-watch(messageSearchQuery, async (newQuery) => {
+watch(messageSearchQueryComputed, async (newQuery) => {
   if (newQuery.trim()) {
-    if (filteredMessages.value.length > 0) {
+    // Wait a bit for messageSearchResults to update
+    await nextTick();
+    if (messageSearchResults.value.length > 0) {
       currentSearchIndex.value = 0;
       await scrollToCurrentResult();
     } else {
@@ -1136,13 +1235,13 @@ watch(messageSearchQuery, async (newQuery) => {
   }
 });
 
-// Watch filteredMessages to adjust search index when results change
-watch(filteredMessages, (newFiltered) => {
+// Watch messageSearchResults to adjust search index when results change
+watch(messageSearchResults, (newResults) => {
   if (isSearchActive.value) {
     // Adjust index if it's out of bounds
-    if (currentSearchIndex.value >= newFiltered.length) {
-      currentSearchIndex.value = newFiltered.length > 0 ? newFiltered.length - 1 : -1;
-    } else if (currentSearchIndex.value < 0 && newFiltered.length > 0) {
+    if (currentSearchIndex.value >= newResults.length) {
+      currentSearchIndex.value = newResults.length > 0 ? newResults.length - 1 : -1;
+    } else if (currentSearchIndex.value < 0 && newResults.length > 0) {
       currentSearchIndex.value = 0;
     }
   }
@@ -1874,7 +1973,7 @@ onUnmounted(() => {
                 </div>
                 
                 <!-- Search Navigation -->
-                <div v-if="isSearchActive && filteredMessages.length > 0" class="flex items-center gap-1 bg-[#0f0f0f] border border-[#333] rounded-lg px-2 py-1 shrink-0">
+                <div v-if="isSearchActive && messageSearchResults.length > 0" class="flex items-center gap-1 bg-[#0f0f0f] border border-[#333] rounded-lg px-2 py-1 shrink-0">
                   <button
                     @click="navigateToPreviousResult"
                     class="p-1 hover:bg-[#2a2a2a] rounded transition-colors"
@@ -1885,7 +1984,7 @@ onUnmounted(() => {
                     </svg>
                   </button>
                   <span class="text-xs text-[#666] px-1 min-w-[50px] text-center">
-                    {{ currentSearchIndex + 1 }} / {{ filteredMessages.length }}
+                    {{ currentSearchIndex + 1 }} / {{ messageSearchResults.length }}
                   </span>
                   <button
                     @click="navigateToNextResult"
@@ -1923,7 +2022,7 @@ onUnmounted(() => {
               </div>
 
               <!-- Messages List -->
-              <div v-else-if="filteredMessages.length > 0" class="space-y-4 min-w-0">
+              <div v-else-if="messages.length > 0" class="space-y-4 min-w-0">
                 <div
                   v-for="(message, index) in filteredMessages"
                   :key="message.message_id > 0 ? `msg_${message.message_id}` : `opt_${message.extra1 || index}_${message.date2}`"
@@ -1931,7 +2030,7 @@ onUnmounted(() => {
                   :class="[
                     'flex gap-3 min-w-0 w-full group',
                     isOwnMessage(message) ? 'flex-row-reverse' : 'flex-row',
-                    isSearchActive && currentSearchIndex === index ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#1a1a1a] rounded-lg p-1' : ''
+                    isSearchActive && messageSearchResults[currentSearchIndex] === message.message_id ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#1a1a1a] rounded-lg p-1' : ''
                   ]"
                 >
                   <!-- Avatar (only for other user) -->
@@ -1977,7 +2076,7 @@ onUnmounted(() => {
                     >
                       <p 
                         class="whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere"
-                        v-html="highlightText(message.message, messageSearchQuery)"
+                        v-html="highlightText(message.message)"
                       ></p>
                     </div>
 
