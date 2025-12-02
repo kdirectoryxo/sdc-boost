@@ -54,6 +54,13 @@ const messageSearchQuery = ref('');
 const messageSearchResults = ref<number[]>([]); // Array of message IDs matching the query
 const currentSearchIndex = ref<number>(-1); // Current highlighted result index (-1 means no selection)
 
+// Chat list filter state
+const filterUnread = ref<boolean>(false);
+const filterPinned = ref<boolean>(false);
+const filterOnline = ref<boolean>(false);
+const isFilterDropdownOpen = ref<boolean>(false);
+const filterDropdownRef = ref<HTMLElement | null>(null);
+
 // Computed property for quoted message
 const quotedMessage = computed(() => {
   return quotedMessageRef.value;
@@ -62,6 +69,20 @@ const quotedMessage = computed(() => {
 // Computed property to check if search is active
 const isSearchActive = computed(() => {
   return messageSearchQuery.value.trim().length > 0;
+});
+
+// Computed property to check if any filters are active
+const hasActiveFilters = computed(() => {
+  return filterUnread.value || filterPinned.value || filterOnline.value;
+});
+
+// Computed property to count active filters
+const activeFilterCount = computed(() => {
+  let count = 0;
+  if (filterUnread.value) count++;
+  if (filterPinned.value) count++;
+  if (filterOnline.value) count++;
+  return count;
 });
 
 /**
@@ -185,6 +206,32 @@ function clearSearch(): void {
 }
 
 /**
+ * Toggle a specific filter
+ */
+function toggleFilter(filterType: 'unread' | 'pinned' | 'online'): void {
+  switch (filterType) {
+    case 'unread':
+      filterUnread.value = !filterUnread.value;
+      break;
+    case 'pinned':
+      filterPinned.value = !filterPinned.value;
+      break;
+    case 'online':
+      filterOnline.value = !filterOnline.value;
+      break;
+  }
+}
+
+/**
+ * Clear all active filters
+ */
+function clearAllFilters(): void {
+  filterUnread.value = false;
+  filterPinned.value = false;
+  filterOnline.value = false;
+}
+
+/**
  * Handle keyboard shortcuts for search navigation
  */
 function handleSearchKeydown(event: KeyboardEvent): void {
@@ -283,6 +330,20 @@ const filteredChats = computed(() => {
       (chat.last_message && chat.last_message.toLowerCase().includes(query)) ||
       (chat.subject && chat.subject.toLowerCase().includes(query))
     );
+  }
+
+  // Apply chat filters (unread, pinned, online)
+  // Filters are combined with AND logic (all active filters must match)
+  if (filterUnread.value) {
+    chats = chats.filter(chat => chat.unread_counter > 0);
+  }
+  
+  if (filterPinned.value) {
+    chats = chats.filter(chat => (chat.pin_chat || 0) > 0);
+  }
+  
+  if (filterOnline.value) {
+    chats = chats.filter(chat => chat.online === 1);
   }
 
   // Client-side sorting
@@ -1204,6 +1265,13 @@ function cleanupEventListeners() {
   }
 }
 
+// Handle click outside to close filter dropdown
+function handleClickOutside(event: MouseEvent): void {
+  if (filterDropdownRef.value && !filterDropdownRef.value.contains(event.target as Node)) {
+    isFilterDropdownOpen.value = false;
+  }
+}
+
 onMounted(async () => {
   if (props.modelValue) {
     // Reset initial load flag
@@ -1220,11 +1288,16 @@ onMounted(async () => {
     isInitialLoad.value = false;
     
     setupEventListeners();
+    
+    // Add click outside handler for filter dropdown
+    document.addEventListener('click', handleClickOutside);
   }
 });
 
 onUnmounted(() => {
   cleanupEventListeners();
+  // Remove click outside handler
+  document.removeEventListener('click', handleClickOutside);
 });
 </script>
 
@@ -1351,14 +1424,89 @@ onUnmounted(() => {
 
         <!-- Middle Sidebar - Chat List -->
         <div class="w-[35%] border-r border-[#333] flex flex-col bg-[#0f0f0f]">
-          <!-- Search Bar -->
+          <!-- Search Bar and Filter -->
           <div class="p-4 border-b border-[#333] shrink-0">
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Search chats..."
-              class="w-full px-4 py-2 bg-[#1a1a1a] border border-[#333] rounded-lg text-white placeholder-[#666] focus:outline-none focus:border-blue-500 transition-colors"
-            />
+            <div class="flex items-center gap-2">
+              <input
+                v-model="searchQuery"
+                type="text"
+                placeholder="Search chats..."
+                class="flex-1 px-4 py-2 bg-[#1a1a1a] border border-[#333] rounded-lg text-white placeholder-[#666] focus:outline-none focus:border-blue-500 transition-colors"
+              />
+              <!-- Filter Button -->
+              <div class="relative" ref="filterDropdownRef">
+                <button
+                  @click.stop="isFilterDropdownOpen = !isFilterDropdownOpen"
+                  :class="[
+                    'p-2 rounded-lg border transition-colors relative',
+                    hasActiveFilters
+                      ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                      : 'bg-[#1a1a1a] border-[#333] text-[#999] hover:border-[#444] hover:text-white'
+                  ]"
+                  title="Filter chats"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                  </svg>
+                  <!-- Active filter badge -->
+                  <span
+                    v-if="activeFilterCount > 0"
+                    class="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center"
+                  >
+                    {{ activeFilterCount }}
+                  </span>
+                </button>
+                
+                <!-- Filter Dropdown -->
+                <div
+                  v-if="isFilterDropdownOpen"
+                  class="absolute right-0 top-full mt-2 w-56 bg-[#1a1a1a] border border-[#333] rounded-lg shadow-lg z-50 overflow-hidden"
+                  @click.stop
+                >
+                  <div class="p-2">
+                    <!-- Unread Filter -->
+                    <label class="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        v-model="filterUnread"
+                        class="w-4 h-4 rounded border-[#444] bg-[#0f0f0f] text-blue-500 focus:ring-blue-500 focus:ring-2"
+                      />
+                      <span class="text-white text-sm">Unread only</span>
+                    </label>
+                    
+                    <!-- Pinned Filter -->
+                    <label class="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        v-model="filterPinned"
+                        class="w-4 h-4 rounded border-[#444] bg-[#0f0f0f] text-blue-500 focus:ring-blue-500 focus:ring-2"
+                      />
+                      <span class="text-white text-sm">Pinned only</span>
+                    </label>
+                    
+                    <!-- Online Filter -->
+                    <label class="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        v-model="filterOnline"
+                        class="w-4 h-4 rounded border-[#444] bg-[#0f0f0f] text-blue-500 focus:ring-blue-500 focus:ring-2"
+                      />
+                      <span class="text-white text-sm">Online only</span>
+                    </label>
+                    
+                    <!-- Clear Filters Button -->
+                    <div v-if="hasActiveFilters" class="border-t border-[#333] mt-2 pt-2">
+                      <button
+                        @click="clearAllFilters"
+                        class="w-full px-3 py-2 text-sm text-[#999] hover:text-white hover:bg-[#2a2a2a] rounded transition-colors text-left"
+                      >
+                        Clear filters
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Chat List -->
