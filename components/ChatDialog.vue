@@ -49,10 +49,160 @@ const optimisticMessages = ref<Map<string, MessengerMessage>>(new Map()); // Tra
 const messengerCounter = ref<number>(0); // Track messenger counter from counters manager
 const folderUnreadCountsMap = ref<Map<number, number>>(new Map()); // Track folder unread counts
 
+// Message search state
+const messageSearchQuery = ref('');
+const messageSearchResults = ref<number[]>([]); // Array of message IDs matching the query
+const currentSearchIndex = ref<number>(-1); // Current highlighted result index (-1 means no selection)
+
 // Computed property for quoted message
 const quotedMessage = computed(() => {
   return quotedMessageRef.value;
 });
+
+// Computed property to check if search is active
+const isSearchActive = computed(() => {
+  return messageSearchQuery.value.trim().length > 0;
+});
+
+/**
+ * Filter messages based on search query
+ */
+const filteredMessages = computed(() => {
+  const query = messageSearchQuery.value.trim().toLowerCase();
+  
+  if (!query) {
+    messageSearchResults.value = [];
+    return messages.value;
+  }
+  
+  // Filter messages that contain the query
+  const filtered = messages.value.filter(message => {
+    return message.message.toLowerCase().includes(query);
+  });
+  
+  // Store matching message IDs
+  messageSearchResults.value = filtered.map(msg => msg.message_id);
+  
+  return filtered;
+});
+
+/**
+ * Highlight matching text in message content
+ * Escapes HTML to prevent XSS and wraps matches in <mark> tags
+ */
+function highlightText(text: string, query: string): string {
+  if (!query.trim()) {
+    return escapeHtml(text);
+  }
+  
+  const escapedText = escapeHtml(text);
+  const escapedQuery = escapeHtml(query);
+  
+  // Create case-insensitive regex
+  const regex = new RegExp(`(${escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  
+  return escapedText.replace(regex, '<mark class="bg-yellow-500/50 text-yellow-100">$1</mark>');
+}
+
+/**
+ * Escape HTML to prevent XSS attacks
+ */
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Navigate to next search result
+ */
+function navigateToNextResult(): void {
+  if (!isSearchActive.value || filteredMessages.value.length === 0) {
+    return;
+  }
+  
+  currentSearchIndex.value = (currentSearchIndex.value + 1) % filteredMessages.value.length;
+  scrollToCurrentResult();
+}
+
+/**
+ * Navigate to previous search result
+ */
+function navigateToPreviousResult(): void {
+  if (!isSearchActive.value || filteredMessages.value.length === 0) {
+    return;
+  }
+  
+  currentSearchIndex.value = currentSearchIndex.value <= 0 
+    ? filteredMessages.value.length - 1 
+    : currentSearchIndex.value - 1;
+  scrollToCurrentResult();
+}
+
+/**
+ * Scroll to the currently selected search result
+ */
+async function scrollToCurrentResult(): Promise<void> {
+  if (currentSearchIndex.value < 0 || !messagesContainer.value) {
+    return;
+  }
+  
+  const currentMessage = filteredMessages.value[currentSearchIndex.value];
+  if (!currentMessage) {
+    return;
+  }
+  
+  await nextTick();
+  
+  // Find the message element
+  const messageId = currentMessage.message_id > 0 
+    ? `message-${currentMessage.message_id}`
+    : `message-opt_${currentMessage.extra1 || filteredMessages.value.indexOf(currentMessage)}_${currentMessage.date2}`;
+  
+  const messageElement = document.getElementById(messageId);
+  
+  if (messageElement) {
+    messageElement.scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'center' 
+    });
+    
+    // Highlight the message briefly
+    messageElement.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-[#1a1a1a]', 'transition-all');
+    setTimeout(() => {
+      messageElement.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-[#1a1a1a]', 'transition-all');
+    }, 1500);
+  }
+}
+
+/**
+ * Clear search query and reset state
+ */
+function clearSearch(): void {
+  messageSearchQuery.value = '';
+  messageSearchResults.value = [];
+  currentSearchIndex.value = -1;
+}
+
+/**
+ * Handle keyboard shortcuts for search navigation
+ */
+function handleSearchKeydown(event: KeyboardEvent): void {
+  if (!isSearchActive.value) {
+    return;
+  }
+  
+  if (event.key === 'Enter' || event.key === 'ArrowDown') {
+    event.preventDefault();
+    navigateToNextResult();
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    navigateToPreviousResult();
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    clearSearch();
+  }
+}
 
 // Watch chatList and update folder counts immediately
 watch(chatList, () => {
@@ -231,6 +381,17 @@ async function loadChatsFromStorage(): Promise<void> {
     const chats = await chatStorage.getAllChats();
     chatList.value = chats;
     console.log(`[ChatDialog] Loaded ${chats.length} chats from IndexedDB`);
+    
+    // Calculate folder counts immediately from loaded chats
+    const counts = new Map<number, number>();
+    chats.forEach(chat => {
+      const folderId = chat.folder_id || 0;
+      if (chat.unread_counter > 0) {
+        const current = counts.get(folderId) || 0;
+        counts.set(folderId, current + chat.unread_counter);
+      }
+    });
+    folderUnreadCountsMap.value = counts;
   } catch (err) {
     console.error('[ChatDialog] Failed to load chats from storage:', err);
     error.value = 'Failed to load chats from storage.';
@@ -733,6 +894,7 @@ async function handleChatClick(chat: MessengerChatItem) {
   isLoadingMessages.value = false; // Reset loading state when switching chats
   isSyncing.value = false; // Reset syncing state when switching chats
   typingManager.reset(); // Reset typing when switching chats
+  clearSearch(); // Clear search when switching chats
   await handleLoadMessages(chat);
   
   // Always scroll to bottom when opening a chat
@@ -786,6 +948,32 @@ watch(selectedFolderId, async (newFolderId, oldFolderId) => {
     // Specific folder selected - refetch that folder's chats
     console.log(`[ChatDialog] Refetching folder ${newFolderId} chats in background...`);
     fetchFolderChats(newFolderId).catch(console.error);
+  }
+});
+
+// Watch for search query changes to auto-scroll to first result
+watch(messageSearchQuery, async (newQuery) => {
+  if (newQuery.trim()) {
+    if (filteredMessages.value.length > 0) {
+      currentSearchIndex.value = 0;
+      await scrollToCurrentResult();
+    } else {
+      currentSearchIndex.value = -1;
+    }
+  } else {
+    currentSearchIndex.value = -1;
+  }
+});
+
+// Watch filteredMessages to adjust search index when results change
+watch(filteredMessages, (newFiltered) => {
+  if (isSearchActive.value) {
+    // Adjust index if it's out of bounds
+    if (currentSearchIndex.value >= newFiltered.length) {
+      currentSearchIndex.value = newFiltered.length > 0 ? newFiltered.length - 1 : -1;
+    } else if (currentSearchIndex.value < 0 && newFiltered.length > 0) {
+      currentSearchIndex.value = 0;
+    }
   }
 });
 
@@ -1240,6 +1428,60 @@ onUnmounted(() => {
                 <p v-if="selectedChat.online === 1" class="text-xs text-green-500">Online</p>
                 <p v-else class="text-xs text-[#999]">Offline</p>
               </div>
+              
+              <!-- Message Search -->
+              <div class="flex items-center gap-2 shrink-0">
+                <div class="relative flex items-center gap-1 bg-[#0f0f0f] border border-[#333] rounded-lg px-2 py-1.5 min-w-[200px]">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#666] shrink-0">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                  </svg>
+                  <input
+                    v-model="messageSearchQuery"
+                    @keydown="handleSearchKeydown"
+                    @input="currentSearchIndex = -1"
+                    type="text"
+                    placeholder="Search messages..."
+                    class="flex-1 bg-transparent text-white text-sm placeholder-[#666] focus:outline-none min-w-0"
+                  />
+                  <button
+                    v-if="isSearchActive"
+                    @click="clearSearch"
+                    class="p-0.5 hover:bg-[#2a2a2a] rounded transition-colors shrink-0"
+                    title="Clear search"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+                
+                <!-- Search Navigation -->
+                <div v-if="isSearchActive && filteredMessages.length > 0" class="flex items-center gap-1 bg-[#0f0f0f] border border-[#333] rounded-lg px-2 py-1 shrink-0">
+                  <button
+                    @click="navigateToPreviousResult"
+                    class="p-1 hover:bg-[#2a2a2a] rounded transition-colors"
+                    title="Previous result (↑)"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+                      <polyline points="18 15 12 9 6 15"></polyline>
+                    </svg>
+                  </button>
+                  <span class="text-xs text-[#666] px-1 min-w-[50px] text-center">
+                    {{ currentSearchIndex + 1 }} / {{ filteredMessages.length }}
+                  </span>
+                  <button
+                    @click="navigateToNextResult"
+                    class="p-1 hover:bg-[#2a2a2a] rounded transition-colors"
+                    title="Next result (↓ or Enter)"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- Messages Area -->
@@ -1265,14 +1507,15 @@ onUnmounted(() => {
               </div>
 
               <!-- Messages List -->
-              <div v-else-if="messages.length > 0" class="space-y-4 min-w-0">
+              <div v-else-if="filteredMessages.length > 0" class="space-y-4 min-w-0">
                 <div
-                  v-for="(message, index) in messages"
+                  v-for="(message, index) in filteredMessages"
                   :key="message.message_id > 0 ? `msg_${message.message_id}` : `opt_${message.extra1 || index}_${message.date2}`"
                   :id="`message-${message.message_id > 0 ? message.message_id : `opt_${index}_${message.date2}`}`"
                   :class="[
                     'flex gap-3 min-w-0 w-full group',
-                    isOwnMessage(message) ? 'flex-row-reverse' : 'flex-row'
+                    isOwnMessage(message) ? 'flex-row-reverse' : 'flex-row',
+                    isSearchActive && currentSearchIndex === index ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#1a1a1a] rounded-lg p-1' : ''
                   ]"
                 >
                   <!-- Avatar (only for other user) -->
@@ -1316,7 +1559,10 @@ onUnmounted(() => {
                           : 'bg-[#2a2a2a] text-white'
                       ]"
                     >
-                      <p class="whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere">{{ message.message }}</p>
+                      <p 
+                        class="whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere"
+                        v-html="highlightText(message.message, messageSearchQuery)"
+                      ></p>
                     </div>
 
                     <!-- Message Meta -->
@@ -1447,8 +1693,11 @@ onUnmounted(() => {
               <!-- Empty State -->
               <div v-else class="flex items-center justify-center h-full">
                 <div class="text-center text-[#999]">
-                  <p>No messages yet</p>
-                  <p class="text-sm mt-2">Start the conversation!</p>
+                  <p v-if="isSearchActive && messages.length > 0">No messages match your search</p>
+                  <template v-else>
+                    <p>No messages yet</p>
+                    <p class="text-sm mt-2">Start the conversation!</p>
+                  </template>
                 </div>
               </div>
 
