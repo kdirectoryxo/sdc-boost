@@ -177,9 +177,10 @@ export async function getMessengerFolderItems(
 /**
  * Sync all chats from messenger_latest and all folders
  * Upserts chats incrementally after each page for fast updates
+ * @param onPageSynced Optional callback called after each page is synced (for UI updates)
  * @returns Total number of chats synced
  */
-export async function syncAllChats(): Promise<number> {
+export async function syncAllChats(onPageSynced?: () => void | Promise<void>): Promise<number> {
     console.log('[Messenger API] Syncing all chats...');
     let totalSynced = 0;
 
@@ -187,8 +188,12 @@ export async function syncAllChats(): Promise<number> {
     console.log('[Messenger API] Syncing inbox chats...');
     const inboxCount = await chatStorage.syncChatsFromEndpoint(
         (page) => getMessengerLatest(page),
-        (chats, total) => {
+        async (chats, total) => {
             console.log(`[Messenger API] Synced ${chats.length} inbox chats (total: ${total})`);
+            // Trigger UI update after each page
+            if (onPageSynced) {
+                await onPageSynced();
+            }
         }
     );
     totalSynced += inboxCount;
@@ -201,8 +206,12 @@ export async function syncAllChats(): Promise<number> {
             console.log(`[Messenger API] Syncing folder "${folder.name}" (${folder.id})...`);
             const folderCount = await chatStorage.syncChatsFromEndpoint(
                 (page) => getMessengerFolderItems(folder.id, page),
-                (chats, total) => {
+                async (chats, total) => {
                     console.log(`[Messenger API] Synced ${chats.length} chats from folder "${folder.name}" (total: ${total})`);
+                    // Trigger UI update after each page
+                    if (onPageSynced) {
+                        await onPageSynced();
+                    }
                 }
             );
             totalSynced += folderCount;
@@ -221,9 +230,10 @@ export async function syncAllChats(): Promise<number> {
  * Sync inbox chats (messenger_latest) only
  * Removes existing inbox chats first, then syncs fresh data
  * Upserts chats incrementally after each page for fast updates
+ * @param onPageSynced Optional callback called after each page is synced (for UI updates)
  * @returns Total number of chats synced
  */
-export async function syncInboxChats(): Promise<number> {
+export async function syncInboxChats(onPageSynced?: () => void | Promise<void>): Promise<number> {
     console.log('[Messenger API] Syncing inbox chats...');
     
     // Remove existing inbox chats
@@ -232,8 +242,12 @@ export async function syncInboxChats(): Promise<number> {
     // Sync messenger_latest
     const count = await chatStorage.syncChatsFromEndpoint(
         (page) => getMessengerLatest(page),
-        (chats, total) => {
+        async (chats, total) => {
             console.log(`[Messenger API] Synced ${chats.length} inbox chats (total: ${total})`);
+            // Trigger UI update after each page
+            if (onPageSynced) {
+                await onPageSynced();
+            }
         }
     );
     
@@ -246,9 +260,10 @@ export async function syncInboxChats(): Promise<number> {
  * Removes existing chats for that folder first, then syncs fresh data
  * Upserts chats incrementally after each page for fast updates
  * @param folderId The folder ID to sync chats for
+ * @param onPageSynced Optional callback called after each page is synced (for UI updates)
  * @returns Total number of chats synced
  */
-export async function syncFolderChats(folderId: number): Promise<number> {
+export async function syncFolderChats(folderId: number, onPageSynced?: () => void | Promise<void>): Promise<number> {
     console.log(`[Messenger API] Syncing chats for folder ${folderId}...`);
     
     // Remove existing chats for this folder
@@ -257,8 +272,12 @@ export async function syncFolderChats(folderId: number): Promise<number> {
     // Sync folder chats
     const count = await chatStorage.syncChatsFromEndpoint(
         (page) => getMessengerFolderItems(folderId, page),
-        (chats, total) => {
+        async (chats, total) => {
             console.log(`[Messenger API] Synced ${chats.length} chats from folder ${folderId} (total: ${total})`);
+            // Trigger UI update after each page
+            if (onPageSynced) {
+                await onPageSynced();
+            }
         }
     );
     

@@ -108,6 +108,7 @@ const filteredChats = computed(() => {
 
 /**
  * Sync inbox chats (messenger_latest) from API and store in IndexedDB
+ * Updates UI progressively after each page
  */
 async function fetchInboxChats(): Promise<void> {
   if (isRefreshing.value) return;
@@ -116,7 +117,11 @@ async function fetchInboxChats(): Promise<void> {
   error.value = null;
 
   try {
-    await syncInboxChats();
+    // Pass callback to reload chats from storage after each page
+    await syncInboxChats(async () => {
+      await loadChatsFromStorage();
+    });
+    // Final reload to ensure everything is up to date
     await loadChatsFromStorage();
   } catch (err) {
     console.error('[ChatDialog] Failed to sync inbox chats:', err);
@@ -128,6 +133,7 @@ async function fetchInboxChats(): Promise<void> {
 
 /**
  * Sync chats for a specific folder from API and store in IndexedDB
+ * Updates UI progressively after each page
  * @param folderId The folder ID to sync chats for
  */
 async function fetchFolderChats(folderId: number): Promise<void> {
@@ -137,7 +143,11 @@ async function fetchFolderChats(folderId: number): Promise<void> {
   error.value = null;
 
   try {
-    await syncFolderChats(folderId);
+    // Pass callback to reload chats from storage after each page
+    await syncFolderChats(folderId, async () => {
+      await loadChatsFromStorage();
+    });
+    // Final reload to ensure everything is up to date
     await loadChatsFromStorage();
   } catch (err) {
     console.error(`[ChatDialog] Failed to sync folder ${folderId} chats:`, err);
@@ -150,6 +160,7 @@ async function fetchFolderChats(folderId: number): Promise<void> {
 /**
  * Sync all chats from API and store in IndexedDB
  * Syncs from messenger_latest and from each folder
+ * Updates UI progressively after each page
  */
 async function fetchAllChats(): Promise<void> {
   if (isRefreshing.value) return;
@@ -158,7 +169,11 @@ async function fetchAllChats(): Promise<void> {
   error.value = null;
 
   try {
-    await syncAllChats();
+    // Pass callback to reload chats from storage after each page
+    await syncAllChats(async () => {
+      await loadChatsFromStorage();
+    });
+    // Final reload to ensure everything is up to date
     await loadChatsFromStorage();
   } catch (err) {
     console.error('[ChatDialog] Failed to sync chats:', err);
