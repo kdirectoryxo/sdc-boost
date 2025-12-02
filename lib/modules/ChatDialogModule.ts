@@ -13,9 +13,20 @@ export class ChatDialogModule extends BaseModule {
     private unsubscribeCounters: (() => void) | null = null;
     private bodyObserver: MutationObserver | null = null;
     private unsubscribeNavigation: (() => void) | null = null;
+    private oldChatObserver: MutationObserver | null = null;
+    private hiddenNavbarElements: Set<HTMLElement> = new Set();
+    private hiddenSidebarElements: Set<HTMLElement> = new Set();
 
     constructor() {
-        const configOptions: ModuleConfigOption[] = [];
+        const configOptions: ModuleConfigOption[] = [
+            {
+                key: 'hideOldChat',
+                label: 'Hide Old Chat',
+                description: 'Hide the original Messenger button from navbar and sidebar',
+                type: 'boolean',
+                default: true,
+            },
+        ];
         super(
             'chat-dialog',
             'Chat Dialog',
@@ -39,12 +50,18 @@ export class ChatDialogModule extends BaseModule {
         
         // Subscribe to counter updates
         this.setupCounterSubscription();
+        
+        // Setup old chat hiding if enabled
+        if (this.getConfigValue('hideOldChat')) {
+            this.setupOldChatHiding();
+        }
     }
 
     async cleanup(): Promise<void> {
         this.removeChatButton();
         this.cleanupObserver();
         this.cleanupCounterSubscription();
+        this.cleanupOldChatHiding();
         if (this.bodyObserver) {
             this.bodyObserver.disconnect();
             this.bodyObserver = null;
@@ -356,6 +373,141 @@ export class ChatDialogModule extends BaseModule {
             this.unsubscribeCounters();
             this.unsubscribeCounters = null;
         }
+    }
+
+    /**
+     * Setup observer to hide old chat/messenger elements
+     */
+    private setupOldChatHiding(): void {
+        // Hide existing elements immediately
+        this.hideOldChatElements();
+
+        // Set up observer to hide elements when they appear
+        if (this.oldChatObserver) {
+            this.oldChatObserver.disconnect();
+        }
+
+        this.oldChatObserver = new MutationObserver(() => {
+            this.hideOldChatElements();
+        });
+
+        // Observe document body for new elements
+        this.oldChatObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['style'], // Watch for style changes that might restore elements
+        });
+
+        // Also set up a periodic check as a fallback (in case observer misses something)
+        const checkInterval = setInterval(() => {
+            if (!this.getConfigValue('hideOldChat')) {
+                clearInterval(checkInterval);
+                return;
+            }
+            this.hideOldChatElements();
+        }, 1000);
+
+        // Store interval ID for cleanup (we'll need to add a property for this)
+        (this as any)._oldChatCheckInterval = checkInterval;
+    }
+
+    /**
+     * Hide old chat/messenger elements from navbar and sidebar
+     */
+    private hideOldChatElements(): void {
+        // Hide navbar messenger button
+        const navbarMessengerButtons = document.querySelectorAll('.nav-bar-option-icon-button');
+        navbarMessengerButtons.forEach((button) => {
+            // Skip our own chat button and boost button
+            if (button.classList.contains('sdc-boost-chat-button') || 
+                button.classList.contains('sdc-boost-navbar-button')) {
+                return;
+            }
+            
+            const element = button as HTMLElement;
+            const messengerIcon = button.querySelector('.messenger-icon-navbar');
+            const messengerLabel = button.querySelector('.nav-bar-label-messenger');
+            const messengerCounter = button.querySelector('.notification-counter-messenger');
+            
+            // Check if this is the messenger button
+            // It should have either:
+            // 1. The messenger-icon-navbar class, OR
+            // 2. The nav-bar-label-messenger class, OR  
+            // 3. An img with chatbubble in the src AND the notification-counter-messenger
+            const iconImg = button.querySelector('img');
+            const hasChatbubbleIcon = iconImg && iconImg.src.includes('chatbubble');
+            
+            // More specific check: must have messenger icon class OR messenger label OR (chatbubble icon AND counter)
+            const isMessengerButton = messengerIcon || 
+                                     messengerLabel || 
+                                     (hasChatbubbleIcon && messengerCounter);
+            
+            if (isMessengerButton) {
+                // If already tracked, check if it's been restored
+                if (this.hiddenNavbarElements.has(element)) {
+                    const computedDisplay = window.getComputedStyle(element).display;
+                    // If element is visible (not none), hide it again
+                    if (computedDisplay !== 'none') {
+                        element.style.setProperty('display', 'none', 'important');
+                        element.setAttribute('data-sdc-boost-hidden', 'true');
+                    }
+                } else {
+                    // New element, hide it
+                    element.style.setProperty('display', 'none', 'important');
+                    element.setAttribute('data-sdc-boost-hidden', 'true');
+                    this.hiddenNavbarElements.add(element);
+                }
+            }
+        });
+
+        // Hide sidebar messenger item
+        const sidebarItems = document.querySelectorAll('.MuiListItemButton-root');
+        sidebarItems.forEach((item) => {
+            const menuIcon = item.querySelector('.menu-icon');
+            const messengerText = Array.from(item.querySelectorAll('p')).find(
+                (p) => p.textContent?.trim() === 'Messenger'
+            );
+            
+            // Check if this is the messenger sidebar item
+            if (menuIcon && messengerText) {
+                const iconSrc = (menuIcon as HTMLImageElement)?.src;
+                if (iconSrc && iconSrc.includes('messenger_icon') && !this.hiddenSidebarElements.has(item as HTMLElement)) {
+                    (item as HTMLElement).style.display = 'none';
+                    this.hiddenSidebarElements.add(item as HTMLElement);
+                }
+            }
+        });
+    }
+
+    /**
+     * Clean up old chat hiding and restore elements
+     */
+    private cleanupOldChatHiding(): void {
+        // Clear interval if it exists
+        if ((this as any)._oldChatCheckInterval) {
+            clearInterval((this as any)._oldChatCheckInterval);
+            (this as any)._oldChatCheckInterval = null;
+        }
+
+        // Disconnect observer
+        if (this.oldChatObserver) {
+            this.oldChatObserver.disconnect();
+            this.oldChatObserver = null;
+        }
+
+        // Restore hidden navbar elements
+        this.hiddenNavbarElements.forEach((element) => {
+            element.style.removeProperty('display');
+            element.removeAttribute('data-sdc-boost-hidden');
+        });
+        this.hiddenNavbarElements.clear();
+
+        // Restore hidden sidebar elements
+        this.hiddenSidebarElements.forEach((element) => {
+            element.style.removeProperty('display');
+        });
+        this.hiddenSidebarElements.clear();
     }
 }
 

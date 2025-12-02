@@ -185,7 +185,15 @@ export const moduleDefinitions: ModuleDefinition[] = [
         name: 'Chat Dialog',
         description: 'Modern WhatsApp-like chat interface in a dialog',
         category: 'Chat',
-        configOptions: [],
+        configOptions: [
+            {
+                key: 'hideOldChat',
+                label: 'Hide Old Chat',
+                description: 'Hide the original Messenger button from navbar and sidebar',
+                type: 'boolean',
+                default: true,
+            },
+        ],
     },
 ];
 
