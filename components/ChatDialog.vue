@@ -36,26 +36,76 @@ function sortChats(chats: MessengerChatItem[]): MessengerChatItem[] {
       return bPinned - aPinned;
     }
     // Then by date_time (most recent first)
-    const aTime = new Date(a.date_time || '1900-01-01').getTime();
-    const bTime = new Date(b.date_time || '1900-01-01').getTime();
+    // Handle empty/invalid dates better - use a very old date for invalid ones
+    const getTime = (chat: MessengerChatItem): number => {
+      if (!chat.date_time || chat.date_time === '') {
+        // For broadcasts without date_time, try to use a fallback
+        // Use a very old date so they sort to bottom, but still sortable
+        return new Date('1900-01-01').getTime();
+      }
+      const parsed = new Date(chat.date_time).getTime();
+      // If date parsing failed, return very old date
+      return isNaN(parsed) ? new Date('1900-01-01').getTime() : parsed;
+    };
+    
+    const aTime = getTime(a);
+    const bTime = getTime(b);
     return bTime - aTime;
   });
 }
 
-// Helper function to deduplicate chats by group_id
+// Helper function to get a unique key for a chat (for Vue keys)
+function getChatKey(chat: MessengerChatItem | null): string {
+  if (!chat) return '';
+  const isBroadcast = chat.broadcast || chat.type === 100;
+  if (isBroadcast) {
+    // For broadcasts, use db_id and id_broadcast if available
+    if (chat.id_broadcast !== undefined && chat.id_broadcast !== null) {
+      return `broadcast_${chat.db_id}_${chat.id_broadcast}`;
+    }
+    return `broadcast_${chat.db_id}`;
+  }
+  return `group_${chat.group_id}`;
+}
+
+// Helper function to deduplicate chats
+// For regular chats: use group_id
+// For broadcast messages (clubs/companies): use id_broadcast if available, otherwise db_id
+// since the same company can have multiple broadcasts
 function deduplicateChats(chats: MessengerChatItem[]): MessengerChatItem[] {
-  const seen = new Map<number, MessengerChatItem>();
+  const seen = new Map<string, MessengerChatItem>();
   for (const chat of chats) {
-    const groupId = chat.group_id;
-    if (!seen.has(groupId)) {
-      seen.set(groupId, chat);
+    // For broadcast messages (clubs/companies), use id_broadcast if available
+    // Otherwise fall back to db_id (for broadcasts without id_broadcast)
+    // For regular chats, use group_id
+    const isBroadcast = chat.broadcast || chat.type === 100;
+    let key: string;
+    
+    if (isBroadcast) {
+      // Use id_broadcast if available (unique per broadcast), otherwise db_id
+      if (chat.id_broadcast !== undefined && chat.id_broadcast !== null) {
+        key = `broadcast_${chat.db_id}_${chat.id_broadcast}`;
+      } else {
+        key = `broadcast_${chat.db_id}`;
+      }
+    } else {
+      key = `group_${chat.group_id}`;
+    }
+    
+    if (!seen.has(key)) {
+      seen.set(key, chat);
     } else {
       // Keep the one with more recent date_time
-      const existing = seen.get(groupId)!;
-      const existingTime = new Date(existing.date_time || '1900-01-01').getTime();
-      const newTime = new Date(chat.date_time || '1900-01-01').getTime();
+      const existing = seen.get(key)!;
+      const getTime = (c: MessengerChatItem): number => {
+        if (!c.date_time || c.date_time === '') return 0;
+        const parsed = new Date(c.date_time).getTime();
+        return isNaN(parsed) ? 0 : parsed;
+      };
+      const existingTime = getTime(existing);
+      const newTime = getTime(chat);
       if (newTime > existingTime) {
-        seen.set(groupId, chat);
+        seen.set(key, chat);
       }
     }
   }
@@ -303,9 +353,9 @@ onUnmounted(() => {
             <div v-else class="divide-y divide-[#333]">
               <ChatListItem
                 v-for="chat in filteredChats"
-                :key="chat.group_id"
+                :key="getChatKey(chat)"
                 :chat="chat"
-                :selected="selectedChat?.group_id === chat.group_id"
+                :selected="getChatKey(selectedChat) === getChatKey(chat)"
                 @click="handleChatClick(chat)"
               />
               
