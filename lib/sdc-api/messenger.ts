@@ -337,3 +337,49 @@ export async function getMessengerChatDetails(
     }
 }
 
+/**
+ * Delete a message
+ * @param groupId The GroupID of the chat
+ * @param messageId The message_id to delete
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Response with deletion status
+ */
+export async function deleteMessage(
+    groupId: number,
+    messageId: number,
+    muid?: string | null
+): Promise<{ info: { code: number; message: string; last_message: string } }> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot delete message.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_del_message');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('group_Id', groupId.toString());
+    url.searchParams.set('message_id', messageId.toString());
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Delete Message API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('[SDC API] Failed to delete message:', error);
+        throw error;
+    }
+}
+

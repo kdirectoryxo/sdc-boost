@@ -40,6 +40,7 @@ export {
     getMessengerFolders, 
     getMessengerFolderItems,
     getMessengerChatDetails,
+    deleteMessage,
     syncAllChats,
     syncInboxChats,
     syncFolderChats

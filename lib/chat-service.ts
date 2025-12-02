@@ -5,7 +5,7 @@
 
 import { websocketManager } from './websocket-manager';
 import { getCurrentDBId, getCurrentAccountId } from './sdc-api/utils';
-import type { MessengerChatItem } from './sdc-api-types';
+import type { MessengerChatItem, MessengerMessage } from './sdc-api-types';
 
 /**
  * Get user info with retry logic and better error handling
@@ -173,6 +173,67 @@ export function sendMessage(chat: MessengerChatItem, messageText: string): boole
         return true;
     } catch (error) {
         console.error('[ChatService] Error sending message:', error);
+        return false;
+    }
+}
+
+/**
+ * Send quoted message via WebSocket
+ */
+export function sendQuotedMessage(chat: MessengerChatItem, messageText: string, quotedMessage: MessengerMessage): boolean {
+    if (!websocketManager.connected) {
+        console.warn('[ChatService] Cannot send quoted message - WebSocket not connected');
+        return false;
+    }
+
+    const userInfo = getUserInfo();
+    if (!userInfo) {
+        console.warn('[ChatService] Cannot send quoted message - missing user info');
+        return false;
+    }
+
+    if (!messageText.trim()) {
+        return false;
+    }
+
+    try {
+        // Generate tempId for pending message
+        const tempId = crypto.randomUUID();
+
+        websocketManager.send('message_v2', {
+            account_id: userInfo.accountId,
+            DB_ID: parseInt(userInfo.dbId),
+            message: messageText.trim(),
+            GroupID: chat.group_id,
+            type: 0,
+            targetID: chat.db_id,
+            sender: 0,
+            q_message: quotedMessage.message || '.',
+            q_db_id: quotedMessage.db_id || parseInt(userInfo.dbId),
+            q_account_id: quotedMessage.account_id || userInfo.accountId,
+            quoteBroadcast: 0,
+            is_quote: 1,
+            qgender1: quotedMessage.gender1 || 1,
+            qgender2: quotedMessage.gender2 || 0,
+            message_id: 0,
+            date: new Date().toLocaleString('en-US', { 
+                month: 'short', 
+                day: '2-digit', 
+                year: 'numeric', 
+                hour: 'numeric', 
+                minute: '2-digit' 
+            }),
+            name: '',
+            owner: 0,
+            addMessage: true,
+            album_id: '0',
+            time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            tempId: tempId,
+            pending: true
+        });
+        return true;
+    } catch (error) {
+        console.error('[ChatService] Error sending quoted message:', error);
         return false;
     }
 }
