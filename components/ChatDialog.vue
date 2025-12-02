@@ -764,13 +764,16 @@ async function handleSendMessage(): Promise<void> {
       if (optimisticMessages.value.has(tempId) && selectedChat.value) {
         await refreshLatestPage(selectedChat.value, (updatedMessages) => {
           // Check if we got a real message that matches our optimistic one
+          // Match by: same message content, same sender (0 = current user), and timestamp within 30 seconds
           const matchingRealMessage = updatedMessages.find(real => 
             real.message === messageText &&
-            Math.abs(real.date2 - date2) < 10 &&
-            real.sender === 0
+            real.sender === 0 &&
+            Math.abs(real.date2 - date2) < 30 // Increased window to 30 seconds
           );
           
           if (matchingRealMessage) {
+            console.log(`[ChatDialog] Fallback matched optimistic message ${tempId} with real message ${matchingRealMessage.message_id}`);
+            
             // Replace optimistic message with real one
             messages.value = messages.value.filter(msg => {
               const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
@@ -794,6 +797,9 @@ async function handleSendMessage(): Promise<void> {
                 messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
               }
             });
+          } else {
+            // Still no match - try again after another delay
+            console.log(`[ChatDialog] Optimistic message ${tempId} not matched yet, will retry...`);
           }
         }).catch(console.error);
       }
@@ -1217,9 +1223,11 @@ function setupEventListeners() {
     
     // Check if this message has a tempId that matches an optimistic message
     const tempId = (message as any)?.tempId;
+    let matchedTempId: string | null = null;
+    
     if (tempId && optimisticMessages.value.has(tempId)) {
-      // This is a confirmation of an optimistic message
-      // Replace the optimistic message with the real one
+      // This is a confirmation of an optimistic message via tempId
+      matchedTempId = tempId;
       const optimisticMsg = optimisticMessages.value.get(tempId);
       if (optimisticMsg) {
         // Find and replace the optimistic message
@@ -1236,6 +1244,41 @@ function setupEventListeners() {
         // Clean up tracking
         optimisticMessages.value.delete(tempId);
         optimisticMessageTempIds.value.delete(tempId);
+      }
+    } else if (message && (message as any).message && (message as any).db_id) {
+      // No tempId, but try to match by content and timestamp
+      // This handles cases where the server doesn't echo back the tempId
+      const messageText = (message as any).message;
+      const messageDate2 = (message as any).date2 || Math.floor(new Date((message as any).time || (message as any).datetime).getTime() / 1000);
+      const messageDbId = (message as any).db_id;
+      
+      // Get current user's db_id to check if this is our own message
+      const currentDbId = getCurrentDBId();
+      
+      // Only try to match if this is our own message (sender === 0 or db_id matches)
+      if (currentDbId && parseInt(currentDbId) === messageDbId) {
+        // Try to find matching optimistic message
+        for (const [optTempId, optMsg] of optimisticMessages.value.entries()) {
+          if (optMsg.message === messageText && Math.abs(optMsg.date2 - messageDate2) < 30) {
+            matchedTempId = optTempId;
+            console.log(`[ChatDialog] Matched optimistic message ${optTempId} by content and timestamp`);
+            
+            // Remove optimistic message
+            const optimisticIndex = messages.value.findIndex(msg => {
+              const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
+              return msgTempId === optTempId;
+            });
+            
+            if (optimisticIndex !== -1) {
+              messages.value.splice(optimisticIndex, 1);
+            }
+            
+            // Clean up tracking
+            optimisticMessages.value.delete(optTempId);
+            optimisticMessageTempIds.value.delete(optTempId);
+            break;
+          }
+        }
       }
     }
     
@@ -1263,22 +1306,38 @@ function setupEventListeners() {
     if (selectedChat.value && String(selectedChat.value.group_id) === String(groupId)) {
       // Refresh latest page (page 0) in background to get any updates
       refreshLatestPage(selectedChat.value, (updatedMessages) => {
-        // Merge with any remaining optimistic messages
-        const optimisticMsgs = Array.from(optimisticMessages.value.values()).filter(msg => {
-          // Only keep optimistic messages that haven't been replaced
-          const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
-          if (!msgTempId) return false;
+        // Try to match optimistic messages with real messages
+        const matchedTempIds = new Set<string>();
+        
+        // For each optimistic message, try to find a matching real message
+        optimisticMessages.value.forEach((optimisticMsg, tempId) => {
+          const matchingRealMessage = updatedMessages.find(real => {
+            // Match by: same message content, same sender (0 = current user), and timestamp within 30 seconds
+            return real.message === optimisticMsg.message &&
+                   real.sender === 0 && // Only match own messages
+                   Math.abs(real.date2 - optimisticMsg.date2) < 30; // Allow 30 second window
+          });
           
-          // Check if we have a real message that matches
-          const hasRealMatch = updatedMessages.some(real => 
-            real.message === msg.message &&
-            Math.abs(real.date2 - msg.date2) < 10
-          );
-          return !hasRealMatch;
+          if (matchingRealMessage) {
+            matchedTempIds.add(tempId);
+            console.log(`[ChatDialog] Matched optimistic message ${tempId} with real message ${matchingRealMessage.message_id}`);
+          }
+        });
+        
+        // Remove matched optimistic messages from tracking
+        matchedTempIds.forEach(tempId => {
+          optimisticMessages.value.delete(tempId);
+          optimisticMessageTempIds.value.delete(tempId);
+        });
+        
+        // Filter out optimistic messages that were matched
+        const remainingOptimisticMsgs = Array.from(optimisticMessages.value.values()).filter(msg => {
+          const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
+          return msgTempId && !matchedTempIds.has(msgTempId);
         });
         
         // Combine and deduplicate
-        const allMessages = [...optimisticMsgs, ...updatedMessages];
+        const allMessages = [...remainingOptimisticMsgs, ...updatedMessages];
         const uniqueMessages = allMessages.filter((msg, index, self) => {
           if (msg.message_id > 0) {
             // Real message - check by message_id
