@@ -177,3 +177,35 @@ export function getMessengerHash(): string | null {
     return null;
 }
 
+/**
+ * Get current user's account_id (username) from cookies or localStorage
+ */
+export function getCurrentAccountId(): string | null {
+    // Try to get from cookies first
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'SDCUsername' && value) {
+            return decodeURIComponent(value);
+        }
+    }
+
+    // Fallback: Try to get from localStorage user_info
+    try {
+        const userInfoStr = localStorage.getItem('user_info');
+        if (userInfoStr) {
+            const userInfo = JSON.parse(userInfoStr);
+            if (userInfo.account_id) {
+                return userInfo.account_id;
+            }
+            if (userInfo.username) {
+                return userInfo.username;
+            }
+        }
+    } catch (error) {
+        console.warn('[SDC API] Error reading account_id from localStorage:', error);
+    }
+
+    return null;
+}
+

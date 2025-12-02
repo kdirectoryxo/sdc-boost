@@ -1,0 +1,166 @@
+/**
+ * Chat Service
+ * Handles chat-related operations like sending messages, typing indicators, and seen events
+ */
+
+import { websocketManager } from './websocket-manager';
+import { getCurrentDBId, getCurrentAccountId } from './sdc-api/utils';
+import type { MessengerChatItem } from './sdc-api-types';
+
+/**
+ * Get user info with retry logic and better error handling
+ */
+function getUserInfo(): { dbId: string; accountId: string } | null {
+    const dbId = getCurrentDBId();
+    const accountId = getCurrentAccountId();
+    
+    if (!dbId || !accountId) {
+        // Try to debug what's available
+        try {
+            const userInfoStr = localStorage.getItem('user_info');
+            if (userInfoStr) {
+                const userInfo = JSON.parse(userInfoStr);
+                console.log('[ChatService] Available user_info keys:', Object.keys(userInfo));
+                console.log('[ChatService] user_info content:', userInfo);
+            } else {
+                console.warn('[ChatService] user_info not found in localStorage');
+            }
+        } catch (error) {
+            console.warn('[ChatService] Error reading user_info:', error);
+        }
+        
+        // Try cookies as fallback
+        const cookies = document.cookie.split(';');
+        for (const cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'SDCUsername' && value && !accountId) {
+                console.log('[ChatService] Found account_id from cookie:', decodeURIComponent(value));
+            }
+        }
+        
+        return null;
+    }
+    
+    return { dbId, accountId };
+}
+
+/**
+ * Send typing event via WebSocket
+ */
+export function sendTypingEvent(chat: MessengerChatItem, typing: boolean): boolean {
+    if (!websocketManager.connected) {
+        console.warn('[ChatService] Cannot send typing event - WebSocket not connected');
+        return false;
+    }
+
+    const userInfo = getUserInfo();
+    if (!userInfo) {
+        console.warn('[ChatService] Cannot send typing event - missing user info');
+        return false;
+    }
+
+    try {
+        websocketManager.send('typing', {
+            account_id: userInfo.accountId,
+            DB_ID: parseInt(userInfo.dbId),
+            GroupID: chat.group_id,
+            groupType: chat.group_type || 0,
+            targetID: chat.db_id,
+            typing: typing
+        });
+        return true;
+    } catch (error) {
+        console.error('[ChatService] Error sending typing event:', error);
+        return false;
+    }
+}
+
+/**
+ * Send seen event via WebSocket
+ */
+export function sendSeenEvent(chat: MessengerChatItem): boolean {
+    if (!websocketManager.connected) {
+        console.warn('[ChatService] Cannot send seen event - WebSocket not connected');
+        return false;
+    }
+
+    const userInfo = getUserInfo();
+    if (!userInfo) {
+        console.warn('[ChatService] Cannot send seen event - missing user info');
+        return false;
+    }
+
+    try {
+        websocketManager.send('seen', {
+            db_id: parseInt(userInfo.dbId),
+            target_db_id: chat.db_id,
+            group_id: String(chat.group_id)
+        });
+        return true;
+    } catch (error) {
+        console.error('[ChatService] Error sending seen event:', error);
+        return false;
+    }
+}
+
+/**
+ * Send message via WebSocket
+ */
+export function sendMessage(chat: MessengerChatItem, messageText: string): boolean {
+    if (!websocketManager.connected) {
+        console.warn('[ChatService] Cannot send message - WebSocket not connected');
+        return false;
+    }
+
+    const userInfo = getUserInfo();
+    if (!userInfo) {
+        console.warn('[ChatService] Cannot send message - missing user info');
+        return false;
+    }
+
+    if (!messageText.trim()) {
+        return false;
+    }
+
+    try {
+        // Generate tempId for pending message
+        const tempId = crypto.randomUUID();
+
+        websocketManager.send('message_v2', {
+            account_id: userInfo.accountId,
+            DB_ID: parseInt(userInfo.dbId),
+            message: messageText.trim(),
+            GroupID: chat.group_id,
+            type: 0,
+            targetID: chat.db_id,
+            sender: 0,
+            q_message: '',
+            q_db_id: 0,
+            q_account_id: '',
+            quoteBroadcast: 0,
+            is_quote: 0,
+            qgender1: 2,
+            qgender2: 2,
+            message_id: 0,
+            date: new Date().toLocaleString('en-US', { 
+                month: 'short', 
+                day: '2-digit', 
+                year: 'numeric', 
+                hour: 'numeric', 
+                minute: '2-digit' 
+            }),
+            name: '',
+            owner: 0,
+            addMessage: true,
+            album_id: '0',
+            time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            tempId: tempId,
+            pending: true
+        });
+        return true;
+    } catch (error) {
+        console.error('[ChatService] Error sending message:', error);
+        return false;
+    }
+}
+

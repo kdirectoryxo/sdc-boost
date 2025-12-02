@@ -1,14 +1,15 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch, onUnmounted, nextTick } from 'vue';
-import { getMessengerFolders, syncAllChats, syncInboxChats, syncFolderChats, getMessengerChatDetails } from '@/lib/sdc-api';
+import { getMessengerFolders, syncAllChats, syncInboxChats, syncFolderChats } from '@/lib/sdc-api';
 import type { MessengerChatItem, MessengerFolder, MessengerMessage } from '@/lib/sdc-api-types';
 import ChatListItem from '@/components/ChatListItem.vue';
 import { websocketManager } from '@/lib/websocket-manager';
 import { chatStorage } from '@/lib/chat-storage';
 import { folderStorage } from '@/lib/folder-storage';
-import { messageStorage } from '@/lib/message-storage';
 import { typingStateManager } from '@/lib/websocket-handlers';
-import { getCurrentDBId } from '@/lib/sdc-api/utils';
+import { sendMessage, sendSeenEvent } from '@/lib/chat-service';
+import { loadMessages, refreshLatestPage } from '@/lib/message-service';
+import { TypingManager } from '@/lib/typing-manager';
 
 interface Props {
   modelValue: boolean;
@@ -33,6 +34,8 @@ const isWebSocketConnected = ref(false);
 const messages = ref<MessengerMessage[]>([]);
 const isLoadingMessages = ref(false);
 const messagesContainer = ref<HTMLElement | null>(null);
+const messageInput = ref('');
+const typingManager = new TypingManager();
 
 // Helper function to sort chats: pinned first, then by date_time
 function sortChats(chats: MessengerChatItem[]): MessengerChatItem[] {
@@ -255,228 +258,40 @@ function getTotalUnreadCount(): number {
 // Search is now client-side only, no need for debounced API calls
 
 /**
- * Load messages for a chat
- * On first load: fetches all history and stores it (shows loading)
- * On subsequent loads: loads from storage immediately, then fetches only latest page (no loading)
+ * Load messages for a chat using the message service
  */
-async function loadMessages(chat: MessengerChatItem): Promise<void> {
+async function handleLoadMessages(chat: MessengerChatItem): Promise<void> {
   if (isLoadingMessages.value) return;
   
   error.value = null;
 
   try {
-    // Check if chat has been fetched before
-    const hasBeenFetched = await messageStorage.hasChatBeenFetched(chat.group_id);
-    const storedMessages = await messageStorage.getMessages(chat.group_id);
+    const result = await loadMessages(chat, (updatedMessages) => {
+      messages.value = updatedMessages;
+      // Scroll to bottom after each update
+      nextTick().then(() => {
+        if (messagesContainer.value) {
+          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+        }
+      });
+    });
     
-    if (hasBeenFetched && storedMessages.length > 0) {
-      // Chat has been fetched before - load from storage immediately (no loading indicator)
-      messages.value = storedMessages;
-      
-      // Scroll to bottom immediately
-      await nextTick();
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-      }
-      
-      // Fetch new messages in background without blocking
-      const latestMessageId = await messageStorage.getLatestMessageId(chat.group_id);
-      fetchNewMessagesOnly(chat, latestMessageId).catch(console.error);
-    } else if (hasBeenFetched && storedMessages.length === 0) {
-      // Chat marked as fetched but no messages - fetch all again
-      isLoadingMessages.value = true;
-      await fetchAllMessages(chat);
-      
-      await nextTick();
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-      }
-      isLoadingMessages.value = false;
-    } else {
-      // First time loading this chat - fetch all history (show loading)
-      isLoadingMessages.value = true;
-      await fetchAllMessages(chat);
-      
-      // Scroll to bottom after loading
-      await nextTick();
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-      }
+    messages.value = result.messages;
+    isLoadingMessages.value = result.isLoading;
+    
+    // Scroll to bottom after loading
+    await nextTick();
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    }
+    
+    if (!result.isLoading) {
       isLoadingMessages.value = false;
     }
   } catch (err) {
     console.error('[ChatDialog] Failed to load messages:', err);
     error.value = 'Failed to load messages';
     isLoadingMessages.value = false;
-  }
-}
-
-/**
- * Fetch all messages for a chat (full history)
- * Fetches all pages until there are no more messages
- * Updates DB and displays messages progressively as each page loads
- */
-async function fetchAllMessages(chat: MessengerChatItem): Promise<void> {
-  console.log(`[ChatDialog] Fetching all messages for chat ${chat.group_id}...`);
-  let page = 0;
-  let hasMore = true;
-  const allMessages: MessengerMessage[] = [];
-
-  while (hasMore) {
-    try {
-      const response = await getMessengerChatDetails(
-        chat.db_id,
-        chat.group_id,
-        chat.group_type || 0,
-        page
-      );
-
-      if (response.info.code === '200') {
-        const pageMessages = response.info.message_list || [];
-        
-        if (pageMessages.length === 0) {
-          hasMore = false;
-          break;
-        }
-
-        // Store messages immediately after each page
-        await messageStorage.upsertMessages(chat.group_id, pageMessages);
-        
-        // Add messages to collection (they come in reverse chronological order from API)
-        allMessages.push(...pageMessages);
-        
-        // Update displayed messages progressively (sort by date2 ascending)
-        const sortedMessages = [...allMessages].sort((a, b) => a.date2 - b.date2);
-        messages.value = sortedMessages;
-        
-        // Scroll to bottom after each page to show latest messages
-        await nextTick();
-        if (messagesContainer.value) {
-          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-        }
-        
-        // Check if there are more pages
-        const urlMore = response.info.url_more;
-        if (!urlMore || urlMore === '-1' || urlMore === '') {
-          hasMore = false;
-        } else {
-          // Extract next page number from url_more
-          const match = urlMore.match(/page=(\d+)/);
-          if (match) {
-            const nextPage = parseInt(match[1], 10);
-            if (nextPage > page) {
-              page = nextPage;
-            } else {
-              hasMore = false;
-            }
-          } else {
-            hasMore = false;
-          }
-        }
-      } else {
-        hasMore = false;
-      }
-    } catch (err) {
-      console.error(`[ChatDialog] Failed to fetch page ${page}:`, err);
-      hasMore = false;
-    }
-  }
-
-  // Mark chat as fetched and fully synced after all pages are loaded
-  if (allMessages.length > 0) {
-    await messageStorage.markChatFetched(chat.group_id);
-    console.log(`[ChatDialog] Loaded ${allMessages.length} messages for chat ${chat.group_id}`);
-  }
-}
-
-/**
- * Refresh latest page (page 0) in background
- * Used when WebSocket message is received to get any updates
- */
-async function refreshLatestPage(chat: MessengerChatItem): Promise<void> {
-  try {
-    const response = await getMessengerChatDetails(
-      chat.db_id,
-      chat.group_id,
-      chat.group_type || 0,
-      0
-    );
-
-    if (response.info.code === '200') {
-      const pageMessages = response.info.message_list || [];
-      
-      if (pageMessages.length > 0) {
-        // Store messages
-        await messageStorage.upsertMessages(chat.group_id, pageMessages);
-        
-        // Reload messages from storage to get updated list
-        const storedMessages = await messageStorage.getMessages(chat.group_id);
-        messages.value = storedMessages;
-        
-        // Scroll to bottom to show new messages
-        await nextTick();
-        if (messagesContainer.value) {
-          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-        }
-      }
-    }
-  } catch (err) {
-    console.error('[ChatDialog] Failed to refresh latest page:', err);
-  }
-}
-
-/**
- * Fetch only new messages (for already fetched chats)
- * Only fetches page 0 (latest page) which contains the newest messages
- */
-async function fetchNewMessagesOnly(chat: MessengerChatItem, latestMessageId: number | null): Promise<void> {
-  console.log(`[ChatDialog] Fetching new messages for chat ${chat.group_id}...`);
-  
-  if (latestMessageId === null) {
-    // No stored messages - this shouldn't happen if chat is fetched, but handle it
-    console.warn(`[ChatDialog] Chat ${chat.group_id} marked as fetched but has no messages. Fetching all.`);
-    await fetchAllMessages(chat);
-    return;
-  }
-
-  try {
-    // Only fetch page 0 (latest page)
-    const response = await getMessengerChatDetails(
-      chat.db_id,
-      chat.group_id,
-      chat.group_type || 0,
-      0
-    );
-
-    if (response.info.code === '200') {
-      const pageMessages = response.info.message_list || [];
-      
-      if (pageMessages.length === 0) {
-        return;
-      }
-
-      // Filter to only include messages newer than what we have
-      const newMessages = pageMessages.filter(msg => msg.message_id > latestMessageId);
-      
-      if (newMessages.length > 0) {
-        // Store new messages
-        await messageStorage.upsertMessages(chat.group_id, newMessages);
-        
-        // Add to current messages list (sorted by date2)
-        messages.value = [...messages.value, ...newMessages].sort((a, b) => a.date2 - b.date2);
-        
-        // Scroll to bottom to show new messages
-        await nextTick();
-        if (messagesContainer.value) {
-          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-        }
-        
-        console.log(`[ChatDialog] Added ${newMessages.length} new messages for chat ${chat.group_id}`);
-      }
-    }
-  } catch (err) {
-    console.error('[ChatDialog] Failed to fetch new messages:', err);
-    throw err;
   }
 }
 
@@ -495,14 +310,43 @@ function formatMessageDate(message: MessengerMessage): string {
   return message.date || new Date(message.date2 * 1000).toLocaleString();
 }
 
+/**
+ * Handle typing in message input
+ */
+function handleMessageInput(chat: MessengerChatItem): void {
+  typingManager.handleTyping(chat);
+}
+
+/**
+ * Handle message send
+ */
+function handleSendMessage(): void {
+  if (!selectedChat.value || !messageInput.value.trim()) {
+    return;
+  }
+
+  if (sendMessage(selectedChat.value, messageInput.value)) {
+    // Clear input on success
+    messageInput.value = '';
+    // Stop typing indicator
+    typingManager.stopTyping();
+  }
+}
 
 async function handleChatClick(chat: MessengerChatItem) {
   selectedChat.value = chat;
   messages.value = [];
-  await loadMessages(chat);
+  typingManager.reset(); // Reset typing when switching chats
+  await handleLoadMessages(chat);
+  
+  // Send seen event when opening a chat
+  sendSeenEvent(chat);
 }
 
 function handleClose() {
+  // Stop typing if active
+  typingManager.stopTyping();
+  
   emit('update:modelValue', false);
   emit('close');
 }
@@ -605,7 +449,15 @@ function setupEventListeners() {
     // If this message is for the currently selected chat, refresh page 0 in background
     if (selectedChat.value && String(selectedChat.value.group_id) === String(groupId)) {
       // Refresh latest page (page 0) in background to get any updates
-      refreshLatestPage(selectedChat.value).catch(console.error);
+      refreshLatestPage(selectedChat.value, (updatedMessages) => {
+        messages.value = updatedMessages;
+        // Scroll to bottom to show new messages
+        nextTick().then(() => {
+          if (messagesContainer.value) {
+            messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+          }
+        });
+      }).catch(console.error);
     }
   };
 
@@ -636,6 +488,9 @@ function setupEventListeners() {
 }
 
 function cleanupEventListeners() {
+  // Stop typing if active
+  typingManager.stopTyping();
+  
   if (typingUnsubscribe) {
     typingUnsubscribe();
     typingUnsubscribe = null;
@@ -942,11 +797,20 @@ onUnmounted(() => {
                     <!-- Message Meta -->
                     <div class="flex items-center gap-2 text-xs text-[#666] shrink-0">
                       <span class="whitespace-nowrap">{{ formatMessageDate(message) }}</span>
-                      <span v-if="isOwnMessage(message) && message.seen === 1" class="text-blue-400 shrink-0">
-                        ✓✓
-                      </span>
-                      <span v-else-if="isOwnMessage(message)" class="text-[#666] shrink-0">
-                        ✓
+                      <span v-if="isOwnMessage(message)" class="relative inline-flex items-center shrink-0 ml-1" :class="message.seen === 1 ? 'text-blue-400' : 'text-[#666]'">
+                        <!-- Single checkmark for sent messages -->
+                        <svg v-if="message.seen !== 1" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                          <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/>
+                        </svg>
+                        <!-- Double checkmark for seen messages (overlapping) -->
+                        <template v-else>
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="absolute left-0">
+                            <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/>
+                          </svg>
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="ml-[-6px]">
+                            <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/>
+                          </svg>
+                        </template>
                       </span>
                     </div>
                   </div>
@@ -960,20 +824,45 @@ onUnmounted(() => {
                   <p class="text-sm mt-2">Start the conversation!</p>
                 </div>
               </div>
+
+              <!-- Typing Indicator -->
+              <div 
+                v-if="selectedChat && typingStates.get(String(selectedChat.group_id))" 
+                class="flex gap-3 min-w-0"
+              >
+                <img
+                  :src="`https://pictures.sdc.com/photos/${selectedChat.primary_photo}`"
+                  :alt="selectedChat.account_id"
+                  class="w-8 h-8 rounded-full object-cover shrink-0"
+                />
+                <div class="flex flex-col gap-1 min-w-0 max-w-[70%] items-start">
+                  <div class="px-4 py-2 rounded-lg bg-[#2a2a2a] text-white">
+                    <div class="flex gap-1">
+                      <span class="w-2 h-2 bg-[#999] rounded-full animate-bounce" style="animation-delay: 0ms"></span>
+                      <span class="w-2 h-2 bg-[#999] rounded-full animate-bounce" style="animation-delay: 150ms"></span>
+                      <span class="w-2 h-2 bg-[#999] rounded-full animate-bounce" style="animation-delay: 300ms"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <!-- Message Input (Placeholder) -->
+            <!-- Message Input -->
             <div class="px-6 py-4 border-t border-[#333] shrink-0">
               <div class="flex items-center gap-2">
                 <input
+                  v-model="messageInput"
+                  @input="selectedChat && handleMessageInput(selectedChat)"
+                  @keydown.enter.prevent="handleSendMessage"
                   type="text"
                   placeholder="Type a message..."
-                  disabled
-                  class="flex-1 px-4 py-2 bg-[#0f0f0f] border border-[#333] rounded-lg text-white placeholder-[#666] focus:outline-none"
+                  :disabled="!selectedChat || !isWebSocketConnected"
+                  class="flex-1 px-4 py-2 bg-[#0f0f0f] border border-[#333] rounded-lg text-white placeholder-[#666] focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <button
-                  disabled
-                  class="px-4 py-2 bg-blue-500 text-white rounded-lg opacity-50 cursor-not-allowed"
+                  @click="handleSendMessage"
+                  :disabled="!selectedChat || !messageInput.trim() || !isWebSocketConnected"
+                  class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Send
                 </button>
