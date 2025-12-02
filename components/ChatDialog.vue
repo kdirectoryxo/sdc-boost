@@ -48,6 +48,11 @@ const optimisticMessageTempIds = ref<Map<string, string>>(new Map()); // Track o
 const optimisticMessages = ref<Map<string, MessengerMessage>>(new Map()); // Track optimistic messages by tempId
 const messengerCounter = ref<number>(0); // Track messenger counter from counters manager
 
+// Folder unread counts - calculated from IndexedDB
+const folderUnreadCounts = ref<Map<number, number>>(new Map()); // Map of folderId -> unread count
+const inboxUnreadCount = ref<number>(0); // Inbox (folder_id = 0) unread count
+const totalUnreadCount = ref<number>(0); // Total unread count across all chats
+
 // Message search state
 const messageSearchQuery = ref('');
 const messageSearchResults = ref<number[]>([]); // Array of message IDs matching the query
@@ -195,7 +200,6 @@ async function scrollToCurrentResult(): Promise<void> {
   
   // Wait for DOM to update
   await nextTick();
-  await new Promise(resolve => setTimeout(resolve, 50)); // Extra wait for DOM
   
   // Find the message element - match the ID format used in the template exactly
   // Template uses: message-${message.message_id > 0 ? message.message_id : `opt_${index}_${message.date2}`}
@@ -204,32 +208,67 @@ async function scrollToCurrentResult(): Promise<void> {
     ? `message-${currentMessage.message_id}`
     : `message-opt_${messageIndex}_${currentMessage.date2}`;
   
-  // Try to find the element
-  let messageElement = document.getElementById(messageId);
+  // Try to find the element with retries and multiple strategies
+  let messageElement: HTMLElement | null = null;
+  const maxAttempts = 10;
   
-  // If not found, try alternative ID formats
-  if (!messageElement) {
-    // Try with messages.value index instead
-    const altIndex = messages.value.indexOf(currentMessage);
-    const altMessageId = currentMessage.message_id > 0 
-      ? `message-${currentMessage.message_id}`
-      : `message-opt_${altIndex}_${currentMessage.date2}`;
-    messageElement = document.getElementById(altMessageId);
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    // Strategy 1: Try finding by ID globally
+    messageElement = document.getElementById(messageId);
+    
+    // Strategy 2: Try querySelector within the container
+    if (!messageElement && messagesContainer.value) {
+      messageElement = messagesContainer.value.querySelector(`#${CSS.escape(messageId)}`) as HTMLElement;
+    }
+    
+    // Strategy 3: Try finding by data-message-id attribute
+    if (!messageElement && messagesContainer.value) {
+      const allMessages = messagesContainer.value.querySelectorAll(`[data-message-id="${currentMessage.message_id}"]`);
+      if (allMessages.length > 0) {
+        messageElement = allMessages[0] as HTMLElement;
+      }
+    }
+    
+    // Strategy 4: Try finding by ID without prefix (in case of escaping issues)
+    if (!messageElement) {
+      const idOnly = String(currentMessage.message_id);
+      messageElement = document.getElementById(idOnly);
+      if (!messageElement && messagesContainer.value) {
+        messageElement = messagesContainer.value.querySelector(`#${CSS.escape(idOnly)}`) as HTMLElement;
+      }
+    }
+    
+    if (messageElement) {
+      break;
+    }
+    
+    // Wait before retrying with exponential backoff
+    if (attempt < maxAttempts - 1) {
+      await new Promise(resolve => setTimeout(resolve, 50 * Math.pow(1.5, attempt)));
+    }
   }
   
   if (messageElement && messagesContainer.value) {
-    // Calculate scroll position relative to the container
+    // Ensure element is visible in viewport
     const containerRect = messagesContainer.value.getBoundingClientRect();
     const elementRect = messageElement.getBoundingClientRect();
-    const relativeTop = elementRect.top - containerRect.top;
-    const currentScrollTop = messagesContainer.value.scrollTop;
-    const targetScrollTop = currentScrollTop + relativeTop - (containerRect.height / 2) + (elementRect.height / 2);
     
-    // Scroll the container
-    messagesContainer.value.scrollTo({
-      top: Math.max(0, targetScrollTop),
-      behavior: 'smooth'
-    });
+    // Check if element is already visible
+    const isVisible = elementRect.top >= containerRect.top && 
+                     elementRect.bottom <= containerRect.bottom;
+    
+    if (!isVisible) {
+      // Calculate scroll position relative to the container
+      const relativeTop = elementRect.top - containerRect.top;
+      const currentScrollTop = messagesContainer.value.scrollTop;
+      const targetScrollTop = currentScrollTop + relativeTop - (containerRect.height / 2) + (elementRect.height / 2);
+      
+      // Scroll the container
+      messagesContainer.value.scrollTo({
+        top: Math.max(0, targetScrollTop),
+        behavior: 'smooth'
+      });
+    }
     
     // Highlight the message briefly
     messageElement.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-[#1a1a1a]', 'transition-all');
@@ -237,7 +276,8 @@ async function scrollToCurrentResult(): Promise<void> {
       messageElement?.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-[#1a1a1a]', 'transition-all');
     }, 1500);
   } else {
-    console.warn(`[ChatDialog] Could not find message element with ID: ${messageId}, message_id: ${currentMessage.message_id}, index: ${messageIndex}`);
+    console.warn(`[ChatDialog] Could not find message element with ID: ${messageId}, message_id: ${currentMessage.message_id}, index: ${messageIndex} after ${maxAttempts} attempts. Available IDs in container:`, 
+      messagesContainer.value ? Array.from(messagesContainer.value.querySelectorAll('[id^="message-"]')).map(el => el.id).slice(0, 5) : 'no container');
   }
 }
 
@@ -491,6 +531,8 @@ async function fetchInboxChats(): Promise<void> {
     await loadChatsFromStorage();
     // Refresh counters to update the count immediately
     await countersManager.refresh();
+    // Refresh folder counts from IndexedDB
+    await refreshFolderCounts();
   } catch (err) {
     console.error('[ChatDialog] Failed to sync inbox chats:', err);
     await loadChatsFromStorage();
@@ -519,6 +561,8 @@ async function fetchFolderChats(folderId: number): Promise<void> {
     await loadChatsFromStorage();
     // Refresh counters to update the count immediately
     await countersManager.refresh();
+    // Refresh folder counts from IndexedDB
+    await refreshFolderCounts();
   } catch (err) {
     console.error(`[ChatDialog] Failed to sync folder ${folderId} chats:`, err);
     await loadChatsFromStorage();
@@ -547,6 +591,8 @@ async function fetchAllChats(): Promise<void> {
     await loadChatsFromStorage();
     // Refresh counters to update the count immediately
     await countersManager.refresh();
+    // Refresh folder counts from IndexedDB
+    await refreshFolderCounts();
   } catch (err) {
     console.error('[ChatDialog] Failed to sync chats:', err);
     error.value = 'Failed to load chats. Please try again.';
@@ -565,8 +611,8 @@ async function loadChatsFromStorage(): Promise<void> {
     chatList.value = chats;
     console.log(`[ChatDialog] Loaded ${chats.length} chats from IndexedDB`);
     
-    // Folder counts are now calculated dynamically in getFolderUnreadCount()
-    // No need to maintain a separate map
+    // Refresh folder counts from IndexedDB
+    await refreshFolderCounts();
   } catch (err) {
     console.error('[ChatDialog] Failed to load chats from storage:', err);
     error.value = 'Failed to load chats from storage.';
@@ -605,6 +651,9 @@ async function loadFoldersFromStorage(): Promise<void> {
     const folderList = await folderStorage.getAllFolders();
     folders.value = folderList;
     console.log(`[ChatDialog] Loaded ${folderList.length} folders from IndexedDB`);
+    
+    // Refresh folder counts after folders are loaded
+    await refreshFolderCounts();
   } catch (err) {
     console.error('[ChatDialog] Failed to load folders from storage:', err);
   }
@@ -620,32 +669,62 @@ function getFolderName(folderId: number | undefined | null): string {
 }
 
 /**
+ * Refresh folder unread counts from IndexedDB
+ * This calculates counts directly from stored chats, so they're available immediately
+ */
+async function refreshFolderCounts(): Promise<void> {
+  try {
+    // Get counts for all folders
+    const folderCounts = new Map<number, number>();
+    
+    // Get count for inbox (folder_id = 0)
+    const inboxCount = await chatStorage.getInboxUnreadCount();
+    inboxUnreadCount.value = inboxCount;
+    
+    // Get count for each folder
+    for (const folder of folders.value) {
+      const count = await chatStorage.getFolderUnreadCount(folder.id);
+      folderCounts.set(folder.id, count);
+    }
+    
+    folderUnreadCounts.value = folderCounts;
+    
+    // Get total count
+    const totalCount = await chatStorage.getTotalUnreadCount();
+    totalUnreadCount.value = totalCount;
+    
+    console.log('[ChatDialog] Refreshed folder counts from IndexedDB', {
+      inbox: inboxCount,
+      folders: Object.fromEntries(folderCounts),
+      total: totalCount
+    });
+  } catch (err) {
+    console.error('[ChatDialog] Failed to refresh folder counts:', err);
+  }
+}
+
+/**
  * Get unread count for a folder
- * Counts chats with unread messages in the folder, based on current chat list
- * This reflects the actual number of chats, not filtered by search/filters
+ * Returns count from IndexedDB (calculated in backend)
  */
 function getFolderUnreadCount(folderId: number): number {
-  // Count chats with unread messages in this folder from the current chat list
-  return chatList.value.filter(chat => {
-    const chatFolderId = chat.folder_id || 0;
-    return chatFolderId === folderId && chat.unread_counter > 0;
-  }).length;
+  return folderUnreadCounts.value.get(folderId) || 0;
 }
 
 /**
  * Get unread count for inbox (folder_id = 0 or null)
- * Uses raw API messenger counter from counters manager (counts chats, not messages)
+ * Returns count from IndexedDB (calculated in backend)
  */
 function getInboxUnreadCount(): number {
-  return messengerCounter.value;
+  return inboxUnreadCount.value;
 }
 
 /**
  * Get total unread count across all chats
- * Uses raw API messenger counter from counters manager (counts chats, not messages)
+ * Returns count from IndexedDB (calculated in backend)
  */
 function getTotalUnreadCount(): number {
-  return messengerCounter.value;
+  return totalUnreadCount.value;
 }
 
 // Search is now client-side only, no need for debounced API calls
@@ -1139,7 +1218,10 @@ async function handleChatClick(chat: MessengerChatItem) {
     chatToUse = updatedChat;
     
     // Update in storage optimistically
-    chatStorage.updateChat(updatedChat).catch(console.error);
+    await chatStorage.updateChat(updatedChat);
+    
+    // Refresh folder counts after unread counter change
+    await refreshFolderCounts();
     
     console.log(`[ChatDialog] Optimistically decreased unread counter for chat ${chat.group_id} from ${chat.unread_counter} to ${updatedChat.unread_counter}`);
   }
@@ -1331,7 +1413,10 @@ watch(() => props.modelValue, async (newValue) => {
           chatToUse = updatedChat;
           
           // Update in storage optimistically
-          chatStorage.updateChat(updatedChat).catch(console.error);
+          await chatStorage.updateChat(updatedChat);
+          
+          // Refresh folder counts after unread counter change
+          await refreshFolderCounts();
           
           console.log(`[ChatDialog] Optimistically decreased unread counter for chat ${chat.group_id} from ${chat.unread_counter} to ${updatedChat.unread_counter}`);
         }
@@ -1485,6 +1570,9 @@ function setupEventListeners() {
         // New chat - reload from storage
         await loadChatsFromStorage();
       }
+      
+      // Refresh folder counts after chat update
+      await refreshFolderCounts();
     } else {
       // Unknown chat - refresh to get it
       await loadChatsFromStorage();
@@ -1578,6 +1666,9 @@ function setupEventListeners() {
           return msg;
         });
       }
+      
+      // Refresh folder counts after seen event (unread_counter may have changed)
+      await refreshFolderCounts();
     }
   };
 
@@ -2027,6 +2118,7 @@ onUnmounted(() => {
                   v-for="(message, index) in filteredMessages"
                   :key="message.message_id > 0 ? `msg_${message.message_id}` : `opt_${message.extra1 || index}_${message.date2}`"
                   :id="`message-${message.message_id > 0 ? message.message_id : `opt_${index}_${message.date2}`}`"
+                  :data-message-id="message.message_id"
                   :class="[
                     'flex gap-3 min-w-0 w-full group',
                     isOwnMessage(message) ? 'flex-row-reverse' : 'flex-row',

@@ -445,6 +445,62 @@ class ChatStorage {
         console.log(`[ChatStorage] Search returned ${result.length} chats`);
         return result;
     }
+
+    /**
+     * Get unread count for a specific folder
+     * Counts chats with unread_counter > 0 in the specified folder
+     * @param folderId The folder ID (0 for inbox, null for all chats, number for specific folder)
+     * @returns Number of unread chats in the folder
+     */
+    async getFolderUnreadCount(folderId: number | null): Promise<number> {
+        const db = await this.getDB();
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        
+        let chats: (MessengerChatItem & { id: string })[];
+        
+        if (folderId === null) {
+            // All chats - get all chats
+            chats = await store.getAll();
+        } else if (folderId === 0) {
+            // Inbox - get all chats and filter for folder_id === 0 or null
+            // (IndexedDB indexes don't include null values, so we need to filter manually)
+            const allChats = await store.getAll();
+            chats = allChats.filter(chat => {
+                const chatItem = chat as MessengerChatItem;
+                const chatFolderId = chatItem.folder_id || 0;
+                return chatFolderId === 0;
+            });
+        } else {
+            // Specific folder - use index to filter by folder_id
+            const index = store.index('folder_id');
+            chats = await index.getAll(folderId);
+        }
+        
+        // Count chats with unread_counter > 0
+        const unreadCount = chats.filter(chat => {
+            const chatItem = chat as MessengerChatItem;
+            return (chatItem.unread_counter || 0) > 0;
+        }).length;
+        
+        return unreadCount;
+    }
+
+    /**
+     * Get unread count for inbox (folder_id === 0 or null)
+     * @returns Number of unread chats in inbox
+     */
+    async getInboxUnreadCount(): Promise<number> {
+        return this.getFolderUnreadCount(0);
+    }
+
+    /**
+     * Get total unread count across all chats
+     * @returns Total number of unread chats
+     */
+    async getTotalUnreadCount(): Promise<number> {
+        return this.getFolderUnreadCount(null);
+    }
 }
 
 // Create singleton instance
