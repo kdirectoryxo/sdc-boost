@@ -232,6 +232,14 @@ function clearAllFilters(): void {
 }
 
 /**
+ * Open user profile in new tab
+ */
+function openProfileInNewTab(userId: number): void {
+  const profileUrl = `https://www.sdc.com/react/#/profile?idUser=${userId}`;
+  window.open(profileUrl, '_blank', 'noopener,noreferrer');
+}
+
+/**
  * Handle keyboard shortcuts for search navigation
  */
 function handleSearchKeydown(event: KeyboardEvent): void {
@@ -949,6 +957,38 @@ function cancelQuote(): void {
   quotedMessageRef.value = null;
 }
 
+/**
+ * Update URL with current chat selection
+ */
+function updateChatInURL(chat: MessengerChatItem | null) {
+  const url = new URL(window.location.href);
+  if (chat) {
+    // Use group_id as the identifier (works for both regular chats and broadcasts)
+    const chatId = String(chat.group_id);
+    url.searchParams.set('chatId', chatId);
+  } else {
+    url.searchParams.delete('chatId');
+  }
+  window.history.replaceState({}, '', url.toString());
+  // Update the reactive ref to trigger watchers
+  updateURLSearchParams();
+}
+
+/**
+ * Read chat ID from URL and find matching chat
+ */
+function getChatIdFromURL(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('chatId');
+}
+
+/**
+ * Find chat by group_id
+ */
+function findChatByGroupId(groupId: string): MessengerChatItem | null {
+  return chatList.value.find(chat => String(chat.group_id) === groupId) || null;
+}
+
 async function handleChatClick(chat: MessengerChatItem) {
   selectedChat.value = chat;
   messages.value = [];
@@ -956,6 +996,10 @@ async function handleChatClick(chat: MessengerChatItem) {
   isSyncing.value = false; // Reset syncing state when switching chats
   typingManager.reset(); // Reset typing when switching chats
   clearSearch(); // Clear search when switching chats
+  
+  // Update URL with selected chat
+  updateChatInURL(chat);
+  
   await handleLoadMessages(chat);
   
   // Always scroll to bottom when opening a chat
@@ -971,6 +1015,9 @@ async function handleChatClick(chat: MessengerChatItem) {
 function handleClose() {
   // Stop typing if active
   typingManager.stopTyping();
+  
+  // Clear chat from URL when closing
+  updateChatInURL(null);
   
   emit('update:modelValue', false);
   emit('close');
@@ -1038,6 +1085,38 @@ watch(filteredMessages, (newFiltered) => {
   }
 });
 
+// Track URL search params for reactivity
+const urlSearchParams = ref(window.location.search);
+
+// Update URL search params ref when URL changes
+function updateURLSearchParams() {
+  urlSearchParams.value = window.location.search;
+}
+
+// Watch for URL changes to update selected chat
+watch(urlSearchParams, async () => {
+  if (props.modelValue && chatList.value.length > 0) {
+    const chatIdFromURL = getChatIdFromURL();
+    const currentChatId = selectedChat.value ? String(selectedChat.value.group_id) : null;
+    
+    // Only update if URL chatId is different from current selection
+    if (chatIdFromURL !== currentChatId) {
+      if (chatIdFromURL) {
+        const chat = findChatByGroupId(chatIdFromURL);
+        if (chat) {
+          await nextTick();
+          await handleChatClick(chat);
+        }
+      } else if (selectedChat.value) {
+        // URL has no chatId but we have a selected chat - clear selection
+        selectedChat.value = null;
+        messages.value = [];
+      }
+    }
+  }
+}, { immediate: false });
+
+
 // Watch for modelValue changes to fetch data when dialog opens
 watch(() => props.modelValue, async (newValue) => {
   if (newValue) {
@@ -1057,6 +1136,17 @@ watch(() => props.modelValue, async (newValue) => {
     
     // Set up event listeners
     setupEventListeners();
+    
+    // Restore chat selection from URL after chats are loaded
+    const chatIdFromURL = getChatIdFromURL();
+    if (chatIdFromURL) {
+      const chat = findChatByGroupId(chatIdFromURL);
+      if (chat) {
+        // Small delay to ensure UI is ready
+        await nextTick();
+        await handleChatClick(chat);
+      }
+    }
   } else {
     cleanupEventListeners();
     // Reset initial load flag when dialog closes
@@ -1273,6 +1363,9 @@ function handleClickOutside(event: MouseEvent): void {
 }
 
 onMounted(async () => {
+  // Set up popstate listener for URL changes
+  window.addEventListener('popstate', updateURLSearchParams);
+  
   if (props.modelValue) {
     // Reset initial load flag
     isInitialLoad.value = true;
@@ -1298,6 +1391,8 @@ onUnmounted(() => {
   cleanupEventListeners();
   // Remove click outside handler
   document.removeEventListener('click', handleClickOutside);
+  // Remove popstate listener
+  window.removeEventListener('popstate', updateURLSearchParams);
 });
 </script>
 
@@ -1569,10 +1664,18 @@ onUnmounted(() => {
               <img
                 :src="`https://pictures.sdc.com/photos/${selectedChat.primary_photo}`"
                 :alt="selectedChat.account_id"
-                class="w-10 h-10 rounded-full object-cover shrink-0"
+                @click="openProfileInNewTab(selectedChat.db_id)"
+                class="w-10 h-10 rounded-full object-cover shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                title="Click to view profile in new tab"
               />
               <div class="flex-1 min-w-0">
-                <h3 class="text-white font-semibold truncate">{{ selectedChat.account_id }}</h3>
+                <h3
+                  @click="openProfileInNewTab(selectedChat.db_id)"
+                  class="text-white font-semibold truncate cursor-pointer hover:text-blue-400 transition-colors"
+                  title="Click to view profile in new tab"
+                >
+                  {{ selectedChat.account_id }}
+                </h3>
                 <p v-if="selectedChat.online === 1" class="text-xs text-green-500">Online</p>
                 <p v-else class="text-xs text-[#999]">Offline</p>
               </div>
