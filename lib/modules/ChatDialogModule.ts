@@ -39,6 +39,12 @@ export class ChatDialogModule extends BaseModule {
     async init(): Promise<void> {
         console.log('[ChatDialog] Module init() called');
         
+        // Setup old chat hiding FIRST (before button injection) if enabled
+        // This ensures old chat is hidden immediately, even before our button appears
+        if (this.getConfigValue('hideOldChat')) {
+            this.setupOldChatHiding();
+        }
+        
         // Add Chat button to navbar
         this.injectChatButton();
         
@@ -50,11 +56,6 @@ export class ChatDialogModule extends BaseModule {
         
         // Subscribe to counter updates
         this.setupCounterSubscription();
-        
-        // Setup old chat hiding if enabled
-        if (this.getConfigValue('hideOldChat')) {
-            this.setupOldChatHiding();
-        }
     }
 
     async cleanup(): Promise<void> {
@@ -81,8 +82,19 @@ export class ChatDialogModule extends BaseModule {
         // Find the navbar right buttons container
         const navBarRightButtons = document.querySelector('.nav-bar-right-buttons');
         if (!navBarRightButtons) {
-            // Try again after a short delay if navbar isn't ready
-            setTimeout(() => this.injectChatButton(), 500);
+            // Try again with shorter, more aggressive retries
+            let retryCount = 0;
+            const maxRetries = 20; // Try for up to 2 seconds (20 * 100ms)
+            const retryInterval = setInterval(() => {
+                retryCount++;
+                if (document.querySelector('.nav-bar-right-buttons')) {
+                    clearInterval(retryInterval);
+                    this.injectChatButton();
+                } else if (retryCount >= maxRetries) {
+                    clearInterval(retryInterval);
+                    console.warn('[ChatDialog] Navbar not found after retries');
+                }
+            }, 100);
             return;
         }
 
@@ -92,7 +104,25 @@ export class ChatDialogModule extends BaseModule {
         const insertAfter = boostButton || messengerButton;
         
         if (!insertAfter) {
-            setTimeout(() => this.injectChatButton(), 500);
+            // Try again with shorter retries
+            let retryCount = 0;
+            const maxRetries = 10; // Try for up to 1 second (10 * 100ms)
+            const retryInterval = setInterval(() => {
+                retryCount++;
+                const navBar = document.querySelector('.nav-bar-right-buttons');
+                if (navBar) {
+                    const msgBtn = navBar.querySelector('.nav-bar-option-icon-button');
+                    const boostBtn = navBar.querySelector('.sdc-boost-navbar-button');
+                    if (msgBtn || boostBtn) {
+                        clearInterval(retryInterval);
+                        this.injectChatButton();
+                    }
+                }
+                if (retryCount >= maxRetries) {
+                    clearInterval(retryInterval);
+                    console.warn('[ChatDialog] Insert target not found after retries');
+                }
+            }, 100);
             return;
         }
 
@@ -379,8 +409,20 @@ export class ChatDialogModule extends BaseModule {
      * Setup observer to hide old chat/messenger elements
      */
     private setupOldChatHiding(): void {
-        // Hide existing elements immediately
+        // Hide existing elements immediately (try multiple times aggressively)
         this.hideOldChatElements();
+        
+        // Try again immediately after a microtask to catch elements that appear during page load
+        Promise.resolve().then(() => {
+            this.hideOldChatElements();
+        });
+        
+        // Try again after DOMContentLoaded if not already loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                this.hideOldChatElements();
+            });
+        }
 
         // Set up observer to hide elements when they appear
         if (this.oldChatObserver) {
@@ -399,16 +441,30 @@ export class ChatDialogModule extends BaseModule {
             attributeFilter: ['style'], // Watch for style changes that might restore elements
         });
 
-        // Also set up a periodic check as a fallback (in case observer misses something)
+        // Also set up a periodic check as a fallback (more frequent initially)
+        let checkCount = 0;
         const checkInterval = setInterval(() => {
             if (!this.getConfigValue('hideOldChat')) {
                 clearInterval(checkInterval);
                 return;
             }
             this.hideOldChatElements();
+            checkCount++;
+            // After 10 checks (10 seconds), reduce frequency to every 2 seconds
+            if (checkCount === 10) {
+                clearInterval(checkInterval);
+                const slowCheckInterval = setInterval(() => {
+                    if (!this.getConfigValue('hideOldChat')) {
+                        clearInterval(slowCheckInterval);
+                        return;
+                    }
+                    this.hideOldChatElements();
+                }, 2000);
+                (this as any)._oldChatCheckInterval = slowCheckInterval;
+            }
         }, 1000);
 
-        // Store interval ID for cleanup (we'll need to add a property for this)
+        // Store interval ID for cleanup
         (this as any)._oldChatCheckInterval = checkInterval;
     }
 

@@ -35,7 +35,8 @@ export class ModuleManager {
     async initialize(): Promise<void> {
         if (this.initialized) return;
 
-        for (const module of this.modules.values()) {
+        // Initialize modules in parallel for faster startup
+        const initPromises = Array.from(this.modules.values()).map(async (module) => {
             // Load configuration
             const config = await getModuleConfig(module.id);
             if (config && Object.keys(config).length > 0) {
@@ -47,7 +48,10 @@ export class ModuleManager {
             if (isEnabled) {
                 await module.enable();
             }
-        }
+        });
+
+        // Wait for all modules to initialize in parallel
+        await Promise.all(initPromises);
 
         this.initialized = true;
         console.log('SDC Boost: Module manager initialized');

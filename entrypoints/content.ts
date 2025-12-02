@@ -25,6 +25,10 @@ export default defineContentScript({
     const moduleManager = new ModuleManager();
 
     // Register all modules
+    // Register ChatDialog early since it's UI-critical
+    const chatDialogModule = new ChatDialogModule();
+    moduleManager.register(chatDialogModule);
+
     const ageFilterModule = new AgeFilterModule();
     moduleManager.register(ageFilterModule);
 
@@ -42,9 +46,6 @@ export default defineContentScript({
 
     const enhancedClickModule = new EnhancedClickModule();
     moduleManager.register(enhancedClickModule);
-
-    const chatDialogModule = new ChatDialogModule();
-    moduleManager.register(chatDialogModule);
 
     // Set up Vue Chat Dialog UI
     let chatDialogApp: ReturnType<typeof createApp> | null = null;
@@ -113,12 +114,12 @@ export default defineContentScript({
       },
     });
 
-    // Mount the UI (hidden initially)
+    // Mount the UI (hidden initially) - don't await, let it mount in background
     chatDialogUI.mount();
     
     // Expose methods globally for module to use (after UI is mounted)
-    // Wait a tick for Vue app to initialize
-    setTimeout(() => {
+    // Use requestAnimationFrame for faster initialization
+    requestAnimationFrame(() => {
       (window as any).__sdcBoostChatDialog = {
         open: () => {
           console.log('[ChatDialog] Opening dialog via global method');
@@ -159,7 +160,7 @@ export default defineContentScript({
           }
         },
       };
-    }, 100);
+    });
 
     // Initialize modules based on stored state
     moduleManager.initialize().catch(console.error);
@@ -193,7 +194,7 @@ export default defineContentScript({
       console.error('[SDC Boost] Failed to initialize counters:', error);
     });
 
-    // Initialize WebSocket connection (wait a bit for page to be ready)
+    // Initialize WebSocket connection (reduced delay for faster initialization)
     setTimeout(() => {
       websocketManager.connect().then(() => {
         // Initialize WebSocket event handlers after connection is established
@@ -201,7 +202,7 @@ export default defineContentScript({
       }).catch((error) => {
         console.error('[SDC Boost] Failed to initialize WebSocket:', error);
       });
-    }, 1000);
+    }, 300);
 
     // Make WebSocket manager available globally
     (window as any).__sdcBoostWebSocket = websocketManager;
