@@ -32,8 +32,6 @@ const typingStates = ref<Map<string, boolean>>(new Map()); // Map of groupId -> 
 const isWebSocketConnected = ref(false);
 const messages = ref<MessengerMessage[]>([]);
 const isLoadingMessages = ref(false);
-const hasMoreMessages = ref(false);
-const currentPage = ref(0);
 const messagesContainer = ref<HTMLElement | null>(null);
 
 // Helper function to sort chats: pinned first, then by date_time
@@ -258,91 +256,228 @@ function getTotalUnreadCount(): number {
 
 /**
  * Load messages for a chat
+ * On first load: fetches all history and stores it (shows loading)
+ * On subsequent loads: loads from storage immediately, then fetches only latest page (no loading)
  */
-async function loadMessages(chat: MessengerChatItem, page: number = 0, append: boolean = false): Promise<void> {
+async function loadMessages(chat: MessengerChatItem): Promise<void> {
   if (isLoadingMessages.value) return;
   
-  isLoadingMessages.value = true;
   error.value = null;
 
   try {
-    // Try to load from storage first
+    // Check if chat has been fetched before
+    const hasBeenFetched = await messageStorage.hasChatBeenFetched(chat.group_id);
     const storedMessages = await messageStorage.getMessages(chat.group_id);
     
-    if (storedMessages.length > 0 && page === 0 && !append) {
-      // Use stored messages if available
+    if (hasBeenFetched && storedMessages.length > 0) {
+      // Chat has been fetched before - load from storage immediately (no loading indicator)
       messages.value = storedMessages;
-      // Still fetch latest from API in background
-      fetchMessagesFromAPI(chat, 0, false).catch(console.error);
+      
+      // Scroll to bottom immediately
+      await nextTick();
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      }
+      
+      // Fetch new messages in background without blocking
+      const latestMessageId = await messageStorage.getLatestMessageId(chat.group_id);
+      fetchNewMessagesOnly(chat, latestMessageId).catch(console.error);
+    } else if (hasBeenFetched && storedMessages.length === 0) {
+      // Chat marked as fetched but no messages - fetch all again
+      isLoadingMessages.value = true;
+      await fetchAllMessages(chat);
+      
+      await nextTick();
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      }
+      isLoadingMessages.value = false;
     } else {
-      // Fetch from API
-      await fetchMessagesFromAPI(chat, page, append);
+      // First time loading this chat - fetch all history (show loading)
+      isLoadingMessages.value = true;
+      await fetchAllMessages(chat);
+      
+      // Scroll to bottom after loading
+      await nextTick();
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      }
+      isLoadingMessages.value = false;
     }
   } catch (err) {
     console.error('[ChatDialog] Failed to load messages:', err);
     error.value = 'Failed to load messages';
-  } finally {
     isLoadingMessages.value = false;
   }
 }
 
 /**
- * Fetch messages from API
+ * Fetch all messages for a chat (full history)
+ * Fetches all pages until there are no more messages
+ * Updates DB and displays messages progressively as each page loads
  */
-async function fetchMessagesFromAPI(chat: MessengerChatItem, page: number = 0, append: boolean = false): Promise<void> {
+async function fetchAllMessages(chat: MessengerChatItem): Promise<void> {
+  console.log(`[ChatDialog] Fetching all messages for chat ${chat.group_id}...`);
+  let page = 0;
+  let hasMore = true;
+  const allMessages: MessengerMessage[] = [];
+
+  while (hasMore) {
+    try {
+      const response = await getMessengerChatDetails(
+        chat.db_id,
+        chat.group_id,
+        chat.group_type || 0,
+        page
+      );
+
+      if (response.info.code === '200') {
+        const pageMessages = response.info.message_list || [];
+        
+        if (pageMessages.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        // Store messages immediately after each page
+        await messageStorage.upsertMessages(chat.group_id, pageMessages);
+        
+        // Add messages to collection (they come in reverse chronological order from API)
+        allMessages.push(...pageMessages);
+        
+        // Update displayed messages progressively (sort by date2 ascending)
+        const sortedMessages = [...allMessages].sort((a, b) => a.date2 - b.date2);
+        messages.value = sortedMessages;
+        
+        // Scroll to bottom after each page to show latest messages
+        await nextTick();
+        if (messagesContainer.value) {
+          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+        }
+        
+        // Check if there are more pages
+        const urlMore = response.info.url_more;
+        if (!urlMore || urlMore === '-1' || urlMore === '') {
+          hasMore = false;
+        } else {
+          // Extract next page number from url_more
+          const match = urlMore.match(/page=(\d+)/);
+          if (match) {
+            const nextPage = parseInt(match[1], 10);
+            if (nextPage > page) {
+              page = nextPage;
+            } else {
+              hasMore = false;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+      } else {
+        hasMore = false;
+      }
+    } catch (err) {
+      console.error(`[ChatDialog] Failed to fetch page ${page}:`, err);
+      hasMore = false;
+    }
+  }
+
+  // Mark chat as fetched and fully synced after all pages are loaded
+  if (allMessages.length > 0) {
+    await messageStorage.markChatFetched(chat.group_id);
+    console.log(`[ChatDialog] Loaded ${allMessages.length} messages for chat ${chat.group_id}`);
+  }
+}
+
+/**
+ * Refresh latest page (page 0) in background
+ * Used when WebSocket message is received to get any updates
+ */
+async function refreshLatestPage(chat: MessengerChatItem): Promise<void> {
   try {
     const response = await getMessengerChatDetails(
       chat.db_id,
       chat.group_id,
       chat.group_type || 0,
-      page
+      0
     );
 
     if (response.info.code === '200') {
-      const newMessages = response.info.message_list || [];
+      const pageMessages = response.info.message_list || [];
       
-      // Store messages
-      await messageStorage.upsertMessages(chat.group_id, newMessages);
-      
-      if (append) {
-        // Prepend older messages (they come in reverse chronological order from API)
-        messages.value = [...newMessages.reverse(), ...messages.value];
-      } else {
-        // Replace messages (newest first, then reverse for display)
-        messages.value = newMessages.reverse();
-      }
-      
-      // Check if there are more messages
-      hasMoreMessages.value = !!response.info.url_more && response.info.url_more !== '-1' && response.info.url_more !== '';
-      currentPage.value = page;
-      
-      // Scroll to bottom (or top if loading older messages)
-      await nextTick();
-      if (messagesContainer.value) {
-        if (append) {
-          // Maintain scroll position when loading older messages
-          const oldScrollHeight = messagesContainer.value.scrollHeight;
-          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight - oldScrollHeight;
-        } else {
-          // Scroll to bottom for new messages
+      if (pageMessages.length > 0) {
+        // Store messages
+        await messageStorage.upsertMessages(chat.group_id, pageMessages);
+        
+        // Reload messages from storage to get updated list
+        const storedMessages = await messageStorage.getMessages(chat.group_id);
+        messages.value = storedMessages;
+        
+        // Scroll to bottom to show new messages
+        await nextTick();
+        if (messagesContainer.value) {
           messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
         }
       }
     }
   } catch (err) {
-    console.error('[ChatDialog] Failed to fetch messages from API:', err);
-    throw err;
+    console.error('[ChatDialog] Failed to refresh latest page:', err);
   }
 }
 
 /**
- * Load more messages (pagination)
+ * Fetch only new messages (for already fetched chats)
+ * Only fetches page 0 (latest page) which contains the newest messages
  */
-async function loadMoreMessages(): Promise<void> {
-  if (!selectedChat.value || isLoadingMessages.value || !hasMoreMessages.value) return;
+async function fetchNewMessagesOnly(chat: MessengerChatItem, latestMessageId: number | null): Promise<void> {
+  console.log(`[ChatDialog] Fetching new messages for chat ${chat.group_id}...`);
   
-  const nextPage = currentPage.value + 1;
-  await loadMessages(selectedChat.value, nextPage, true);
+  if (latestMessageId === null) {
+    // No stored messages - this shouldn't happen if chat is fetched, but handle it
+    console.warn(`[ChatDialog] Chat ${chat.group_id} marked as fetched but has no messages. Fetching all.`);
+    await fetchAllMessages(chat);
+    return;
+  }
+
+  try {
+    // Only fetch page 0 (latest page)
+    const response = await getMessengerChatDetails(
+      chat.db_id,
+      chat.group_id,
+      chat.group_type || 0,
+      0
+    );
+
+    if (response.info.code === '200') {
+      const pageMessages = response.info.message_list || [];
+      
+      if (pageMessages.length === 0) {
+        return;
+      }
+
+      // Filter to only include messages newer than what we have
+      const newMessages = pageMessages.filter(msg => msg.message_id > latestMessageId);
+      
+      if (newMessages.length > 0) {
+        // Store new messages
+        await messageStorage.upsertMessages(chat.group_id, newMessages);
+        
+        // Add to current messages list (sorted by date2)
+        messages.value = [...messages.value, ...newMessages].sort((a, b) => a.date2 - b.date2);
+        
+        // Scroll to bottom to show new messages
+        await nextTick();
+        if (messagesContainer.value) {
+          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+        }
+        
+        console.log(`[ChatDialog] Added ${newMessages.length} new messages for chat ${chat.group_id}`);
+      }
+    }
+  } catch (err) {
+    console.error('[ChatDialog] Failed to fetch new messages:', err);
+    throw err;
+  }
 }
 
 /**
@@ -360,22 +495,10 @@ function formatMessageDate(message: MessengerMessage): string {
   return message.date || new Date(message.date2 * 1000).toLocaleString();
 }
 
-/**
- * Handle scroll for loading more messages
- */
-function handleScroll(event: Event) {
-  const target = event.target as HTMLElement;
-  // Load more when scrolled near top
-  if (target.scrollTop < 100 && hasMoreMessages.value && !isLoadingMessages.value) {
-    loadMoreMessages();
-  }
-}
 
 async function handleChatClick(chat: MessengerChatItem) {
   selectedChat.value = chat;
   messages.value = [];
-  currentPage.value = 0;
-  hasMoreMessages.value = false;
   await loadMessages(chat);
 }
 
@@ -479,45 +602,10 @@ function setupEventListeners() {
       await loadChatsFromStorage();
     }
     
-    // If this message is for the currently selected chat, add it to the messages list
-    if (selectedChat.value && String(selectedChat.value.group_id) === String(groupId) && message) {
-      // Check if message already exists
-      const messageExists = messages.value.some(m => m.message_id === parseInt(message.ID));
-      if (!messageExists) {
-        // Convert WebSocket message format to MessengerMessage format
-        const newMessage: MessengerMessage = {
-          message: message.message,
-          url_videos: '',
-          message_id: parseInt(message.ID),
-          share_data: null,
-          share_biz_list: [],
-          message_type: message.type || null,
-          seen: 0,
-          sender: message.db_id === message.targetID ? 0 : 1,
-          gender1: chat?.gender1 || 0,
-          gender2: chat?.gender2 || 0,
-          date: message.date || '',
-          account_id: message.account_id || '',
-          date2: new Date(message.datetime || message.time).getTime() / 1000,
-          db_id: message.db_id,
-          extra1: '',
-          forward: 0,
-          forward_extra_text: '',
-          forward_db_id: 0,
-          is_quote: 0,
-          is_lt_offer: 0,
-        };
-        
-        // Add to messages and store
-        messages.value.push(newMessage);
-        await messageStorage.addMessage(selectedChat.value.group_id, newMessage);
-        
-        // Scroll to bottom
-        await nextTick();
-        if (messagesContainer.value) {
-          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-        }
-      }
+    // If this message is for the currently selected chat, refresh page 0 in background
+    if (selectedChat.value && String(selectedChat.value.group_id) === String(groupId)) {
+      // Refresh latest page (page 0) in background to get any updates
+      refreshLatestPage(selectedChat.value).catch(console.error);
     }
   };
 
@@ -722,9 +810,12 @@ onUnmounted(() => {
           <!-- Chat List -->
           <div class="flex-1 overflow-y-auto">
             <div v-if="isLoading && chatList.length === 0" class="flex items-center justify-center h-full">
-              <div class="flex flex-col items-center gap-3">
-                <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <div class="text-[#999]">Loading chats...</div>
+              <div class="flex flex-col items-center gap-4 px-6 max-w-sm">
+                <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <div class="text-center">
+                  <div class="text-white text-lg font-semibold mb-2">Syncing your chats</div>
+                  <div class="text-[#999] text-sm">Please wait while we load your conversations...</div>
+                </div>
               </div>
             </div>
 
@@ -751,7 +842,7 @@ onUnmounted(() => {
         </div>
 
         <!-- Right Side - Chat Messages Area -->
-        <div class="flex-1 flex flex-col bg-[#1a1a1a]">
+        <div class="flex-1 flex flex-col bg-[#1a1a1a] min-w-0 overflow-hidden">
           <div v-if="!selectedChat" class="flex-1 flex items-center justify-center">
             <div class="text-center text-[#999]">
               <svg
@@ -770,16 +861,16 @@ onUnmounted(() => {
               <p>Select a chat to view messages</p>
             </div>
           </div>
-          <div v-else class="flex-1 flex flex-col">
+          <div v-else class="flex-1 flex flex-col min-w-0 overflow-hidden">
             <!-- Chat Header -->
-            <div class="px-6 py-4 border-b border-[#333] shrink-0 flex items-center gap-4">
+            <div class="px-6 py-4 border-b border-[#333] shrink-0 flex items-center gap-4 min-w-0">
               <img
                 :src="`https://pictures.sdc.com/photos/${selectedChat.primary_photo}`"
                 :alt="selectedChat.account_id"
-                class="w-10 h-10 rounded-full object-cover"
+                class="w-10 h-10 rounded-full object-cover shrink-0"
               />
-              <div class="flex-1">
-                <h3 class="text-white font-semibold">{{ selectedChat.account_id }}</h3>
+              <div class="flex-1 min-w-0">
+                <h3 class="text-white font-semibold truncate">{{ selectedChat.account_id }}</h3>
                 <p v-if="selectedChat.online === 1" class="text-xs text-green-500">Online</p>
                 <p v-else class="text-xs text-[#999]">Offline</p>
               </div>
@@ -788,31 +879,20 @@ onUnmounted(() => {
             <!-- Messages Area -->
             <div 
               ref="messagesContainer"
-              class="flex-1 overflow-y-auto p-6 space-y-4"
-              @scroll="handleScroll"
+              class="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4 min-w-0"
             >
-              <!-- Load More Button -->
-              <div v-if="hasMoreMessages && !isLoadingMessages" class="flex justify-center">
-                <button
-                  @click="loadMoreMessages"
-                  class="px-4 py-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  Load older messages
-                </button>
-              </div>
-
               <!-- Loading Indicator -->
               <div v-if="isLoadingMessages && messages.length === 0" class="flex justify-center py-8">
                 <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
 
               <!-- Messages List -->
-              <div v-else-if="messages.length > 0" class="space-y-4">
+              <div v-else-if="messages.length > 0" class="space-y-4 min-w-0">
                 <div
                   v-for="message in messages"
                   :key="message.message_id"
                   :class="[
-                    'flex gap-3',
+                    'flex gap-3 min-w-0 w-full',
                     isOwnMessage(message) ? 'flex-row-reverse' : 'flex-row'
                   ]"
                 >
@@ -823,50 +903,49 @@ onUnmounted(() => {
                     :alt="message.account_id"
                     class="w-8 h-8 rounded-full object-cover shrink-0"
                   />
-                  <div v-else class="w-8 shrink-0"></div>
 
                   <!-- Message Content -->
                   <div
                     :class="[
-                      'flex flex-col gap-1 max-w-[70%]',
-                      isOwnMessage(message) ? 'items-end' : 'items-start'
+                      'flex flex-col gap-1 min-w-0',
+                      isOwnMessage(message) ? 'items-end ml-auto max-w-[70%]' : 'items-start max-w-[70%]'
                     ]"
                   >
                     <!-- Quoted Message -->
                     <div
                       v-if="message.is_quote && message.q_message"
                       :class="[
-                        'px-3 py-2 rounded-lg text-sm border-l-2',
+                        'px-3 py-2 rounded-lg text-sm border-l-2 min-w-0 w-full',
                         isOwnMessage(message)
                           ? 'bg-[#2a2a2a] border-blue-500 text-[#ccc]'
                           : 'bg-[#0f0f0f] border-[#444] text-[#999]'
                       ]"
                     >
-                      <div class="font-semibold text-xs mb-1">
+                      <div class="font-semibold text-xs mb-1 truncate">
                         {{ message.q_account_id }}
                       </div>
-                      <div class="text-xs line-clamp-2">{{ message.q_message }}</div>
+                      <div class="text-xs line-clamp-2 wrap-break-word">{{ message.q_message }}</div>
                     </div>
 
                     <!-- Message Bubble -->
                     <div
                       :class="[
-                        'px-4 py-2 rounded-lg',
+                        'px-4 py-2 rounded-lg min-w-0 w-full',
                         isOwnMessage(message)
                           ? 'bg-blue-500 text-white'
                           : 'bg-[#2a2a2a] text-white'
                       ]"
                     >
-                      <p class="whitespace-pre-wrap wrap-break-word">{{ message.message }}</p>
+                      <p class="whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere">{{ message.message }}</p>
                     </div>
 
                     <!-- Message Meta -->
-                    <div class="flex items-center gap-2 text-xs text-[#666]">
-                      <span>{{ formatMessageDate(message) }}</span>
-                      <span v-if="isOwnMessage(message) && message.seen === 1" class="text-blue-400">
+                    <div class="flex items-center gap-2 text-xs text-[#666] shrink-0">
+                      <span class="whitespace-nowrap">{{ formatMessageDate(message) }}</span>
+                      <span v-if="isOwnMessage(message) && message.seen === 1" class="text-blue-400 shrink-0">
                         ✓✓
                       </span>
-                      <span v-else-if="isOwnMessage(message)" class="text-[#666]">
+                      <span v-else-if="isOwnMessage(message)" class="text-[#666] shrink-0">
                         ✓
                       </span>
                     </div>

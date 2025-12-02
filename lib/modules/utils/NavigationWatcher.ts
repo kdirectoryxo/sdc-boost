@@ -115,3 +115,4 @@ export class NavigationWatcher {
 // Create singleton instance
 export const navigationWatcher = new NavigationWatcher();
 
+

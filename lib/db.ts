@@ -7,7 +7,7 @@ import { openDB, type IDBPDatabase } from 'idb';
 import type { MessengerChatItem, MessengerFolder, MessengerMessage } from './sdc-api-types';
 
 const DB_NAME = 'sdc-boost-v2';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export interface ChatDB {
     chats: {
@@ -37,6 +37,17 @@ export interface ChatDB {
             group_id: number;
             message_id: number;
             date2: number;
+        };
+    };
+    chat_metadata: {
+        key: number;
+        value: {
+            group_id: number;
+            messages_fetched: boolean;
+            last_fetched_at?: number;
+        };
+        indexes: {
+            group_id: number;
         };
     };
 }
@@ -80,16 +91,20 @@ export async function getDB(): Promise<IDBPDatabase<ChatDB>> {
                 console.log('[DB] Created folders object store');
             }
 
-            // Migrations based on version
-            if (oldVersion < 2) {
-                // Create messages object store in version 2
-                if (!db.objectStoreNames.contains('messages')) {
-                    const store = db.createObjectStore('messages', { keyPath: 'id' });
-                    store.createIndex('group_id', 'group_id', { unique: false });
-                    store.createIndex('message_id', 'message_id', { unique: false });
-                    store.createIndex('date2', 'date2', { unique: false });
-                    console.log('[DB] Created messages object store');
-                }
+            // Create messages object store (version 2+)
+            if (!db.objectStoreNames.contains('messages')) {
+                const store = db.createObjectStore('messages', { keyPath: 'id' });
+                store.createIndex('group_id', 'group_id', { unique: false });
+                store.createIndex('message_id', 'message_id', { unique: false });
+                store.createIndex('date2', 'date2', { unique: false });
+                console.log('[DB] Created messages object store');
+            }
+
+            // Create chat_metadata object store (version 3+)
+            if (!db.objectStoreNames.contains('chat_metadata')) {
+                const store = db.createObjectStore('chat_metadata', { keyPath: 'group_id' });
+                store.createIndex('group_id', 'group_id', { unique: true });
+                console.log('[DB] Created chat_metadata object store');
             }
         },
     });

@@ -7,6 +7,7 @@ import { getDB } from './db';
 import type { MessengerMessage } from './sdc-api-types';
 
 const STORE_NAME = 'messages';
+const METADATA_STORE_NAME = 'chat_metadata';
 
 /**
  * Get a unique key for a message
@@ -169,6 +170,60 @@ class MessageStorage {
 
         await db.clear(STORE_NAME);
         console.log('[MessageStorage] Cleared all messages');
+    }
+
+    /**
+     * Check if chat has been fetched before
+     */
+    async hasChatBeenFetched(groupId: number): Promise<boolean> {
+        const db = await this.getDB();
+        
+        if (!db.objectStoreNames.contains(METADATA_STORE_NAME)) {
+            return false;
+        }
+
+        try {
+            const metadata = await db.get(METADATA_STORE_NAME, groupId);
+            return metadata?.messages_fetched === true;
+        } catch (error) {
+            console.error(`[MessageStorage] Error checking fetch status for chat ${groupId}:`, error);
+            return false;
+        }
+    }
+
+    /**
+     * Mark chat as fetched
+     */
+    async markChatFetched(groupId: number): Promise<void> {
+        const db = await this.getDB();
+        
+        if (!db.objectStoreNames.contains(METADATA_STORE_NAME)) {
+            console.warn('[MessageStorage] Chat metadata store not available. Skipping.');
+            return;
+        }
+
+        try {
+            await db.put(METADATA_STORE_NAME, {
+                group_id: groupId,
+                messages_fetched: true,
+                last_fetched_at: Date.now(),
+            });
+            console.log(`[MessageStorage] Marked chat ${groupId} as fetched`);
+        } catch (error) {
+            console.error(`[MessageStorage] Error marking chat ${groupId} as fetched:`, error);
+        }
+    }
+
+    /**
+     * Get the highest message ID for a chat (to determine if we have new messages)
+     */
+    async getLatestMessageId(groupId: number): Promise<number | null> {
+        const messages = await this.getMessages(groupId);
+        if (messages.length === 0) {
+            return null;
+        }
+        // Messages are sorted by date2 ascending, so last one is newest
+        return messages[messages.length - 1].message_id;
     }
 }
 
