@@ -13,6 +13,7 @@ import { TypingManager } from '@/lib/typing-manager';
 import { deleteMessage } from '@/lib/sdc-api';
 import { messageStorage } from '@/lib/message-storage';
 import { getCurrentAccountId, getCurrentDBId } from '@/lib/sdc-api/utils';
+import { countersManager } from '@/lib/counters-manager';
 
 interface Props {
   modelValue: boolean;
@@ -44,6 +45,7 @@ const quotedMessageRef = ref<MessengerMessage | null>(null); // Store quoted mes
 const dropdownButtonRefs = ref<Map<number, HTMLElement>>(new Map()); // Store refs to dropdown buttons
 const optimisticMessageTempIds = ref<Map<string, string>>(new Map()); // Track optimistic messages: tempId -> message content
 const optimisticMessages = ref<Map<string, MessengerMessage>>(new Map()); // Track optimistic messages by tempId
+const messengerCounter = ref<number>(0); // Track messenger counter from counters manager
 
 // Computed property for quoted message
 const quotedMessage = computed(() => {
@@ -268,19 +270,18 @@ function getFolderUnreadCount(folderId: number): number {
 
 /**
  * Get unread count for inbox (folder_id = 0 or null)
+ * Uses counters.messenger from counters manager (correct value)
  */
 function getInboxUnreadCount(): number {
-  return chatList.value
-    .filter(chat => !chat.folder_id || chat.folder_id === 0)
-    .reduce((sum, chat) => sum + chat.unread_counter, 0);
+  return messengerCounter.value;
 }
 
 /**
  * Get total unread count across all chats
+ * Uses counters.messenger from counters manager (correct value)
  */
 function getTotalUnreadCount(): number {
-  return chatList.value
-    .reduce((sum, chat) => sum + chat.unread_counter, 0);
+  return messengerCounter.value;
 }
 
 // Search is now client-side only, no need for debounced API calls
@@ -289,48 +290,73 @@ function getTotalUnreadCount(): number {
  * Load messages for a chat using the message service
  */
 async function handleLoadMessages(chat: MessengerChatItem): Promise<void> {
-  if (isLoadingMessages.value) return;
+  // Store the current chat's group_id to track which chat we're loading
+  const currentChatGroupId = chat.group_id;
   
+  // Clear messages and reset error when starting a new load
+  messages.value = [];
   error.value = null;
+  
+  // Check if this is a first-time load (will need to fetch all messages)
+  // If so, show loading spinner
+  const hasBeenFetched = await messageStorage.hasChatBeenFetched(chat.group_id);
+  const storedMessages = await messageStorage.getMessages(chat.group_id);
+  const isFirstTimeLoad = !hasBeenFetched || storedMessages.length === 0;
+  
+  if (isFirstTimeLoad) {
+    isLoadingMessages.value = true;
+  }
 
   try {
     const result = await loadMessages(chat, (updatedMessages) => {
-      messages.value = updatedMessages;
-      // Scroll to bottom after each update
-      nextTick().then(() => {
-        if (messagesContainer.value) {
-          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      // Only update messages if we're still loading the same chat
+      // This prevents old progress callbacks from updating messages after switching chats
+      if (selectedChat.value && selectedChat.value.group_id === currentChatGroupId) {
+        messages.value = updatedMessages;
+        // If we have messages, we can hide the spinner
+        if (updatedMessages.length > 0) {
+          isLoadingMessages.value = false;
         }
-      });
+        // Scroll to bottom after each update
+        nextTick().then(() => {
+          if (messagesContainer.value) {
+            messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+          }
+        });
+      }
     });
     
-    messages.value = result.messages;
-    isLoadingMessages.value = result.isLoading;
-    
-    // Always scroll to bottom after loading (with multiple attempts for reliability)
-    await nextTick();
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-      // Also scroll after a small delay to account for any rendering delays
-      setTimeout(() => {
-        if (messagesContainer.value) {
-          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-        }
-      }, 100);
-    }
-    
-    if (!result.isLoading) {
+    // Only update if we're still on the same chat
+    if (selectedChat.value && selectedChat.value.group_id === currentChatGroupId) {
+      messages.value = result.messages;
+      // Always set loading to false after loadMessages completes
       isLoadingMessages.value = false;
-      // Final scroll to bottom when loading completes
+      
+      // Always scroll to bottom after loading (with multiple attempts for reliability)
       await nextTick();
       if (messagesContainer.value) {
         messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+        // Also scroll after a small delay to account for any rendering delays
+        setTimeout(() => {
+          if (messagesContainer.value) {
+            messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+          }
+        }, 100);
       }
+    } else {
+      // Chat was switched, ensure loading state is cleared
+      isLoadingMessages.value = false;
     }
   } catch (err) {
     console.error('[ChatDialog] Failed to load messages:', err);
-    error.value = 'Failed to load messages';
-    isLoadingMessages.value = false;
+    // Only update error/loading state if we're still on the same chat
+    if (selectedChat.value && selectedChat.value.group_id === currentChatGroupId) {
+      error.value = 'Failed to load messages';
+      isLoadingMessages.value = false;
+    } else {
+      // Chat was switched, ensure loading state is cleared
+      isLoadingMessages.value = false;
+    }
   }
 }
 
@@ -625,6 +651,7 @@ function cancelQuote(): void {
 async function handleChatClick(chat: MessengerChatItem) {
   selectedChat.value = chat;
   messages.value = [];
+  isLoadingMessages.value = false; // Reset loading state when switching chats
   typingManager.reset(); // Reset typing when switching chats
   await handleLoadMessages(chat);
   
@@ -652,6 +679,7 @@ const isInitialLoad = ref(true);
 // Custom event listeners for WebSocket events
 let typingUnsubscribe: (() => void) | null = null;
 let connectionCheckInterval: ReturnType<typeof setInterval> | null = null;
+let countersUnsubscribe: (() => void) | null = null;
 
 // Watch for folder selection changes to refetch in background
 watch(selectedFolderId, async (newFolderId, oldFolderId) => {
@@ -721,6 +749,17 @@ function setupEventListeners() {
   typingUnsubscribe = typingStateManager.onTypingChange((groupId, state) => {
     typingStates.value.set(groupId, state?.isTyping || false);
   });
+
+  // Listen for counter updates
+  countersUnsubscribe = countersManager.onUpdate((counters) => {
+    messengerCounter.value = counters.messenger || 0;
+  });
+  
+  // Initialize counter value
+  const currentCounters = countersManager.getCounters();
+  if (currentCounters) {
+    messengerCounter.value = currentCounters.messenger || 0;
+  }
 
   // Listen for new message events
   const handleNewMessage = async (event: Event) => {
@@ -868,6 +907,12 @@ function cleanupEventListeners() {
     typingUnsubscribe();
     typingUnsubscribe = null;
   }
+  
+  if (countersUnsubscribe) {
+    countersUnsubscribe();
+    countersUnsubscribe = null;
+  }
+  
   if (connectionCheckInterval) {
     clearInterval(connectionCheckInterval);
     connectionCheckInterval = null;
@@ -1162,8 +1207,6 @@ onUnmounted(() => {
                         'px-4 py-2 rounded-lg min-w-0 w-full',
                         isOwnMessage(message)
                           ? 'bg-blue-500 text-white'
-                          : message.seen === 0 || message.seen !== 1
-                          ? 'bg-red-600 text-white'
                           : 'bg-[#2a2a2a] text-white'
                       ]"
                     >

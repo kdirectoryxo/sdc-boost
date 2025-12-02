@@ -7,6 +7,7 @@
 import { websocketManager } from './websocket-manager';
 import { chatStorage } from './chat-storage';
 import type { MessengerChatItem } from './sdc-api-types';
+import { handleMessageUpdate } from './message-update-service';
 
 /**
  * Typing state for a chat
@@ -309,6 +310,9 @@ class WebSocketHandlers {
                         message: data
                     }
                 }));
+
+                // Handle counter and folder updates
+                await handleMessageUpdate(data.groupType, data.GroupID);
             } else {
                 // Chat doesn't exist in our storage yet
                 // This might happen if it's a new chat
@@ -323,6 +327,9 @@ class WebSocketHandlers {
                         message: data
                     }
                 }));
+
+                // Handle counter and folder updates even for unknown chats
+                await handleMessageUpdate(data.groupType, data.GroupID);
             }
         } catch (error) {
             console.error('[WebSocketHandlers] Error handling message event:', error);

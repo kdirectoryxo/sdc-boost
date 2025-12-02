@@ -6,6 +6,7 @@
 import { websocketManager } from './websocket-manager';
 import { getCurrentDBId, getCurrentAccountId } from './sdc-api/utils';
 import type { MessengerChatItem, MessengerMessage } from './sdc-api-types';
+import { handleMessageUpdate } from './message-update-service';
 
 /**
  * Get user info with retry logic and better error handling
@@ -170,6 +171,10 @@ export function sendMessage(chat: MessengerChatItem, messageText: string): boole
             tempId: tempId,
             pending: true
         });
+
+        // Handle counter and folder updates (fire and forget)
+        handleMessageUpdate(chat.group_type || 0, chat.group_id).catch(console.error);
+
         return true;
     } catch (error) {
         console.error('[ChatService] Error sending message:', error);
@@ -231,6 +236,10 @@ export function sendQuotedMessage(chat: MessengerChatItem, messageText: string, 
             tempId: tempId,
             pending: true
         });
+
+        // Handle counter and folder updates (fire and forget)
+        handleMessageUpdate(chat.group_type || 0, chat.group_id).catch(console.error);
+
         return true;
     } catch (error) {
         console.error('[ChatService] Error sending quoted message:', error);
