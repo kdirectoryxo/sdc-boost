@@ -8,7 +8,7 @@ import { chatStorage } from '@/lib/chat-storage';
 import { folderStorage } from '@/lib/folder-storage';
 import { typingStateManager } from '@/lib/websocket-handlers';
 import { sendMessage, sendSeenEvent, sendQuotedMessage } from '@/lib/chat-service';
-import { loadMessages, refreshLatestPage } from '@/lib/message-service';
+import { loadMessages, refreshLatestPage, fetchAllMessages } from '@/lib/message-service';
 import { TypingManager } from '@/lib/typing-manager';
 import { deleteMessage } from '@/lib/sdc-api';
 import { messageStorage } from '@/lib/message-storage';
@@ -38,6 +38,7 @@ const isWebSocketConnected = ref(false);
 const messages = ref<MessengerMessage[]>([]);
 const isLoadingMessages = ref(false);
 const isSyncing = ref(false); // Track if we're syncing all pages for first-time load
+const isSyncingMessages = ref(false); // Track if we're syncing messages for multiple chats
 const messagesContainer = ref<HTMLElement | null>(null);
 const messageInput = ref('');
 const typingManager = new TypingManager();
@@ -616,6 +617,137 @@ async function loadChatsFromStorage(): Promise<void> {
   } catch (err) {
     console.error('[ChatDialog] Failed to load chats from storage:', err);
     error.value = 'Failed to load chats from storage.';
+  }
+}
+
+/**
+ * Sync messages for all unsynced chats in the current folder or inbox
+ * Only syncs chats that haven't been synced yet (checked via hasChatBeenFetched)
+ */
+async function syncMessagesForCurrentFolder(): Promise<void> {
+  if (isSyncingMessages.value) return;
+  
+  isSyncingMessages.value = true;
+  error.value = null;
+  
+  // Cancel flag to stop sync operation
+  let cancelled = false;
+  
+  // Access toast from global window
+  const toast = (window as any).__sdcBoostToast;
+  let progressToast: { update: (current: number, total: number, message?: string) => void; dismiss: () => void } | null = null;
+  
+  try {
+    let chatsToSync: MessengerChatItem[] = [];
+    
+    // Determine which chats to sync based on selected folder
+    if (selectedFolderId.value === null) {
+      // All chats - get all chats from all folders and inbox
+      chatsToSync = await chatStorage.searchChats({});
+    } else if (selectedFolderId.value === 0) {
+      // Inbox - get chats with folder_id === 0 or null
+      const allChats = await chatStorage.getAllChats();
+      chatsToSync = allChats.filter(chat => (chat.folder_id || 0) === 0);
+    } else {
+      // Specific folder - get chats for that folder
+      chatsToSync = await chatStorage.searchChats({ folderId: selectedFolderId.value });
+    }
+    
+    // Filter to only include chats that haven't been synced
+    const unsyncedChats: MessengerChatItem[] = [];
+    for (const chat of chatsToSync) {
+      if (cancelled) break;
+      const hasBeenFetched = await messageStorage.hasChatBeenFetched(chat.group_id);
+      if (!hasBeenFetched) {
+        unsyncedChats.push(chat);
+      }
+    }
+    
+    if (unsyncedChats.length === 0) {
+      console.log('[ChatDialog] No unsynced chats found');
+      if (toast) {
+        toast.success('All chats are already synced');
+      }
+      return;
+    }
+    
+    console.log(`[ChatDialog] Syncing messages for ${unsyncedChats.length} unsynced chats...`);
+    
+    // Show progress toast with cancel button
+    if (toast && toast.progress) {
+      progressToast = toast.progress(unsyncedChats.length, () => {
+        cancelled = true;
+        console.log('[ChatDialog] Sync cancelled by user');
+      });
+      if (progressToast) {
+        progressToast.update(0, unsyncedChats.length, `Syncing messages... (0/${unsyncedChats.length})`);
+      }
+    }
+    
+    // Sync messages for each unsynced chat
+    let syncedCount = 0;
+    for (let i = 0; i < unsyncedChats.length; i++) {
+      if (cancelled) {
+        console.log('[ChatDialog] Sync cancelled, stopping...');
+        break;
+      }
+      
+      const chat = unsyncedChats[i];
+      try {
+        // Update progress before syncing
+        if (progressToast) {
+          progressToast.update(i, unsyncedChats.length, `Syncing ${chat.account_id || `chat ${chat.group_id}`}... (${i}/${unsyncedChats.length})`);
+        }
+        
+        await fetchAllMessages(chat);
+        syncedCount++;
+        
+        // Update progress after syncing
+        if (progressToast && !cancelled) {
+          progressToast.update(syncedCount, unsyncedChats.length, `Synced ${chat.account_id || `chat ${chat.group_id}`}... (${syncedCount}/${unsyncedChats.length})`);
+        }
+        
+        console.log(`[ChatDialog] Synced messages for chat ${chat.group_id} (${syncedCount}/${unsyncedChats.length})`);
+      } catch (err) {
+        console.error(`[ChatDialog] Failed to sync messages for chat ${chat.group_id}:`, err);
+        // Continue with next chat even if one fails
+        // Still update progress
+        if (progressToast) {
+          progressToast.update(i + 1, unsyncedChats.length, `Failed to sync ${chat.account_id || `chat ${chat.group_id}`}... (${i + 1}/${unsyncedChats.length})`);
+        }
+      }
+    }
+    
+    // Dismiss progress toast
+    if (progressToast) {
+      progressToast.dismiss();
+    }
+    
+    if (cancelled) {
+      console.log(`[ChatDialog] Sync cancelled. Synced ${syncedCount}/${unsyncedChats.length} chats before cancellation`);
+      if (toast) {
+        toast.error(`Sync cancelled. Synced ${syncedCount} chat${syncedCount !== 1 ? 's' : ''} before cancellation`);
+      }
+    } else {
+      console.log(`[ChatDialog] Successfully synced ${syncedCount}/${unsyncedChats.length} chats`);
+      if (toast) {
+        toast.success(`Synced messages for ${syncedCount} chat${syncedCount !== 1 ? 's' : ''}`);
+      }
+    }
+  } catch (err) {
+    console.error('[ChatDialog] Failed to sync messages:', err);
+    error.value = 'Failed to sync messages. Please try again.';
+    
+    // Dismiss progress toast if it exists
+    if (progressToast) {
+      progressToast.dismiss();
+    }
+    
+    if (toast) {
+      toast.error('Failed to sync messages');
+    }
+  } finally {
+    isSyncingMessages.value = false;
   }
 }
 
@@ -1780,26 +1912,68 @@ onUnmounted(() => {
             </span>
           </div>
         </div>
-        <button
-          @click="handleClose"
-          class="p-2 hover:bg-[#333] rounded-md transition-colors"
-          title="Close"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="text-[#999] hover:text-white"
+        <div class="flex items-center gap-2">
+          <!-- Sync Messages Button -->
+          <button
+            @click="syncMessagesForCurrentFolder"
+            :disabled="isSyncingMessages"
+            :class="[
+              'p-2 hover:bg-[#333] rounded-md transition-colors',
+              isSyncingMessages ? 'opacity-50 cursor-not-allowed' : ''
+            ]"
+            :title="isSyncingMessages ? 'Syncing messages...' : 'Sync messages for unsynced chats'"
           >
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
+            <svg
+              v-if="!isSyncingMessages"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="text-[#999] hover:text-white"
+            >
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path>
+            </svg>
+            <svg
+              v-else
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="text-blue-500 animate-spin"
+            >
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path>
+            </svg>
+          </button>
+          <!-- Close Button -->
+          <button
+            @click="handleClose"
+            class="p-2 hover:bg-[#333] rounded-md transition-colors"
+            title="Close"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="text-[#999] hover:text-white"
+            >
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Main Content -->

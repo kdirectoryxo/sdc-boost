@@ -3,10 +3,15 @@
  * Simple sonner-like notification system for displaying success/error messages
  */
 
-export type ToastType = 'success' | 'error';
+export type ToastType = 'success' | 'error' | 'progress';
 
 export interface ToastOptions {
     duration?: number; // Auto-dismiss duration in ms (default: 3000)
+}
+
+export interface ProgressToastControls {
+    update: (current: number, total: number, message?: string) => void;
+    dismiss: () => void;
 }
 
 class Toast {
@@ -50,6 +55,156 @@ class Toast {
      */
     error(message: string, options?: ToastOptions): void {
         this.show('error', message, options);
+    }
+
+    /**
+     * Show a progress toast with cancel button
+     * Returns controls to update progress and dismiss
+     */
+    progress(total: number, onCancel?: () => void): ProgressToastControls {
+        if (!this.container) {
+            this.init();
+        }
+
+        const toastId = `toast-${++this.toastIdCounter}`;
+        let current = 0;
+
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.id = toastId;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'polite');
+
+        // Base styles
+        const baseStyles = `
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            min-width: 300px;
+            max-width: 400px;
+            pointer-events: auto;
+            border: 1px solid #333;
+            border-left: 3px solid #3b82f6;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        `;
+
+        toast.style.cssText = baseStyles;
+
+        // Create content container
+        const contentContainer = document.createElement('div');
+        contentContainer.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        `;
+
+        // Create message element
+        const messageEl = document.createElement('div');
+        messageEl.style.cssText = `
+            font-size: 14px;
+            line-height: 1.5;
+            font-weight: 500;
+        `;
+        messageEl.textContent = `Syncing messages... (0/${total})`;
+
+        // Create progress bar container
+        const progressBarContainer = document.createElement('div');
+        progressBarContainer.style.cssText = `
+            width: 100%;
+            height: 4px;
+            background-color: #333;
+            border-radius: 2px;
+            overflow: hidden;
+        `;
+
+        // Create progress bar
+        const progressBar = document.createElement('div');
+        progressBar.style.cssText = `
+            height: 100%;
+            background-color: #3b82f6;
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 2px;
+        `;
+        progressBarContainer.appendChild(progressBar);
+
+        // Create button container
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 4px;
+        `;
+
+        // Create cancel button
+        const cancelButton = document.createElement('button');
+        cancelButton.setAttribute('aria-label', 'Cancel sync');
+        cancelButton.textContent = 'Cancel';
+        cancelButton.style.cssText = `
+            background: #333;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            cursor: pointer;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        `;
+
+        // Cancel button hover effect
+        cancelButton.addEventListener('mouseenter', () => {
+            cancelButton.style.backgroundColor = '#444';
+            cancelButton.style.borderColor = '#555';
+        });
+        cancelButton.addEventListener('mouseleave', () => {
+            cancelButton.style.backgroundColor = '#333';
+            cancelButton.style.borderColor = '#444';
+        });
+
+        // Cancel handler
+        cancelButton.addEventListener('click', () => {
+            if (onCancel) {
+                onCancel();
+            }
+            this.dismiss(toastId);
+        });
+
+        buttonContainer.appendChild(cancelButton);
+
+        // Assemble toast
+        contentContainer.appendChild(messageEl);
+        contentContainer.appendChild(progressBarContainer);
+        contentContainer.appendChild(buttonContainer);
+        toast.appendChild(contentContainer);
+
+        // Add to container
+        this.container!.appendChild(toast);
+        this.toasts.set(toastId, toast);
+
+        // Trigger animation
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateX(0)';
+        });
+
+        // Return controls
+        return {
+            update: (newCurrent: number, newTotal: number, message?: string) => {
+                current = newCurrent;
+                const percentage = total > 0 ? Math.min(100, (current / total) * 100) : 0;
+                progressBar.style.width = `${percentage}%`;
+                messageEl.textContent = message || `Syncing messages... (${current}/${total})`;
+            },
+            dismiss: () => {
+                this.dismiss(toastId);
+            }
+        };
     }
 
     /**
