@@ -1,5 +1,6 @@
 import { BaseModule } from './BaseModule';
 import type { ModuleConfigOption } from './types';
+import { countersManager } from '../counters-manager';
 
 /**
  * Module to add a Chat button to the navbar that opens a Vue-based dialog
@@ -7,6 +8,8 @@ import type { ModuleConfigOption } from './types';
  */
 export class ChatDialogModule extends BaseModule {
     private chatButton: HTMLElement | null = null;
+    private counterBadge: HTMLElement | null = null;
+    private unsubscribeCounters: (() => void) | null = null;
 
     constructor() {
         const configOptions: ModuleConfigOption[] = [];
@@ -27,11 +30,15 @@ export class ChatDialogModule extends BaseModule {
         
         // Watch for navbar changes
         this.setupNavbarObserver();
+        
+        // Subscribe to counter updates
+        this.setupCounterSubscription();
     }
 
     async cleanup(): Promise<void> {
         this.removeChatButton();
         this.cleanupObserver();
+        this.cleanupCounterSubscription();
     }
 
     private injectChatButton(): void {
@@ -87,6 +94,7 @@ export class ChatDialogModule extends BaseModule {
             margin-left: 4px !important;
             box-sizing: border-box;
             flex-direction: row;
+            position: relative;
         `;
         
         // Create the icon (chat/message icon SVG)
@@ -109,12 +117,40 @@ export class ChatDialogModule extends BaseModule {
         const svgContent = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         icon.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
         
+        // Create counter badge
+        const badge = document.createElement('span');
+        badge.className = 'sdc-boost-chat-badge';
+        badge.style.cssText = `
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background-color: #f44336;
+            color: white;
+            border-radius: 10px;
+            min-width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 0 4px;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            line-height: 1;
+        `;
+        badge.textContent = '0';
+        badge.style.display = 'none'; // Hidden by default
+        
         // Create ripple span
         const ripple = document.createElement('span');
         ripple.className = 'MuiTouchRipple-root css-w0pj6f';
         
         button.appendChild(icon);
+        button.appendChild(badge);
         button.appendChild(ripple);
+        
+        this.counterBadge = badge;
 
         // Create label
         const label = document.createElement('label');
@@ -170,6 +206,8 @@ export class ChatDialogModule extends BaseModule {
             if (!document.querySelector('.sdc-boost-chat-button')) {
                 // Re-inject if it was removed
                 this.injectChatButton();
+                // Re-subscribe to counters after re-injection
+                this.setupCounterSubscription();
             }
         };
 
@@ -179,6 +217,78 @@ export class ChatDialogModule extends BaseModule {
             childList: true,
             subtree: true,
         });
+    }
+
+    /**
+     * Set up subscription to counter updates
+     */
+    private setupCounterSubscription(): void {
+        // Clean up existing subscription
+        this.cleanupCounterSubscription();
+
+        // Wait for counters manager to be available
+        const countersManager = (window as any).__sdcBoostCounters;
+        if (!countersManager) {
+            // Retry after a delay
+            setTimeout(() => this.setupCounterSubscription(), 1000);
+            return;
+        }
+
+        // Subscribe to counter changes
+        this.unsubscribeCounters = countersManager.onChange((key, oldValue, newValue) => {
+            if (key === 'messenger') {
+                this.updateCounterBadge(newValue);
+            }
+        });
+
+        // Subscribe to counter updates to get initial value
+        const unsubscribeUpdate = countersManager.onUpdate((counters) => {
+            const messengerCount = counters.messenger || 0;
+            this.updateCounterBadge(messengerCount);
+        });
+
+        // Store both unsubscribe functions
+        const originalUnsubscribe = this.unsubscribeCounters;
+        this.unsubscribeCounters = () => {
+            originalUnsubscribe();
+            unsubscribeUpdate();
+        };
+    }
+
+    /**
+     * Update the counter badge display
+     */
+    private updateCounterBadge(count: number): void {
+        if (!this.counterBadge) {
+            // Try to find the badge if it was recreated
+            const button = document.querySelector('.sdc-boost-chat-button');
+            if (button) {
+                this.counterBadge = button.querySelector('.sdc-boost-chat-badge') as HTMLElement;
+            }
+        }
+
+        if (!this.counterBadge) {
+            return;
+        }
+
+        if (count > 0) {
+            // Show badge with count (limit display to 99+)
+            this.counterBadge.textContent = count > 99 ? '99+' : count.toString();
+            this.counterBadge.style.display = 'flex';
+        } else {
+            // Hide badge when count is 0
+            this.counterBadge.style.display = 'none';
+        }
+    }
+
+    /**
+     * Clean up counter subscription
+     */
+    private cleanupCounterSubscription(): void {
+        if (this.unsubscribeCounters) {
+            this.unsubscribeCounters();
+            this.unsubscribeCounters = null;
+        }
     }
 }
 

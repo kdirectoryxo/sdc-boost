@@ -306,3 +306,36 @@ export interface MessengerIOV2Response {
     info: MessengerIOV2Info;
 }
 
+/**
+ * Counters API Types
+ */
+export interface CountersInfo {
+    code: number;
+    online: number;
+    count_live_streams: number;
+    email: number;
+    messenger: number;
+    viewed: number;
+    chatroom: number;
+    feed_counter: number;
+    admin_feed_counter: number;
+    notification_timed: string;
+    last_build_date: string;
+    stream_status: number;
+    speeddating_counter: number;
+    video_counter: number;
+    party_counter: number;
+    business_counter: number;
+    travelplanner_counter: number;
+    lifetime_offer: number;
+    saved_search: number;
+    sdc_live_url: string | null;
+    live_button: number;
+    count_live: number;
+    isActiveBot: number;
+}
+
+export interface CountersResponse {
+    info: CountersInfo;
+}
+

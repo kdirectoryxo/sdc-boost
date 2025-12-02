@@ -30,6 +30,9 @@ export { noteContainsSummary, extractSummaryFromNote, getNoteBeforeSummary } fro
 // Re-export messenger functions
 export { getMessengerLatest, getMessengerIOV2 } from './messenger';
 
+// Re-export counters functions
+export { getCounters } from './counters';
+
 // Re-export WebSocket utilities
 export { 
     getCurrentDBId, 

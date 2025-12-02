@@ -12,6 +12,7 @@ import { confirm } from '@/lib/confirm';
 import { createApp, ref, watch } from 'vue';
 import ChatDialogWrapper from '@/components/ChatDialogWrapper.vue';
 import { websocketManager } from '@/lib/websocket-manager';
+import { countersManager } from '@/lib/counters-manager';
 import '~/assets/tailwind.css';
 
 export default defineContentScript({
@@ -197,7 +198,17 @@ export default defineContentScript({
       });
     }, 1000);
 
+    // Initialize counters manager (wait for WebSocket to be ready)
+    setTimeout(() => {
+      countersManager.initialize().catch((error) => {
+        console.error('[SDC Boost] Failed to initialize counters:', error);
+      });
+    }, 2000);
+
     // Make WebSocket manager available globally
     (window as any).__sdcBoostWebSocket = websocketManager;
+
+    // Make counters manager available globally
+    (window as any).__sdcBoostCounters = countersManager;
   },
 });
