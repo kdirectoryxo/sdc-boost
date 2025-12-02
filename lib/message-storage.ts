@@ -225,6 +225,22 @@ class MessageStorage {
         // Messages are sorted by date2 ascending, so last one is newest
         return messages[messages.length - 1].message_id;
     }
+
+    /**
+     * Delete a specific message
+     */
+    async deleteMessage(groupId: number, messageId: number): Promise<void> {
+        const db = await this.getDB();
+        
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+            console.warn('[MessageStorage] Messages store not available. Skipping deletion.');
+            return;
+        }
+
+        const key = getMessageKey(groupId, messageId);
+        await db.delete(STORE_NAME, key);
+        console.log(`[MessageStorage] Deleted message ${messageId} for group ${groupId}`);
+    }
 }
 
 // Create singleton instance

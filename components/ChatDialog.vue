@@ -11,6 +11,7 @@ import { sendMessage, sendSeenEvent, sendQuotedMessage } from '@/lib/chat-servic
 import { loadMessages, refreshLatestPage } from '@/lib/message-service';
 import { TypingManager } from '@/lib/typing-manager';
 import { deleteMessage } from '@/lib/sdc-api';
+import { messageStorage } from '@/lib/message-storage';
 
 interface Props {
   modelValue: boolean;
@@ -38,10 +39,12 @@ const messagesContainer = ref<HTMLElement | null>(null);
 const messageInput = ref('');
 const typingManager = new TypingManager();
 const openDropdownMessageId = ref<number | null>(null); // Track which message's dropdown is open
+const quotedMessageRef = ref<MessengerMessage | null>(null); // Store quoted message
+const dropdownButtonRefs = ref<Map<number, HTMLElement>>(new Map()); // Store refs to dropdown buttons
 
 // Computed property for quoted message
 const quotedMessage = computed(() => {
-  return (window as any).__sdcBoostQuotedMessage as MessengerMessage | undefined;
+  return quotedMessageRef.value;
 });
 
 // Helper function to sort chats: pinned first, then by date_time
@@ -347,13 +350,13 @@ async function handleSendMessage(): Promise<void> {
     return;
   }
 
-  const quotedMessage = (window as any).__sdcBoostQuotedMessage as MessengerMessage | undefined;
+  const quotedMessage = quotedMessageRef.value;
   let success = false;
 
   if (quotedMessage) {
     // Send quoted message
     success = sendQuotedMessage(selectedChat.value, messageInput.value, quotedMessage);
-    delete (window as any).__sdcBoostQuotedMessage;
+    quotedMessageRef.value = null; // Clear quoted message after sending
   } else {
     // Send regular message
     success = sendMessage(selectedChat.value, messageInput.value);
@@ -384,14 +387,28 @@ async function handleSendMessage(): Promise<void> {
 async function handleDeleteMessage(message: MessengerMessage): Promise<void> {
   if (!selectedChat.value) return;
   
+  // Access confirm dialog from global window
+  const confirmDialog = (window as any).__sdcBoostConfirm;
+  if (!confirmDialog) {
+    console.warn('[ChatDialog] Confirm dialog not available');
+    return;
+  }
+  
+  // Show confirmation dialog
+  const confirmed = await confirmDialog.confirm('Are you sure you want to delete this message?');
+  if (!confirmed) {
+    return; // User cancelled
+  }
+  
   // Clear quoted message if this was the quoted message
-  const quotedMsg = (window as any).__sdcBoostQuotedMessage as MessengerMessage | undefined;
-  if (quotedMsg && quotedMsg.message_id === message.message_id) {
+  if (quotedMessageRef.value && quotedMessageRef.value.message_id === message.message_id) {
     cancelQuote();
   }
   
   try {
     await deleteMessage(selectedChat.value.group_id, message.message_id);
+    // Delete from IndexedDB
+    await messageStorage.deleteMessage(selectedChat.value.group_id, message.message_id);
     // Refresh messages after deletion
     await refreshLatestPage(selectedChat.value, (updatedMessages) => {
       messages.value = updatedMessages;
@@ -407,11 +424,20 @@ async function handleDeleteMessage(message: MessengerMessage): Promise<void> {
  * Handle message copy
  */
 function handleCopyMessage(message: MessengerMessage): void {
+  // Access toast from global window
+  const toast = (window as any).__sdcBoostToast;
+  
   navigator.clipboard.writeText(message.message).then(() => {
-    // Could show a toast notification here
     console.log('[ChatDialog] Message copied to clipboard');
+    // Show success toast notification
+    if (toast) {
+      toast.success('Message copied to clipboard');
+    }
   }).catch(err => {
     console.error('[ChatDialog] Failed to copy message:', err);
+    if (toast) {
+      toast.error('Failed to copy message');
+    }
   });
   openDropdownMessageId.value = null;
 }
@@ -422,8 +448,8 @@ function handleCopyMessage(message: MessengerMessage): void {
 function handleQuoteMessage(message: MessengerMessage): void {
   if (!selectedChat.value) return;
   
-  // Store the quoted message temporarily
-  (window as any).__sdcBoostQuotedMessage = message;
+  // Store the quoted message in ref
+  quotedMessageRef.value = message;
   openDropdownMessageId.value = null;
   
   // Focus the input
@@ -439,7 +465,7 @@ function handleQuoteMessage(message: MessengerMessage): void {
  * Cancel quoted message
  */
 function cancelQuote(): void {
-  delete (window as any).__sdcBoostQuotedMessage;
+  quotedMessageRef.value = null;
 }
 
 async function handleChatClick(chat: MessengerChatItem) {
@@ -856,7 +882,7 @@ onUnmounted(() => {
                   v-for="message in messages"
                   :key="message.message_id"
                   :class="[
-                    'flex gap-3 min-w-0 w-full',
+                    'flex gap-3 min-w-0 w-full group',
                     isOwnMessage(message) ? 'flex-row-reverse' : 'flex-row'
                   ]"
                 >
@@ -871,7 +897,7 @@ onUnmounted(() => {
                   <!-- Message Content -->
                   <div
                     :class="[
-                      'flex flex-col gap-1 min-w-0',
+                      'flex flex-col gap-1 min-w-0 relative',
                       isOwnMessage(message) ? 'items-end ml-auto max-w-[70%]' : 'items-start max-w-[70%]'
                     ]"
                   >
@@ -891,76 +917,16 @@ onUnmounted(() => {
                       <div class="text-xs line-clamp-2 wrap-break-word">{{ message.q_message }}</div>
                     </div>
 
-                    <!-- Message Bubble with Dropdown -->
-                    <div class="relative group min-w-0 w-full">
-                      <div
-                        :class="[
-                          'px-4 py-2 rounded-lg min-w-0 w-full',
-                          isOwnMessage(message)
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-[#2a2a2a] text-white'
-                        ]"
-                      >
-                        <p class="whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere">{{ message.message }}</p>
-                      </div>
-                      
-                      <!-- Dropdown Button -->
-                      <button
-                        @click.stop="openDropdownMessageId = openDropdownMessageId === message.message_id ? null : message.message_id"
-                        :class="[
-                          'absolute top-2 p-1 rounded hover:bg-black/20 transition-opacity',
-                          isOwnMessage(message) ? 'right-2' : 'left-2',
-                          openDropdownMessageId === message.message_id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                        ]"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
-                          <circle cx="12" cy="12" r="1"></circle>
-                          <circle cx="12" cy="5" r="1"></circle>
-                          <circle cx="12" cy="19" r="1"></circle>
-                        </svg>
-                      </button>
-                      
-                      <!-- Dropdown Menu -->
-                      <div
-                        v-if="openDropdownMessageId === message.message_id"
-                        :class="[
-                          'absolute z-50 mt-1 w-32 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1',
-                          isOwnMessage(message) ? 'right-0' : 'left-0'
-                        ]"
-                        @click.stop
-                      >
-                        <button
-                          @click="handleCopyMessage(message)"
-                          class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                          </svg>
-                          Copy
-                        </button>
-                        <button
-                          @click="handleQuoteMessage(message)"
-                          class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
-                            <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
-                          </svg>
-                          Citaat
-                        </button>
-                        <button
-                          v-if="isOwnMessage(message)"
-                          @click="handleDeleteMessage(message)"
-                          class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                          </svg>
-                          Delete
-                        </button>
-                      </div>
+                    <!-- Message Bubble -->
+                    <div
+                      :class="[
+                        'px-4 py-2 rounded-lg min-w-0 w-full',
+                        isOwnMessage(message)
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-[#2a2a2a] text-white'
+                      ]"
+                    >
+                      <p class="whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere">{{ message.message }}</p>
                     </div>
 
                     <!-- Message Meta -->
@@ -981,6 +947,108 @@ onUnmounted(() => {
                           </svg>
                         </template>
                       </span>
+                    </div>
+                    
+                    <!-- Dropdown Button for own messages (positioned absolutely to the left of message bubble) -->
+                    <div v-if="isOwnMessage(message)" class="absolute -left-8 top-0">
+                      <button
+                        :ref="el => { if (el) dropdownButtonRefs.set(message.message_id, el as HTMLElement); }"
+                        @click.stop="openDropdownMessageId = openDropdownMessageId === message.message_id ? null : message.message_id"
+                        :class="[
+                          'p-1.5 rounded hover:bg-[#2a2a2a] transition-opacity',
+                          openDropdownMessageId === message.message_id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                        ]"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+                          <circle cx="12" cy="12" r="1"></circle>
+                          <circle cx="12" cy="5" r="1"></circle>
+                          <circle cx="12" cy="19" r="1"></circle>
+                        </svg>
+                      </button>
+                      
+                      <!-- Custom Dropdown Menu -->
+                      <div
+                        v-if="openDropdownMessageId === message.message_id"
+                        class="absolute z-[1000003] top-full right-full mr-2 mt-1 w-32 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
+                        @click.stop
+                      >
+                        <button
+                          @click.stop="handleCopyMessage(message)"
+                          class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                          </svg>
+                          Copy
+                        </button>
+                        <button
+                          @click.stop="handleQuoteMessage(message)"
+                          class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
+                            <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
+                          </svg>
+                          Citaat
+                        </button>
+                        <button
+                          @click.stop="handleDeleteMessage(message)"
+                          class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Dropdown Button for other messages (placed last in DOM, appears on right) -->
+                  <div v-if="!isOwnMessage(message)" class="relative shrink-0 self-start mt-1">
+                    <button
+                      :ref="el => { if (el) dropdownButtonRefs.set(message.message_id, el as HTMLElement); }"
+                      @click.stop="openDropdownMessageId = openDropdownMessageId === message.message_id ? null : message.message_id"
+                      :class="[
+                        'p-1.5 rounded hover:bg-[#2a2a2a] transition-opacity',
+                        openDropdownMessageId === message.message_id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      ]"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+                        <circle cx="12" cy="12" r="1"></circle>
+                        <circle cx="12" cy="5" r="1"></circle>
+                        <circle cx="12" cy="19" r="1"></circle>
+                      </svg>
+                    </button>
+                    
+                    <!-- Custom Dropdown Menu -->
+                    <div
+                      v-if="openDropdownMessageId === message.message_id"
+                      class="absolute z-[1000003] top-full left-0 mt-1 w-32 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
+                      @click.stop
+                    >
+                      <button
+                        @click.stop="handleCopyMessage(message)"
+                        class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy
+                      </button>
+                      <button
+                        @click.stop="handleQuoteMessage(message)"
+                        class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
+                          <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
+                        </svg>
+                        Citaat
+                      </button>
                     </div>
                   </div>
                 </div>

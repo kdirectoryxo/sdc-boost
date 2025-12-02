@@ -68,7 +68,7 @@ class Confirm {
             right: 0;
             bottom: 0;
             background-color: rgba(0, 0, 0, 0.7);
-            z-index: 10001;
+            z-index: 1000001;
             display: flex;
             align-items: center;
             justify-content: center;
