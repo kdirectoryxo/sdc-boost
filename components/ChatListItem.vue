@@ -79,7 +79,7 @@ function handleClick() {
               {{ folderName }}
             </span>
           </div>
-          <span class="text-xs text-[#666] shrink-0 ml-2">
+          <span :class="['text-xs shrink-0 ml-2', chat.unread_counter > 0 ? 'text-red-500' : 'text-[#666]']">
             {{ chat.time_elapsed }}
           </span>
         </div>
@@ -113,7 +113,10 @@ function handleClick() {
             <!-- Unread Badge -->
             <span
               v-if="chat.unread_counter > 0"
-              class="px-2 py-0.5 bg-blue-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center"
+              :class="[
+                'h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center leading-none',
+                chat.unread_counter > 9 ? 'px-1.5 min-w-[20px]' : 'w-5'
+              ]"
             >
               {{ chat.unread_counter > 99 ? '99+' : chat.unread_counter }}
             </span>

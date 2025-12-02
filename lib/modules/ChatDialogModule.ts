@@ -304,35 +304,22 @@ export class ChatDialogModule extends BaseModule {
         // Clean up existing subscription
         this.cleanupCounterSubscription();
 
-        // Wait for counters manager to be available
-        const countersManager = (window as any).__sdcBoostCounters;
-        if (!countersManager) {
-            // Retry after a delay
-            setTimeout(() => this.setupCounterSubscription(), 1000);
-            return;
-        }
-
-        // Subscribe to counter changes
-        this.unsubscribeCounters = countersManager.onChange((key: string, oldValue: number, newValue: number) => {
-            if (key === 'messenger') {
-                this.updateCounterBadge(newValue);
-            }
-        });
-
-        // Subscribe to counter updates to get initial value
+        // Subscribe to counter updates - use raw API messenger counter
+        // We only update the badge when the API counter refreshes, not when calculated values change
         const unsubscribeUpdate = countersManager.onUpdate((counters: any) => {
-            const messengerCount = counters.messenger || 0;
-            this.updateCounterBadge(messengerCount);
+            // Always use raw API counter instead of calculated value from local chats
+            const rawApiCount = countersManager.getRawApiMessengerCounter();
+            if (rawApiCount !== null) {
+                this.updateCounterBadge(rawApiCount);
+            } else {
+                // Fallback to counters.messenger if raw API counter not available yet (initial load)
+                const messengerCount = counters.messenger || 0;
+                this.updateCounterBadge(messengerCount);
+            }
         });
 
-        // Store both unsubscribe functions
-        const originalUnsubscribe = this.unsubscribeCounters;
-        this.unsubscribeCounters = () => {
-            if (originalUnsubscribe) {
-                originalUnsubscribe();
-            }
-            unsubscribeUpdate();
-        };
+        // Store unsubscribe function
+        this.unsubscribeCounters = unsubscribeUpdate;
     }
 
     /**

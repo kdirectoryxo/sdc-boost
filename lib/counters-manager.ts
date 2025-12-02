@@ -13,6 +13,7 @@ type CounterChangeCallback = (key: string, oldValue: number, newValue: number) =
 
 class CountersManager {
     private counters: CountersInfo | null = null;
+    private rawApiMessengerCounter: number | null = null; // Store raw API messenger counter
     private updateCallbacks: Set<CounterUpdateCallback> = new Set();
     private changeCallbacks: Set<CounterChangeCallback> = new Set();
     private refreshInterval: ReturnType<typeof setInterval> | null = null;
@@ -70,6 +71,9 @@ class CountersManager {
             if (response.info.code === 200) {
                 const oldCounters = this.counters;
                 this.counters = response.info;
+
+                // Store raw API messenger counter before any modifications
+                this.rawApiMessengerCounter = this.counters.messenger || 0;
 
                 // Calculate messenger counter from stored chats
                 // The original SDC site calculates it by summing unread_counter from all chats
@@ -233,6 +237,13 @@ class CountersManager {
         if (!this.counters) return null;
         const value = this.counters[key];
         return typeof value === 'number' ? value : null;
+    }
+
+    /**
+     * Get raw API messenger counter (not calculated from local chats)
+     */
+    getRawApiMessengerCounter(): number | null {
+        return this.rawApiMessengerCounter;
     }
 
     /**

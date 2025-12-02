@@ -12,6 +12,7 @@ import { loadMessages, refreshLatestPage } from '@/lib/message-service';
 import { TypingManager } from '@/lib/typing-manager';
 import { deleteMessage } from '@/lib/sdc-api';
 import { messageStorage } from '@/lib/message-storage';
+import { getCurrentAccountId, getCurrentDBId } from '@/lib/sdc-api/utils';
 
 interface Props {
   modelValue: boolean;
@@ -41,6 +42,8 @@ const typingManager = new TypingManager();
 const openDropdownMessageId = ref<number | null>(null); // Track which message's dropdown is open
 const quotedMessageRef = ref<MessengerMessage | null>(null); // Store quoted message
 const dropdownButtonRefs = ref<Map<number, HTMLElement>>(new Map()); // Store refs to dropdown buttons
+const optimisticMessageTempIds = ref<Map<string, string>>(new Map()); // Track optimistic messages: tempId -> message content
+const optimisticMessages = ref<Map<string, MessengerMessage>>(new Map()); // Track optimistic messages by tempId
 
 // Computed property for quoted message
 const quotedMessage = computed(() => {
@@ -304,14 +307,25 @@ async function handleLoadMessages(chat: MessengerChatItem): Promise<void> {
     messages.value = result.messages;
     isLoadingMessages.value = result.isLoading;
     
-    // Scroll to bottom after loading
+    // Always scroll to bottom after loading (with multiple attempts for reliability)
     await nextTick();
     if (messagesContainer.value) {
       messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      // Also scroll after a small delay to account for any rendering delays
+      setTimeout(() => {
+        if (messagesContainer.value) {
+          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+        }
+      }, 100);
     }
     
     if (!result.isLoading) {
       isLoadingMessages.value = false;
+      // Final scroll to bottom when loading completes
+      await nextTick();
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      }
     }
   } catch (err) {
     console.error('[ChatDialog] Failed to load messages:', err);
@@ -343,41 +357,176 @@ function handleMessageInput(chat: MessengerChatItem): void {
 }
 
 /**
- * Handle message send
+ * Handle message send with optimistic update
  */
 async function handleSendMessage(): Promise<void> {
   if (!selectedChat.value || !messageInput.value.trim()) {
     return;
   }
 
+  const messageText = messageInput.value.trim();
   const quotedMessage = quotedMessageRef.value;
-  let success = false;
-
-  if (quotedMessage) {
-    // Send quoted message
-    success = sendQuotedMessage(selectedChat.value, messageInput.value, quotedMessage);
-    quotedMessageRef.value = null; // Clear quoted message after sending
-  } else {
-    // Send regular message
-    success = sendMessage(selectedChat.value, messageInput.value);
+  const accountId = getCurrentAccountId();
+  const dbId = getCurrentDBId();
+  
+  if (!accountId || !dbId) {
+    console.warn('[ChatDialog] Cannot send message - missing user info');
+    return;
   }
 
-  if (success) {
-    // Clear input on success
-    messageInput.value = '';
-    // Stop typing indicator
-    typingManager.stopTyping();
-    
-    // Refetch latest page to show the sent message
-    await refreshLatestPage(selectedChat.value, (updatedMessages) => {
-      messages.value = updatedMessages;
-      // Scroll to bottom to show new message
-      nextTick().then(() => {
-        if (messagesContainer.value) {
-          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-        }
-      });
+  // Generate tempId for optimistic message
+  const tempId = crypto.randomUUID();
+  const now = new Date();
+  const date2 = Math.floor(now.getTime() / 1000);
+
+  // Create optimistic message with tempId stored in extra1 (we'll use it for tracking)
+  const optimisticMessage: MessengerMessage = {
+    message: messageText,
+    url_videos: '',
+    message_id: 0, // Will be replaced when real message arrives
+    share_data: null,
+    share_biz_list: [],
+    message_type: null,
+    seen: 0, // Start as sent (0), will update to seen (1) when confirmed
+    sender: 0, // Current user
+    gender1: 0,
+    gender2: 0,
+    date: now.toLocaleString('en-US', { 
+      month: 'short', 
+      day: '2-digit', 
+      year: 'numeric', 
+      hour: 'numeric', 
+      minute: '2-digit' 
+    }),
+    account_id: accountId,
+    date2: date2,
+    db_id: parseInt(dbId),
+    extra1: `__tempId:${tempId}__`, // Store tempId in extra1 for tracking
+    forward: 0,
+    forward_extra_text: '',
+    forward_db_id: 0,
+    is_quote: quotedMessage ? 1 : 0,
+    q_message: quotedMessage?.message || '',
+    q_account_id: quotedMessage?.account_id || '',
+    q_db_id: quotedMessage?.db_id || 0,
+    qgender1: quotedMessage?.gender1 || 0,
+    qgender2: quotedMessage?.gender2 || 0,
+    is_lt_offer: 0,
+  };
+
+  // Optimistically update chat list - move chat to top and update last_message
+  if (selectedChat.value) {
+    const chatIndex = chatList.value.findIndex(c => getChatKey(c) === getChatKey(selectedChat.value));
+    if (chatIndex !== -1) {
+      const updatedChat: MessengerChatItem = {
+        ...selectedChat.value,
+        last_message: messageText,
+        date_time: now.toISOString(),
+        date: optimisticMessage.date,
+        unread_counter: 0, // Reset unread counter for own messages
+      };
+      // Remove from current position and add to top
+      chatList.value.splice(chatIndex, 1);
+      chatList.value.unshift(updatedChat);
+      selectedChat.value = updatedChat;
+      
+      // Update in storage optimistically
+      chatStorage.updateChat(updatedChat).catch(console.error);
+    }
+  }
+
+  // Add optimistic message to UI immediately
+  messages.value = [...messages.value, optimisticMessage];
+  optimisticMessages.value.set(tempId, optimisticMessage);
+  optimisticMessageTempIds.value.set(tempId, messageText);
+  
+  // Scroll to bottom to show new message
+  await nextTick();
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+  }
+
+  // Clear input and quoted message
+  messageInput.value = '';
+  quotedMessageRef.value = null;
+  
+  // Stop typing indicator
+  typingManager.stopTyping();
+
+  // Send message via WebSocket (pass tempId so it can be tracked)
+  let success = false;
+  if (quotedMessage) {
+    success = sendQuotedMessage(selectedChat.value, messageText, quotedMessage);
+  } else {
+    success = sendMessage(selectedChat.value, messageText);
+  }
+
+  if (!success) {
+    // Failed to send - remove optimistic message and revert chat update
+    messages.value = messages.value.filter(msg => {
+      const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
+      return msgTempId !== tempId;
     });
+    optimisticMessages.value.delete(tempId);
+    optimisticMessageTempIds.value.delete(tempId);
+    
+    // Revert chat list update
+    await loadChatsFromStorage();
+    error.value = 'Failed to send message';
+  } else {
+    // Refetch latest page after a short delay to get the real message
+    // This is a fallback in case WebSocket event doesn't come through immediately
+    setTimeout(async () => {
+      if (optimisticMessages.value.has(tempId) && selectedChat.value) {
+        await refreshLatestPage(selectedChat.value, (updatedMessages) => {
+          // Check if we got a real message that matches our optimistic one
+          const matchingRealMessage = updatedMessages.find(real => 
+            real.message === messageText &&
+            Math.abs(real.date2 - date2) < 10 &&
+            real.sender === 0
+          );
+          
+          if (matchingRealMessage) {
+            // Replace optimistic message with real one
+            messages.value = messages.value.filter(msg => {
+              const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
+              return msgTempId !== tempId;
+            });
+            
+            // Add real message if not already present
+            const hasRealMessage = messages.value.some(m => m.message_id === matchingRealMessage.message_id);
+            if (!hasRealMessage) {
+              messages.value.push(matchingRealMessage);
+              messages.value.sort((a, b) => a.date2 - b.date2);
+            }
+            
+            // Clean up tracking
+            optimisticMessages.value.delete(tempId);
+            optimisticMessageTempIds.value.delete(tempId);
+            
+            // Scroll to bottom
+            nextTick().then(() => {
+              if (messagesContainer.value) {
+                messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+              }
+            });
+          }
+        }).catch(console.error);
+      }
+    }, 2000); // Wait 2 seconds for WebSocket, then fallback to API
+    
+    // Set up timeout to clean up optimistic message if it's not replaced within 30 seconds
+    setTimeout(() => {
+      if (optimisticMessages.value.has(tempId)) {
+        console.warn(`[ChatDialog] Optimistic message ${tempId} not replaced after 30s, cleaning up`);
+        messages.value = messages.value.filter(msg => {
+          const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
+          return msgTempId !== tempId;
+        });
+        optimisticMessages.value.delete(tempId);
+        optimisticMessageTempIds.value.delete(tempId);
+      }
+    }, 30000); // 30 second timeout
   }
 }
 
@@ -452,8 +601,13 @@ function handleQuoteMessage(message: MessengerMessage): void {
   quotedMessageRef.value = message;
   openDropdownMessageId.value = null;
   
-  // Focus the input
+  // Scroll to bottom when quoting a message
   nextTick().then(() => {
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    }
+    
+    // Focus the input
     const input = document.querySelector('input[placeholder="Type a message..."]') as HTMLInputElement;
     if (input) {
       input.focus();
@@ -473,6 +627,12 @@ async function handleChatClick(chat: MessengerChatItem) {
   messages.value = [];
   typingManager.reset(); // Reset typing when switching chats
   await handleLoadMessages(chat);
+  
+  // Always scroll to bottom when opening a chat
+  await nextTick();
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+  }
   
   // Send seen event when opening a chat
   sendSeenEvent(chat);
@@ -566,11 +726,42 @@ function setupEventListeners() {
   const handleNewMessage = async (event: Event) => {
     const customEvent = event as CustomEvent;
     const { chat, groupId, message } = customEvent.detail;
+    
+    // Check if this message has a tempId that matches an optimistic message
+    const tempId = (message as any)?.tempId;
+    if (tempId && optimisticMessages.value.has(tempId)) {
+      // This is a confirmation of an optimistic message
+      // Replace the optimistic message with the real one
+      const optimisticMsg = optimisticMessages.value.get(tempId);
+      if (optimisticMsg) {
+        // Find and replace the optimistic message
+        const optimisticIndex = messages.value.findIndex(msg => {
+          const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
+          return msgTempId === tempId;
+        });
+        
+        if (optimisticIndex !== -1) {
+          // Remove optimistic message - the real one will come from refreshLatestPage
+          messages.value.splice(optimisticIndex, 1);
+        }
+        
+        // Clean up tracking
+        optimisticMessages.value.delete(tempId);
+        optimisticMessageTempIds.value.delete(tempId);
+      }
+    }
+    
     if (chat) {
       // Update chat in list if it exists
       const index = chatList.value.findIndex(c => String(c.group_id) === String(groupId));
       if (index !== -1) {
-        chatList.value[index] = chat;
+        // Optimistically move chat to top if it's not already there
+        if (index > 0) {
+          chatList.value.splice(index, 1);
+          chatList.value.unshift(chat);
+        } else {
+          chatList.value[index] = chat;
+        }
       } else {
         // New chat - reload from storage
         await loadChatsFromStorage();
@@ -584,7 +775,44 @@ function setupEventListeners() {
     if (selectedChat.value && String(selectedChat.value.group_id) === String(groupId)) {
       // Refresh latest page (page 0) in background to get any updates
       refreshLatestPage(selectedChat.value, (updatedMessages) => {
-        messages.value = updatedMessages;
+        // Merge with any remaining optimistic messages
+        const optimisticMsgs = Array.from(optimisticMessages.value.values()).filter(msg => {
+          // Only keep optimistic messages that haven't been replaced
+          const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
+          if (!msgTempId) return false;
+          
+          // Check if we have a real message that matches
+          const hasRealMatch = updatedMessages.some(real => 
+            real.message === msg.message &&
+            Math.abs(real.date2 - msg.date2) < 10
+          );
+          return !hasRealMatch;
+        });
+        
+        // Combine and deduplicate
+        const allMessages = [...optimisticMsgs, ...updatedMessages];
+        const uniqueMessages = allMessages.filter((msg, index, self) => {
+          if (msg.message_id > 0) {
+            // Real message - check by message_id
+            return index === self.findIndex(m => m.message_id === msg.message_id && m.message_id > 0);
+          } else {
+            // Optimistic message - check by tempId
+            const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
+            if (msgTempId) {
+              return index === self.findIndex(m => {
+                const mTempId = m.extra1?.match(/__tempId:(.+?)__/)?.[1];
+                return mTempId === msgTempId;
+              });
+            }
+            return true;
+          }
+        });
+        
+        // Sort by date2
+        uniqueMessages.sort((a, b) => a.date2 - b.date2);
+        
+        messages.value = uniqueMessages;
+        
         // Scroll to bottom to show new messages
         nextTick().then(() => {
           if (messagesContainer.value) {
@@ -603,6 +831,17 @@ function setupEventListeners() {
       const index = chatList.value.findIndex(c => String(c.group_id) === String(groupId));
       if (index !== -1) {
         chatList.value[index] = chat;
+      }
+      
+      // Optimistically update seen status for messages in the currently selected chat
+      if (selectedChat.value && String(selectedChat.value.group_id) === String(groupId)) {
+        // Update all own messages to seen (sender === 0)
+        messages.value = messages.value.map(msg => {
+          if (msg.sender === 0 && msg.seen === 0) {
+            return { ...msg, seen: 1 };
+          }
+          return msg;
+        });
       }
     }
   };
@@ -736,7 +975,7 @@ onUnmounted(() => {
                 </svg>
                 <span class="text-white text-sm">All Chats</span>
               </div>
-              <span v-if="getTotalUnreadCount() > 0" class="px-2 py-0.5 bg-blue-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
+              <span v-if="getTotalUnreadCount() > 0" class="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
                 {{ getTotalUnreadCount() > 99 ? '99+' : getTotalUnreadCount() }}
               </span>
             </button>
@@ -756,7 +995,7 @@ onUnmounted(() => {
                 </svg>
                 <span class="text-white text-sm">Inbox</span>
               </div>
-              <span v-if="getInboxUnreadCount() > 0" class="px-2 py-0.5 bg-blue-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
+              <span v-if="getInboxUnreadCount() > 0" class="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
                 {{ getInboxUnreadCount() > 99 ? '99+' : getInboxUnreadCount() }}
               </span>
             </button>
@@ -776,7 +1015,7 @@ onUnmounted(() => {
                   </svg>
                   <span class="text-white text-sm truncate">{{ folder.name }}</span>
                 </div>
-                <span v-if="getFolderUnreadCount(folder.id) > 0" class="px-2 py-0.5 bg-blue-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center shrink-0 ml-2">
+                <span v-if="getFolderUnreadCount(folder.id) > 0" class="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center shrink-0 ml-2">
                   {{ getFolderUnreadCount(folder.id) > 99 ? '99+' : getFolderUnreadCount(folder.id) }}
                 </span>
               </button>
@@ -879,8 +1118,8 @@ onUnmounted(() => {
               <!-- Messages List -->
               <div v-else-if="messages.length > 0" class="space-y-4 min-w-0">
                 <div
-                  v-for="message in messages"
-                  :key="message.message_id"
+                  v-for="(message, index) in messages"
+                  :key="message.message_id > 0 ? `msg_${message.message_id}` : `opt_${message.extra1 || index}_${message.date2}`"
                   :class="[
                     'flex gap-3 min-w-0 w-full group',
                     isOwnMessage(message) ? 'flex-row-reverse' : 'flex-row'
@@ -923,6 +1162,8 @@ onUnmounted(() => {
                         'px-4 py-2 rounded-lg min-w-0 w-full',
                         isOwnMessage(message)
                           ? 'bg-blue-500 text-white'
+                          : message.seen === 0 || message.seen !== 1
+                          ? 'bg-red-600 text-white'
                           : 'bg-[#2a2a2a] text-white'
                       ]"
                     >
