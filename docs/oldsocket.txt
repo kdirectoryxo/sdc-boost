@@ -1,0 +1,146 @@
+const rUr = t => {
+  let e;
+  function r(n, i) {
+    i.socket.emit("message_v2", n, a => {
+      !a || (t.dispatch(_St({tempId: n.tempId, updates: {pending: false, message_id: a.message_id, date: a.dt_format}})), t.dispatch(bSt(n.tempId)));
+    });
+  }
+  return n => i => {
+    if (location.hash !== "#/signup") {
+      if (hN.match(i)) if (!e && typeof window < "u") {
+        var a = i.payload;
+        e = tUr.create(a), e.socket.on("connect", function () {
+          Sv(), console.log("socket online"), t.dispatch(Dk(true));
+        }), e.socket.on("reconnection_attempt", () => {
+          console.log("reconnection_attempt");
+        }), e.socket.on("reconnect", () => {
+          console.log("reconnect");
+        }), e.socket.on("connect_error", function (l) {
+          t.dispatch(K6(false)), console.log("Connection Failed: " + (new Date).toTimeString() + " ", l), t.dispatch(Dk(false));
+        }), e.socket.on("disconnect", function (l) {
+          t.dispatch(K6(false)), console.log("disconnected menu: " + (new Date).toTimeString() + " ", l), t.dispatch(Dk(false));
+        }), e.socket.on("closeconn", function (l) {
+          t.dispatch(K6(false)), console.log("closeconn " + (new Date).toTimeString() + " ", l), t.dispatch(Dk(false));
+        }), e.socket.on("close", function () {
+          console.log("connecttion closed"), t.dispatch(Dk(false)), e.socket.open();
+        }), e.socket.on("reconnection_attempt", function () {
+          console.log("reconnection_attempt");
+        }), e.socket.on("reconnect", function () {
+          console.log("reconnect");
+        }), e.socket.on("seen", function (l) {
+          const c = t.getState().messenger;
+          c.groupType === 0 && c.targetDbId === l.db_id && c.groupID === l.group_id && t.dispatch(mSt(l.db_id));
+        }), e.socket.on("unseen", function (l) {
+          const c = t.getState().messenger;
+          c.groupType === 0 && c.targetDbId === l.db_id && c.groupID === l.group_id && t.dispatch(hSt(l.id_message));
+        }), e.socket.on("typing", function (l) {
+          const c = t.getState().messenger;
+          c.groupType === 1 && c.groupID === l.GroupID && l.typing === true ? t.dispatch(Z0e(l.account_id)) : c.groupType === 1 && c.groupID === l.GroupID && l.typing === false ? t.dispatch(K6(l.account_id)) : c.groupType === 0 && c.targetDbId === l.DB_ID && c.groupID === l.GroupID && l.typing === true ? t.dispatch(Z0e(l.account_id)) : c.groupType === 0 && c.targetDbId === l.DB_ID && c.groupID === l.GroupID && l.typing === false && t.dispatch(K6(l.account_id));
+        }), e.socket.on("message", function (l) {
+          Sv();
+          const c = t.getState().messenger, u = t.getState().userInfo;
+          if (c.groupID === l.GroupID.toString() && c.targetDbId !== l.db_id) {
+            if (location.href.includes("messenger?id=")) {
+              var d = {db_id: l.targetID, target_db_id: l.db_id, group_id: l.GroupID};
+              e.socket.emit("seen", d, function (p) {
+                console.log("seen", p);
+              });
+            }
+            c.chatsList.map(p => (p.getGroupId() === l.GroupID.toString() && p.getUnreadCounter() > 0 && t.dispatch(cC(-1)), p));
+            const f = c.chatsList.map(p => (p.getGroupId() === l.GroupID.toString() && p.setUnreadCounter(0), p));
+            t.dispatch(Ja(f)), t.dispatch(X4(l));
+          }
+          if (c.groupType === 1 && c.groupID === l.GroupID.toString() && c.targetDbId === l.db_id) t.dispatch(X4(l)); else if (c.groupType === 0 && c.targetDbId === l.db_id && c.groupID === l.GroupID.toString()) {
+            if (location.href.includes("messenger?id=")) {
+              var d = {db_id: l.targetID, target_db_id: l.db_id, group_id: l.GroupID};
+              e.socket.emit("seen", d, function (h) {
+                console.log("seen", h);
+              }), c.chatsList.map(h => (h.getGroupId() === l.GroupID.toString() && h.getUnreadCounter() > 0 && t.dispatch(cC(-1)), h));
+              const p = c.chatsList.map(h => (h.getGroupId() === l.GroupID.toString() && h.setUnreadCounter(0), h));
+              t.dispatch(Ja(p));
+            }
+            t.dispatch(X4(l));
+          }
+          l.db_id !== u.user.dbId && c.openMessengerPopup === false && l.call_action === 3 && t.dispatch(J4({uncoming_video_dialog: false, data: {}, uncoming_html: null})), !(l.call_action !== 4 && (location.href.includes("messenger?id=") || location.href.includes("messenger?db=")) && location.href.includes(l.DB_ID)) && l.call_action !== 4 && !location.href.includes("messenger?id=") && !location.href.includes("messenger?db=") && l.muted !== 1 && (t.dispatch(_ie(true)), t.dispatch(gSt({smallMessageNotification: true, data: l})));
+        }), e.socket.on("video", function (l) {}), e.socket.on("video_action", function (l) {
+          l.call_action !== 1 && (t.dispatch(KZ(false)), t.dispatch(J4({incoming_video_data: {}, uncoming_video_dialog: false, uncoming_html: null})), l.call_action === 5 && (t.dispatch(QZ({target_db_id_call: 0, group_id_call: ""})), t.dispatch(xv(false))));
+        }), e.socket.on("video_v2", function (l, c) {
+          console.log("video_v2 middelware", l);
+          const u = t.getState().userInfo;
+          if (l.db_id !== u.user.dbId) if (l.call_action === 4) t.dispatch(J4({uncoming_video_dialog: false, data: {}, uncoming_html: null})); else {
+            if (t.getState().messenger.active_call) return;
+            console.log("message"), console.log("data2", l), t.dispatch(J4({uncoming_video_dialog: true, data: l, uncoming_html: s("div", {children: F("div", {style: {overflow: "hidden", textOverflow: "ellipsis", minHeight: 30}, children: [F("label", {style: {fontWeight: "bold", cursor: "pointer"}, children: [" ", l.account_id, ":", " "]}), tX(l.type === "audioCall" ? m.audio_call : m.video_call), F("div", {style: {display: "flex", alignItems: "center", marginTop: 13}, children: [s("div", {style: {width: "50%", background: "#00a652", textAlign: "center", padding: 6, borderRadius: 4, margin: 4, cursor: "pointer"}, onClick: () => {
+              location.href.includes(Le.MESSENGER) || (location.href = `https://www.sdc.com/react/#/${Le.MESSENGER}?id=${l.group_Id}&type=${l.groupType}&db=${l.db_id}`), setTimeout(() => {
+                console.log("APPROVE CALL: ", l.type), localStorage.setItem("messenger_type_call", l.type), t.dispatch(x6e(l.type)), t.dispatch(J4({incoming_video_data: l, uncoming_video_dialog: false, uncoming_html: null, targetDbId: l.db_id, groupID: l.group_Id, groupType: l.groupType}));
+                let f = Object.assign({}, l);
+                f.call_action = 1, c(f), t.dispatch(xv(true));
+              }, 2e3);
+            }, children: m.approve}), s("div", {style: {width: "50%", background: "red", textAlign: "center", padding: 6, borderRadius: 4, margin: 4, cursor: "pointer"}, onClick: () => {
+              t.dispatch(J4({incoming_video_data: {}, uncoming_video_dialog: false, uncoming_html: null}));
+              let f = Object.assign({}, l);
+              f.call_action = 0, c(l);
+            }, children: m.deny})]})]})})}));
+          }
+        }), e.socket.on("member_added", function (l) {
+          const c = t.getState().messenger;
+          (c.groupID === l.GroupID && c.targetDbId !== l.db_id || c.groupType === 1 && c.groupID === l.GroupID && c.targetDbId === l.db_id) && t.dispatch(X4(l));
+        });
+      } else e.socket.connected == false && e.socket.connect();
+      if (oM.match(i) && e) {
+        const l = i.payload, c = gt(), u = new Date, d = {month: "short", day: "2-digit", year: "numeric"}, f = `${u.toLocaleDateString("en-US", d)} - 0min`, p = {...l, tempId: c, pending: true, date: f};
+        if (t.dispatch(X4(p)), !t.getState().messenger.socket_state) {
+          console.warn("Socket desconectado, mensaje no enviado"), t.dispatch(vSt(p));
+          return;
+        }
+        r(p, e);
+      }
+      if (Dk.match(i) && i.payload === true) {
+        const c = t.getState().messenger.pendingMessages || [];
+        console.log(c), c.length > 0 && (console.log(`\u{1F501} Reenviando ${c.length} mensajes pendientes...`), c.forEach(u => {
+          r(u, e);
+        }));
+      }
+      if (S6e.match(i) && e) {
+        var o = i.payload;
+        e.socket.emit("video_v2", o, function (l) {
+          t.getState().messenger.active_call ? (t.dispatch(xv(false)), t.dispatch(nn({open: true, message: m.messenger_missed_call}))) : l.call_action === 1 ? t.dispatch(xv(true)) : l.call_action === 2 ? (t.dispatch(xv(false)), t.dispatch(nn({open: true, message: m.messenger_missed_call}))) : (t.dispatch(xv(false)), t.dispatch(nn({open: true, message: m.messenger_missed_call})));
+        });
+      }
+      if (E6e.match(i) && e) {
+        var o = i.payload;
+        e.socket.emit("video_end_call", o, function (c) {
+          console.log("video_end_call callback", c);
+        });
+      }
+      if (T6e.match(i) && e) {
+        var o = i.payload;
+        e.socket.emit("video_action", o, function (c) {
+          console.log("video_action callback4", c);
+        });
+      }
+      if (k6e.match(i) && e) {
+        var o = i.payload;
+        e.socket.emit("message_v2", o, function (c) {
+          o.message_id = c.message_id, o.date = c.dt_format, console.log("message_v2 callback", c);
+        });
+      }
+      if (C6e.match(i) && e) {
+        var o = i.payload;
+        e.socket.emit("seen", o, function (c) {
+          console.log("callback seen emitted");
+        });
+      }
+      if (YZ.match(i) && e) {
+        var o = i.payload;
+        e.socket.emit("typing", o, function (c) {});
+      }
+      if (CSt.match(i) && e && (e.socket.connected ? (Sv(), console.log("socket online")) : (console.log("middleWare reconnect "), e.socket.connect())), wie.match(i) && e) {
+        var o = i.payload;
+        o.groupType = 0, o.type = 0, e.socket.emit("message_v2", o, function (c) {
+          o.message_id = c.message_id, o.date = c.dt_format, U4r(o.share_data.db_id, o.share_data.type);
+        });
+      }
+      n(i);
+    }
+  };
+};

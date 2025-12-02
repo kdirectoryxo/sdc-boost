@@ -6,14 +6,18 @@ import { ChatScrollFixModule } from '@/lib/modules/ChatScrollFixModule';
 import { ChatExportModule } from '@/lib/modules/ChatExportModule';
 import { NavbarBoostButtonModule } from '@/lib/modules/NavbarBoostButtonModule';
 import { EnhancedClickModule } from '@/lib/modules/EnhancedClickModule';
+import { ChatDialogModule } from '@/lib/modules/ChatDialogModule';
 import { toast } from '@/lib/toast';
 import { confirm } from '@/lib/confirm';
-
-// import '~/assets/tailwind.css';
+import { createApp, ref, watch } from 'vue';
+import ChatDialogWrapper from '@/components/ChatDialogWrapper.vue';
+import { websocketManager } from '@/lib/websocket-manager';
+import '~/assets/tailwind.css';
 
 export default defineContentScript({
-  matches: ['*://*.sdc.com/react/*'],
-  main() {
+  matches: ['*://*.sdc.com/*'],
+  cssInjectionMode: 'ui',
+  async main(ctx) {
     console.log('SDC Boost: Content script loaded');
 
     // Initialize module manager
@@ -41,6 +45,124 @@ export default defineContentScript({
     const enhancedClickModule = new EnhancedClickModule();
     moduleManager.register(enhancedClickModule);
 
+    const chatDialogModule = new ChatDialogModule();
+    moduleManager.register(chatDialogModule);
+
+    // Set up Vue Chat Dialog UI
+    let chatDialogApp: ReturnType<typeof createApp> | null = null;
+    let overlayHost: HTMLElement | null = null;
+    let overlayContainer: HTMLElement | null = null;
+    let dialogController: { open: () => void; close: () => void } | null = null;
+    
+    const chatDialogUI = await createShadowRootUi(ctx, {
+      name: 'chat-dialog-ui',
+      position: 'overlay',
+      anchor: 'body',
+      onMount: (container) => {
+        overlayContainer = container;
+        
+        // Ensure container is full-screen and visible
+        const shadowRoot = container.getRootNode() as ShadowRoot;
+        const host = shadowRoot.host as HTMLElement;
+        overlayHost = host;
+        
+        if (host) {
+          host.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 999999 !important;
+            pointer-events: none !important;
+          `;
+        }
+        
+        // Container should allow pointer events for the dialog
+        container.style.cssText = `
+          width: 100% !important;
+          height: 100% !important;
+          pointer-events: auto !important;
+        `;
+
+        // Create Vue app with wrapper component
+        chatDialogApp = createApp(ChatDialogWrapper);
+
+        // Mount Vue app to container
+        const instance = chatDialogApp.mount(container);
+        
+        // Get the exposed methods from the component instance
+        if (instance && typeof instance === 'object' && 'open' in instance && 'close' in instance) {
+          dialogController = {
+            open: () => {
+              console.log('[ChatDialog] Calling wrapper open method');
+              (instance as any).open();
+            },
+            close: () => {
+              (instance as any).close();
+            },
+          };
+        } else {
+          console.error('[ChatDialog] Failed to get exposed methods from component instance');
+        }
+
+        return chatDialogApp;
+      },
+      onRemove: (app) => {
+        app?.unmount();
+      },
+    });
+
+    // Mount the UI (hidden initially)
+    chatDialogUI.mount();
+    
+    // Expose methods globally for module to use (after UI is mounted)
+    // Wait a tick for Vue app to initialize
+    setTimeout(() => {
+      (window as any).__sdcBoostChatDialog = {
+        open: () => {
+          console.log('[ChatDialog] Opening dialog via global method');
+          console.log('[ChatDialog] overlayHost exists:', !!overlayHost);
+          console.log('[ChatDialog] overlayContainer exists:', !!overlayContainer);
+          console.log('[ChatDialog] dialogController exists:', !!dialogController);
+          
+          // Ensure overlay is visible and covers everything
+          if (overlayHost) {
+            overlayHost.style.cssText = `
+              position: fixed !important;
+              top: 0 !important;
+              left: 0 !important;
+              right: 0 !important;
+              bottom: 0 !important;
+              width: 100vw !important;
+              height: 100vh !important;
+              z-index: 999999 !important;
+              pointer-events: none !important;
+              display: block !important;
+              visibility: visible !important;
+            `;
+          }
+          if (overlayContainer) {
+            overlayContainer.style.pointerEvents = 'auto';
+          }
+          
+          // Use the controller from Vue app
+          if (dialogController) {
+            dialogController.open();
+          } else {
+            console.error('[ChatDialog] Dialog controller not initialized yet');
+          }
+        },
+        close: () => {
+          if (dialogController) {
+            dialogController.close();
+          }
+        },
+      };
+    }, 100);
+
     // Initialize modules based on stored state
     moduleManager.initialize().catch(console.error);
 
@@ -67,5 +189,15 @@ export default defineContentScript({
 
     // Make confirm dialog system available globally for modules
     (window as any).__sdcBoostConfirm = confirm;
+
+    // Initialize WebSocket connection (wait a bit for page to be ready)
+    setTimeout(() => {
+      websocketManager.connect().catch((error) => {
+        console.error('[SDC Boost] Failed to initialize WebSocket:', error);
+      });
+    }, 1000);
+
+    // Make WebSocket manager available globally
+    (window as any).__sdcBoostWebSocket = websocketManager;
   },
 });

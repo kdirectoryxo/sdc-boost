@@ -248,3 +248,61 @@ export interface Community {
     status: number;
 }
 
+/**
+ * Messenger API Types
+ */
+export interface MessengerChatItem {
+    db_id: number;
+    folder_id?: number;
+    account_id: string;
+    gender1: number;
+    gender2: number;
+    profile_type: number;
+    unread_counter: number;
+    last_message: string;
+    message_status: number;
+    date: string;
+    date_time: string;
+    start_chat: number;
+    primary_photo: string;
+    muted: number | null;
+    pin_chat: number;
+    time_elapsed: string;
+    isFriend: boolean;
+    online: number;
+    group_type: number;
+    group_id: number;
+    blocked_profile: number;
+    extra1: string;
+    // Broadcast message fields (when broadcast: true or type: 100)
+    type?: number;
+    broadcast?: boolean;
+    id_broadcast?: number;
+    extra_data?: any;
+    subject?: string;
+    body?: string;
+}
+
+export interface MessengerLatestInfo {
+    code: string;
+    chat_list: MessengerChatItem[];
+    url_more?: string;
+}
+
+export interface MessengerLatestResponse {
+    info: MessengerLatestInfo;
+}
+
+export interface MessengerIOV2Info {
+    code: number;
+    db_id: number;
+    messenger_conn_id: number;
+    messenger_id1: string;
+    messenger_version: number;
+    messenger_hh: string;
+}
+
+export interface MessengerIOV2Response {
+    info: MessengerIOV2Info;
+}
+

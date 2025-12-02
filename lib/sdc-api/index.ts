@@ -12,7 +12,10 @@ export type {
     Friend,
     TravelPlan,
     PhotoAlbum,
-    Community
+    Community,
+    MessengerLatestResponse,
+    MessengerChatItem,
+    MessengerLatestInfo
 } from '../sdc-api-types';
 
 // Re-export utility functions
@@ -23,5 +26,17 @@ export { getProfileV2, getCurrentNote } from './profile';
 
 // Re-export note utility functions
 export { noteContainsSummary, extractSummaryFromNote, getNoteBeforeSummary } from './notes';
+
+// Re-export messenger functions
+export { getMessengerLatest, getMessengerIOV2 } from './messenger';
+
+// Re-export WebSocket utilities
+export { 
+    getCurrentDBId, 
+    getConnId, 
+    getId1, 
+    getClientToken, 
+    getMessengerHash 
+} from './utils';
 
 

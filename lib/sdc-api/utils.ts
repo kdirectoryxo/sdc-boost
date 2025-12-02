@@ -75,3 +75,105 @@ export function getTargetDBId(): string | null {
     return null;
 }
 
+/**
+ * Get current user's DB_ID from localStorage or cookies
+ */
+export function getCurrentDBId(): string | null {
+    try {
+        const userInfoStr = localStorage.getItem('user_info');
+        if (userInfoStr) {
+            const userInfo = JSON.parse(userInfoStr);
+            if (userInfo.db_id) {
+                return String(userInfo.db_id);
+            }
+        }
+    } catch (error) {
+        console.warn('[SDC API] Error reading DB_ID from localStorage:', error);
+    }
+    return null;
+}
+
+/**
+ * Get ConnID from localStorage
+ */
+export function getConnId(): string | null {
+    try {
+        const userInfoStr = localStorage.getItem('user_info');
+        if (userInfoStr) {
+            const userInfo = JSON.parse(userInfoStr);
+            if (userInfo.messengerConnId) {
+                return String(userInfo.messengerConnId);
+            }
+        }
+    } catch (error) {
+        console.warn('[SDC API] Error reading ConnID from localStorage:', error);
+    }
+    return null;
+}
+
+/**
+ * Get ID1 (device ID) from localStorage or generate one
+ */
+export function getId1(): string | null {
+    try {
+        let id1 = localStorage.getItem('ID1');
+        if (!id1) {
+            // Generate a new ID1 if it doesn't exist (format: UUID-UUID)
+            const uuid1 = crypto.randomUUID();
+            const uuid2 = crypto.randomUUID();
+            id1 = `${uuid1}-${uuid2}`;
+            localStorage.setItem('ID1', id1);
+            console.log('[SDC API] Generated new ID1:', id1);
+        }
+        return id1;
+    } catch (error) {
+        console.warn('[SDC API] Error reading/generating ID1:', error);
+        // Fallback: generate a simple ID
+        try {
+            const fallbackId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+            localStorage.setItem('ID1', fallbackId);
+            return fallbackId;
+        } catch {
+            return null;
+        }
+    }
+}
+
+/**
+ * Get client_token from localStorage
+ */
+export function getClientToken(): string | null {
+    try {
+        const token = localStorage.getItem('client_token');
+        if (token) {
+            return token;
+        }
+    } catch (error) {
+        console.warn('[SDC API] Error reading client_token from localStorage:', error);
+    }
+    return null;
+}
+
+/**
+ * Get messenger_hh (hash) from localStorage or generate from user info
+ */
+export function getMessengerHash(): string | null {
+    try {
+        const hash = localStorage.getItem('messenger_hh');
+        if (hash) {
+            return hash;
+        }
+        // Try to get from user_info
+        const userInfoStr = localStorage.getItem('user_info');
+        if (userInfoStr) {
+            const userInfo = JSON.parse(userInfoStr);
+            if (userInfo.messenger_hh) {
+                return userInfo.messenger_hh;
+            }
+        }
+    } catch (error) {
+        console.warn('[SDC API] Error reading messenger_hh from localStorage:', error);
+    }
+    return null;
+}
+

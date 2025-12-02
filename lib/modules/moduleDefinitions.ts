@@ -187,5 +187,12 @@ export const moduleDefinitions: ModuleDefinition[] = [
             },
         ],
     },
+    {
+        id: 'chat-dialog',
+        name: 'Chat Dialog',
+        description: 'Modern WhatsApp-like chat interface in a dialog',
+        category: 'Chat',
+        configOptions: [],
+    },
 ];
 
