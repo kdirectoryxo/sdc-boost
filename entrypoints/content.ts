@@ -2,7 +2,6 @@ import { ModuleManager } from '@/lib/modules/ModuleManager';
 import { AgeFilterModule } from '@/lib/modules/AgeFilterModule';
 import { AgeHighlighterModule } from '@/lib/modules/AgeHighlighterModule';
 import { AdBlockModule } from '@/lib/modules/AdBlockModule';
-import { ChatScrollFixModule } from '@/lib/modules/ChatScrollFixModule';
 import { ChatExportModule } from '@/lib/modules/ChatExportModule';
 import { NavbarBoostButtonModule } from '@/lib/modules/NavbarBoostButtonModule';
 import { EnhancedClickModule } from '@/lib/modules/EnhancedClickModule';
@@ -33,9 +32,6 @@ export default defineContentScript({
 
     const adBlockModule = new AdBlockModule();
     moduleManager.register(adBlockModule);
-
-    const chatScrollFixModule = new ChatScrollFixModule();
-    moduleManager.register(chatScrollFixModule);
 
     const chatExportModule = new ChatExportModule();
     moduleManager.register(chatExportModule);
@@ -191,19 +187,17 @@ export default defineContentScript({
     // Make confirm dialog system available globally for modules
     (window as any).__sdcBoostConfirm = confirm;
 
+    // Initialize counters manager immediately (doesn't require WebSocket connection)
+    countersManager.initialize().catch((error) => {
+      console.error('[SDC Boost] Failed to initialize counters:', error);
+    });
+
     // Initialize WebSocket connection (wait a bit for page to be ready)
     setTimeout(() => {
       websocketManager.connect().catch((error) => {
         console.error('[SDC Boost] Failed to initialize WebSocket:', error);
       });
     }, 1000);
-
-    // Initialize counters manager (wait for WebSocket to be ready)
-    setTimeout(() => {
-      countersManager.initialize().catch((error) => {
-        console.error('[SDC Boost] Failed to initialize counters:', error);
-      });
-    }, 2000);
 
     // Make WebSocket manager available globally
     (window as any).__sdcBoostWebSocket = websocketManager;

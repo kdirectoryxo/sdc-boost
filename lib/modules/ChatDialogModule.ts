@@ -1,6 +1,7 @@
 import { BaseModule } from './BaseModule';
 import type { ModuleConfigOption } from './types';
 import { countersManager } from '../counters-manager';
+import { navigationWatcher } from './utils/NavigationWatcher';
 
 /**
  * Module to add a Chat button to the navbar that opens a Vue-based dialog
@@ -10,6 +11,8 @@ export class ChatDialogModule extends BaseModule {
     private chatButton: HTMLElement | null = null;
     private counterBadge: HTMLElement | null = null;
     private unsubscribeCounters: (() => void) | null = null;
+    private bodyObserver: MutationObserver | null = null;
+    private unsubscribeNavigation: (() => void) | null = null;
 
     constructor() {
         const configOptions: ModuleConfigOption[] = [];
@@ -31,6 +34,9 @@ export class ChatDialogModule extends BaseModule {
         // Watch for navbar changes
         this.setupNavbarObserver();
         
+        // Setup navigation listeners
+        this.setupNavigationListener();
+        
         // Subscribe to counter updates
         this.setupCounterSubscription();
     }
@@ -39,6 +45,14 @@ export class ChatDialogModule extends BaseModule {
         this.removeChatButton();
         this.cleanupObserver();
         this.cleanupCounterSubscription();
+        if (this.bodyObserver) {
+            this.bodyObserver.disconnect();
+            this.bodyObserver = null;
+        }
+        if (this.unsubscribeNavigation) {
+            this.unsubscribeNavigation();
+            this.unsubscribeNavigation = null;
+        }
     }
 
     private injectChatButton(): void {
@@ -209,6 +223,19 @@ export class ChatDialogModule extends BaseModule {
                 // Re-subscribe to counters after re-injection
                 this.setupCounterSubscription();
             }
+            
+            // Also check if the navbar container itself was replaced
+            mutations.forEach((mutation) => {
+                mutation.removedNodes.forEach((node) => {
+                    if (node instanceof Element && node.querySelector?.('.sdc-boost-chat-button')) {
+                        // Our button's container was removed, re-inject
+                        setTimeout(() => {
+                            this.injectChatButton();
+                            this.setupCounterSubscription();
+                        }, 100);
+                    }
+                });
+            });
         };
 
         // Observe the navbar container
@@ -217,6 +244,57 @@ export class ChatDialogModule extends BaseModule {
             childList: true,
             subtree: true,
         });
+        
+        // Also observe document.body for when navbar container is replaced entirely
+        // Use a separate observer since BaseModule only manages one observer
+        if (this.bodyObserver) {
+            this.bodyObserver.disconnect();
+        }
+        this.bodyObserver = new MutationObserver((mutations) => {
+            // Check if navbar container was added (meaning it was replaced)
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node instanceof Element) {
+                        const navbar = node.querySelector?.('.nav-bar-right-buttons') || 
+                                     (node.classList?.contains('nav-bar-right-buttons') ? node : null);
+                        if (navbar && !document.querySelector('.sdc-boost-chat-button')) {
+                            setTimeout(() => {
+                                this.injectChatButton();
+                                this.setupCounterSubscription();
+                            }, 100);
+                        }
+                    }
+                });
+            });
+        });
+        this.bodyObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+        });
+    }
+
+    /**
+     * Setup navigation listeners for React route changes
+     */
+    private setupNavigationListener(): void {
+        const handleNavigation = () => {
+            console.log('[ChatDialog] Navigation detected, re-injecting button...');
+            // Remove button first if it exists
+            if (this.chatButton) {
+                this.chatButton.remove();
+                this.chatButton = null;
+                this.counterBadge = null;
+            }
+            // Wait a bit for DOM to update, then re-inject
+            setTimeout(() => {
+                this.injectChatButton();
+                this.setupCounterSubscription();
+            }, 300);
+        };
+
+        // Subscribe to navigation events using shared watcher
+        this.unsubscribeNavigation = navigationWatcher.onNavigation(handleNavigation);
+        console.log('[ChatDialog] Navigation listeners set up');
     }
 
     /**
@@ -235,14 +313,14 @@ export class ChatDialogModule extends BaseModule {
         }
 
         // Subscribe to counter changes
-        this.unsubscribeCounters = countersManager.onChange((key, oldValue, newValue) => {
+        this.unsubscribeCounters = countersManager.onChange((key: string, oldValue: number, newValue: number) => {
             if (key === 'messenger') {
                 this.updateCounterBadge(newValue);
             }
         });
 
         // Subscribe to counter updates to get initial value
-        const unsubscribeUpdate = countersManager.onUpdate((counters) => {
+        const unsubscribeUpdate = countersManager.onUpdate((counters: any) => {
             const messengerCount = counters.messenger || 0;
             this.updateCounterBadge(messengerCount);
         });
@@ -250,7 +328,9 @@ export class ChatDialogModule extends BaseModule {
         // Store both unsubscribe functions
         const originalUnsubscribe = this.unsubscribeCounters;
         this.unsubscribeCounters = () => {
-            originalUnsubscribe();
+            if (originalUnsubscribe) {
+                originalUnsubscribe();
+            }
             unsubscribeUpdate();
         };
     }

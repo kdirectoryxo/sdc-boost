@@ -3,6 +3,7 @@ import type { ModuleConfigOption } from './types';
 import { generateNoteSummary } from '@/lib/ai';
 import { getAIApiKey, setModuleConfig } from '@/lib/storage';
 import { getCurrentMuid, getTargetDBId, getCurrentNote, noteContainsSummary, getNoteBeforeSummary } from '@/lib/sdc-api';
+import { navigationWatcher } from './utils/NavigationWatcher';
 
 // Get toast and confirm from global window object
 const getToast = () => (window as any).__sdcBoostToast;
@@ -18,6 +19,7 @@ export class ChatExportModule extends BaseModule {
     private chatContainer: HTMLElement | null = null;
     private headerContainer: HTMLElement | null = null;
     private isExporting: boolean = false;
+    private unsubscribeNavigation: (() => void) | null = null;
 
     constructor() {
         const configOptions: ModuleConfigOption[] = [];
@@ -45,6 +47,10 @@ export class ChatExportModule extends BaseModule {
             this.exportButton = null;
         }
         this.cleanupObserver();
+        if (this.unsubscribeNavigation) {
+            this.unsubscribeNavigation();
+            this.unsubscribeNavigation = null;
+        }
         this.chatContainer = null;
         this.headerContainer = null;
     }
@@ -780,8 +786,8 @@ export class ChatExportModule extends BaseModule {
 
     private setupHashChangeListener(): void {
         // Re-initialize when navigating to a different chat
-        const handleHashChange = () => {
-            console.log('[ChatExport] Hash/popstate change detected, re-initializing...');
+        const handleNavigation = () => {
+            console.log('[ChatExport] Navigation detected, re-initializing...');
             // Remove button first
             if (this.exportButton) {
                 this.exportButton.remove();
@@ -793,9 +799,9 @@ export class ChatExportModule extends BaseModule {
             }, 500);
         };
 
-        window.addEventListener('hashchange', handleHashChange);
-        window.addEventListener('popstate', handleHashChange);
-        console.log('[ChatExport] Hash change listener set up');
+        // Subscribe to navigation events using shared watcher
+        this.unsubscribeNavigation = navigationWatcher.onNavigation(handleNavigation);
+        console.log('[ChatExport] Navigation listener set up');
     }
 
     private setupDOMObserver(): void {

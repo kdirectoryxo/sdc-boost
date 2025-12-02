@@ -84,13 +84,6 @@ export const moduleDefinitions: ModuleDefinition[] = [
         ],
     },
     {
-        id: 'chat-scroll-fix',
-        name: 'Chat Scroll Fix',
-        description: 'Prevents auto-scroll to bottom when loading older messages in chat.',
-        category: 'Chat',
-        configOptions: [],
-    },
-    {
         id: 'chat-export',
         name: 'Chat Export',
         description: 'Export all chat messages to markdown format and copy to clipboard.',

@@ -1,11 +1,14 @@
 import { BaseModule } from './BaseModule';
 import type { ModuleConfigOption } from './types';
+import { navigationWatcher } from './utils/NavigationWatcher';
 
 /**
  * Module for adding a Boost button to the navbar that opens the boost popup
  */
 export class NavbarBoostButtonModule extends BaseModule {
     private boostButton: HTMLElement | null = null;
+    private bodyObserver: MutationObserver | null = null;
+    private unsubscribeNavigation: (() => void) | null = null;
 
     constructor() {
         const configOptions: ModuleConfigOption[] = [];
@@ -22,11 +25,20 @@ export class NavbarBoostButtonModule extends BaseModule {
     async init(): Promise<void> {
         this.injectBoostButton();
         this.setupNavbarObserver();
+        this.setupNavigationListener();
     }
 
     async cleanup(): Promise<void> {
         this.removeBoostButton();
         this.cleanupObserver();
+        if (this.bodyObserver) {
+            this.bodyObserver.disconnect();
+            this.bodyObserver = null;
+        }
+        if (this.unsubscribeNavigation) {
+            this.unsubscribeNavigation();
+            this.unsubscribeNavigation = null;
+        }
     }
 
     /**
@@ -174,6 +186,16 @@ export class NavbarBoostButtonModule extends BaseModule {
                 // Re-inject if it was removed
                 this.injectBoostButton();
             }
+            
+            // Also check if the navbar container itself was replaced
+            mutations.forEach((mutation) => {
+                mutation.removedNodes.forEach((node) => {
+                    if (node instanceof Element && node.querySelector?.('.sdc-boost-navbar-button')) {
+                        // Our button's container was removed, re-inject
+                        setTimeout(() => this.injectBoostButton(), 100);
+                    }
+                });
+            });
         };
 
         // Observe the navbar container
@@ -182,6 +204,52 @@ export class NavbarBoostButtonModule extends BaseModule {
             childList: true,
             subtree: true,
         });
+        
+        // Also observe document.body for when navbar container is replaced entirely
+        // Use a separate observer since BaseModule only manages one observer
+        if (this.bodyObserver) {
+            this.bodyObserver.disconnect();
+        }
+        this.bodyObserver = new MutationObserver((mutations) => {
+            // Check if navbar container was added (meaning it was replaced)
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node instanceof Element) {
+                        const navbar = node.querySelector?.('.nav-bar-right-buttons') || 
+                                     (node.classList?.contains('nav-bar-right-buttons') ? node : null);
+                        if (navbar && !document.querySelector('.sdc-boost-navbar-button')) {
+                            setTimeout(() => this.injectBoostButton(), 100);
+                        }
+                    }
+                });
+            });
+        });
+        this.bodyObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+        });
+    }
+
+    /**
+     * Setup navigation listeners for React route changes
+     */
+    private setupNavigationListener(): void {
+        const handleNavigation = () => {
+            console.log('[NavbarBoostButton] Navigation detected, re-injecting button...');
+            // Remove button first if it exists
+            if (this.boostButton) {
+                this.boostButton.remove();
+                this.boostButton = null;
+            }
+            // Wait a bit for DOM to update, then re-inject
+            setTimeout(() => {
+                this.injectBoostButton();
+            }, 300);
+        };
+
+        // Subscribe to navigation events using shared watcher
+        this.unsubscribeNavigation = navigationWatcher.onNavigation(handleNavigation);
+        console.log('[NavbarBoostButton] Navigation listeners set up');
     }
 }
 
