@@ -4,7 +4,7 @@
 
 **A powerful browser extension to enhance your SDC.com experience with customizable modules and features**
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/kdirectoryxo/sdc-boost)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/kdirectoryxo/sdc-boost)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Chrome Web Store](https://img.shields.io/badge/Chrome-Web%20Store-4285F4?logo=google-chrome&logoColor=white)](https://chrome.google.com/webstore/detail/gjlcgihpgdceeeacppojeffplhmmjffj)
 
@@ -39,7 +39,14 @@ SDC Boost is a modular browser extension designed to enhance your browsing exper
 - **Ad Blocker**: Block and hide advertisements on SDC.com for a cleaner browsing experience
 
 ### 💬 Chat Modules
-- **Chat Scroll Fix**: Prevents auto-scroll to bottom when loading older messages, giving you better control over your chat experience
+- **Chat Dialog**: Modern WhatsApp-like chat interface with folder management, message search, typing indicators, and real-time synchronization. Features include:
+  - 📁 **Folder Management**: Organize chats into folders with sync functionality
+  - 🔍 **Message Search**: Search through messages in any chat with highlighting and navigation
+  - ⌨️ **Typing Indicators**: See when others are typing in real-time
+  - 🔌 **WebSocket Status**: Monitor connection status with live indicators
+  - 💬 **Message Actions**: Quote, delete, and copy messages with ease
+  - ⚡ **Optimistic Updates**: Instant message sending with smooth UI updates
+  - 📜 **Message History**: Full message history with efficient loading and storage
 - **Chat Export**: Export your chat conversations to markdown format for backup or analysis
 
 ### 🎨 UI Modules
@@ -311,9 +318,9 @@ SDC Boost is designed with privacy as a core principle:
 
 ## 🛣️ Roadmap
 
+- [x] Enhanced chat features (Chat Dialog with search, folders, and real-time sync)
 - [ ] Additional filtering options
 - [ ] More UI customization features
-- [ ] Enhanced chat features
 - [ ] Performance optimizations
 - [ ] User feedback system
 
