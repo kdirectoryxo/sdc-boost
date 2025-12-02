@@ -1123,6 +1123,9 @@ watch(() => props.modelValue, async (newValue) => {
     // Reset initial load flag
     isInitialLoad.value = true;
     
+    // Get chatId from URL before loading (to preserve it)
+    const chatIdFromURL = getChatIdFromURL();
+    
     // Load from IndexedDB first (fast)
     await loadChatsFromStorage();
     await loadFoldersFromStorage();
@@ -1138,13 +1141,27 @@ watch(() => props.modelValue, async (newValue) => {
     setupEventListeners();
     
     // Restore chat selection from URL after chats are loaded
-    const chatIdFromURL = getChatIdFromURL();
     if (chatIdFromURL) {
       const chat = findChatByGroupId(chatIdFromURL);
       if (chat) {
         // Small delay to ensure UI is ready
         await nextTick();
-        await handleChatClick(chat);
+        // Don't update URL again since we're restoring from URL
+        // Temporarily disable URL update to avoid removing chatId
+        selectedChat.value = chat;
+        messages.value = [];
+        isLoadingMessages.value = false;
+        isSyncing.value = false;
+        typingManager.reset();
+        clearSearch();
+        await handleLoadMessages(chat);
+        await nextTick();
+        if (messagesContainer.value) {
+          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+        }
+        sendSeenEvent(chat);
+        // Now update URL to ensure it's set correctly (should be same value)
+        updateChatInURL(chat);
       }
     }
   } else {
