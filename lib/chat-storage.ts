@@ -345,6 +345,106 @@ class ChatStorage {
     async getFolderLastSyncTime(folderId: number): Promise<string | null> {
         return this.getLastSyncTime(`folder_${folderId}`);
     }
+
+    /**
+     * Search chats using IndexedDB queries
+     * @param options Search options
+     * @returns Array of matching chats
+     */
+    async searchChats(options: {
+        query?: string;
+        folderId?: number | null;
+        unreadOnly?: boolean;
+        pinnedOnly?: boolean;
+        onlineOnly?: boolean;
+    }): Promise<MessengerChatItem[]> {
+        const db = await this.getDB();
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        
+        let chats: (MessengerChatItem & { id: string })[] = [];
+        
+        // Filter by folder using index if specified
+        if (options.folderId !== undefined && options.folderId !== null) {
+            const index = store.index('folder_id');
+            const folderId = options.folderId;
+            chats = await index.getAll(folderId);
+        } else {
+            // Get all chats
+            chats = await store.getAll();
+        }
+        
+        // Remove the 'id' field and convert to MessengerChatItem
+        let result = chats.map((item) => {
+            const { id, ...chat } = item;
+            return chat as MessengerChatItem;
+        });
+        
+        // Apply text search filter and categorize matches
+        if (options.query && options.query.trim()) {
+            const query = options.query.toLowerCase();
+            const exactMatches: MessengerChatItem[] = [];
+            const partialMatches: MessengerChatItem[] = [];
+            
+            result.forEach(chat => {
+                const accountId = (chat.account_id || '').toLowerCase();
+                const lastMessage = (chat.last_message || '').toLowerCase();
+                const subject = (chat.subject || '').toLowerCase();
+                
+                // Check for exact match in account_id (highest priority)
+                const isExactMatch = accountId === query;
+                
+                // Check for partial matches
+                const isPartialMatch = accountId.includes(query) || 
+                                      lastMessage.includes(query) || 
+                                      subject.includes(query);
+                
+                if (isExactMatch) {
+                    exactMatches.push(chat);
+                } else if (isPartialMatch) {
+                    partialMatches.push(chat);
+                }
+            });
+            
+            // Combine: exact matches first, then partial matches
+            result = [...exactMatches, ...partialMatches];
+        }
+        
+        // Apply unread filter
+        if (options.unreadOnly) {
+            result = result.filter(chat => chat.unread_counter > 0);
+        }
+        
+        // Apply pinned filter
+        if (options.pinnedOnly) {
+            result = result.filter(chat => (chat.pin_chat || 0) > 0);
+        }
+        
+        // Apply online filter
+        if (options.onlineOnly) {
+            result = result.filter(chat => chat.online === 1);
+        }
+        
+        // Sort: pinned first, then by date_time
+        result.sort((a, b) => {
+            const aPinned = a.pin_chat || 0;
+            const bPinned = b.pin_chat || 0;
+            if (aPinned !== bPinned) {
+                return bPinned - aPinned;
+            }
+            const getTime = (chat: MessengerChatItem): number => {
+                if (!chat.date_time || chat.date_time === '') {
+                    return new Date('1900-01-01').getTime();
+                }
+                const parsed = new Date(chat.date_time).getTime();
+                return isNaN(parsed) ? new Date('1900-01-01').getTime() : parsed;
+            };
+            return getTime(b) - getTime(a);
+        });
+        
+        console.log(`[ChatStorage] Search returned ${result.length} chats`);
+        return result;
+    }
 }
 
 // Create singleton instance

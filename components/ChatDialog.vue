@@ -47,7 +47,6 @@ const dropdownButtonRefs = ref<Map<number, HTMLElement>>(new Map()); // Store re
 const optimisticMessageTempIds = ref<Map<string, string>>(new Map()); // Track optimistic messages: tempId -> message content
 const optimisticMessages = ref<Map<string, MessengerMessage>>(new Map()); // Track optimistic messages by tempId
 const messengerCounter = ref<number>(0); // Track messenger counter from counters manager
-const folderUnreadCountsMap = ref<Map<number, number>>(new Map()); // Track folder unread counts
 
 // Message search state
 const messageSearchQuery = ref('');
@@ -259,21 +258,8 @@ function handleSearchKeydown(event: KeyboardEvent): void {
   }
 }
 
-// Watch chatList and update folder counts immediately
-watch(chatList, () => {
-  const counts = new Map<number, number>();
-  
-  // Calculate counts for each folder from current chat list
-  chatList.value.forEach(chat => {
-    const folderId = chat.folder_id || 0;
-    if (chat.unread_counter > 0) {
-      const current = counts.get(folderId) || 0;
-      counts.set(folderId, current + chat.unread_counter);
-    }
-  });
-  
-  folderUnreadCountsMap.value = counts;
-}, { immediate: true, deep: true });
+// Folder counts are now calculated dynamically in getFolderUnreadCount()
+// No need to maintain a separate map
 
 // Helper function to sort chats: pinned first, then by date_time
 function sortChats(chats: MessengerChatItem[]): MessengerChatItem[] {
@@ -318,45 +304,90 @@ function getChatKey(chat: MessengerChatItem | null): string {
 }
 
 
-// Filter and sort chats client-side
-const filteredChats = computed(() => {
-  let chats = chatList.value;
+// Filtered chats using IndexedDB queries
+const filteredChats = ref<MessengerChatItem[]>([]);
+const isLoadingFilteredChats = ref(false);
 
-  // Filter by folder
-  if (selectedFolderId.value !== null) {
-    chats = chats.filter(chat => {
-      const chatFolderId = chat.folder_id || 0;
-      return chatFolderId === selectedFolderId.value;
+// Function to search chats using IndexedDB
+async function updateFilteredChats(): Promise<void> {
+  isLoadingFilteredChats.value = true;
+  
+  try {
+    const hasSearchQuery = searchQuery.value.trim().length > 0;
+    
+    // First, get chat metadata matches (exact matches will be prioritized in searchChats)
+    const chatMetadataMatches = await chatStorage.searchChats({
+      query: hasSearchQuery ? searchQuery.value.trim() : undefined,
+      folderId: selectedFolderId.value,
+      unreadOnly: filterUnread.value,
+      pinnedOnly: filterPinned.value,
+      onlineOnly: filterOnline.value,
     });
+    
+    // If we have a search query, also search in saved messages
+    let messageSearchMatches: MessengerChatItem[] = [];
+    if (hasSearchQuery) {
+      const matchingGroupIds = await messageStorage.searchMessages(
+        searchQuery.value.trim(),
+        selectedFolderId.value ?? undefined
+      );
+      
+      if (matchingGroupIds.size > 0) {
+        // Get chats that match the message search, applying other filters
+        const allChatsForMessages = await chatStorage.searchChats({
+          folderId: selectedFolderId.value,
+          unreadOnly: filterUnread.value,
+          pinnedOnly: filterPinned.value,
+          onlineOnly: filterOnline.value,
+        });
+        
+        // Filter to only include chats with matching messages
+        messageSearchMatches = allChatsForMessages.filter(chat => matchingGroupIds.has(chat.group_id));
+        
+        // Remove chats that are already in chatMetadataMatches to avoid duplicates
+        const chatMetadataGroupIds = new Set(chatMetadataMatches.map(c => c.group_id));
+        messageSearchMatches = messageSearchMatches.filter(chat => !chatMetadataGroupIds.has(chat.group_id));
+      }
+    }
+    
+    // Combine results: exact matches first (from chatMetadataMatches), then partial chat matches, then message matches
+    const allChats = [...chatMetadataMatches, ...messageSearchMatches];
+    
+    filteredChats.value = allChats;
+  } catch (error) {
+    console.error('[ChatDialog] Error searching chats:', error);
+    filteredChats.value = [];
+  } finally {
+    isLoadingFilteredChats.value = false;
   }
+}
 
-  // Client-side search filtering
+// Debounce search to avoid too many IndexedDB queries
+let searchDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
+// Watch for changes that require re-searching
+watch([searchQuery, selectedFolderId, filterUnread, filterPinned, filterOnline], async () => {
+  // Clear previous timeout
+  if (searchDebounceTimeout) {
+    clearTimeout(searchDebounceTimeout);
+  }
+  
+  // Debounce search queries, but not folder/filter changes
   if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase();
-    chats = chats.filter(chat => 
-      (chat.account_id && chat.account_id.toLowerCase().includes(query)) ||
-      (chat.last_message && chat.last_message.toLowerCase().includes(query)) ||
-      (chat.subject && chat.subject.toLowerCase().includes(query))
-    );
+    searchDebounceTimeout = setTimeout(async () => {
+      await updateFilteredChats();
+      searchDebounceTimeout = null;
+    }, 300);
+  } else {
+    // No debounce for non-search changes
+    await updateFilteredChats();
   }
+}, { immediate: false });
 
-  // Apply chat filters (unread, pinned, online)
-  // Filters are combined with AND logic (all active filters must match)
-  if (filterUnread.value) {
-    chats = chats.filter(chat => chat.unread_counter > 0);
-  }
-  
-  if (filterPinned.value) {
-    chats = chats.filter(chat => (chat.pin_chat || 0) > 0);
-  }
-  
-  if (filterOnline.value) {
-    chats = chats.filter(chat => chat.online === 1);
-  }
-
-  // Client-side sorting
-  return sortChats(chats);
-});
+// Also watch chatList to update filtered chats when chats are loaded
+watch(chatList, async () => {
+  await updateFilteredChats();
+}, { immediate: false });
 
 /**
  * Sync inbox chats (messenger_latest) from API and store in IndexedDB
@@ -451,16 +482,8 @@ async function loadChatsFromStorage(): Promise<void> {
     chatList.value = chats;
     console.log(`[ChatDialog] Loaded ${chats.length} chats from IndexedDB`);
     
-    // Calculate folder counts immediately from loaded chats
-    const counts = new Map<number, number>();
-    chats.forEach(chat => {
-      const folderId = chat.folder_id || 0;
-      if (chat.unread_counter > 0) {
-        const current = counts.get(folderId) || 0;
-        counts.set(folderId, current + chat.unread_counter);
-      }
-    });
-    folderUnreadCountsMap.value = counts;
+    // Folder counts are now calculated dynamically in getFolderUnreadCount()
+    // No need to maintain a separate map
   } catch (err) {
     console.error('[ChatDialog] Failed to load chats from storage:', err);
     error.value = 'Failed to load chats from storage.';
@@ -515,10 +538,15 @@ function getFolderName(folderId: number | undefined | null): string {
 
 /**
  * Get unread count for a folder
- * Reads from reactive folderUnreadCountsMap which updates immediately as chats are loaded
+ * Counts chats with unread messages in the folder, based on current chat list
+ * This reflects the actual number of chats, not filtered by search/filters
  */
 function getFolderUnreadCount(folderId: number): number {
-  return folderUnreadCountsMap.value.get(folderId) || 0;
+  // Count chats with unread messages in this folder from the current chat list
+  return chatList.value.filter(chat => {
+    const chatFolderId = chat.folder_id || 0;
+    return chatFolderId === folderId && chat.unread_counter > 0;
+  }).length;
 }
 
 /**
@@ -1164,6 +1192,9 @@ watch(() => props.modelValue, async (newValue) => {
     // Load from IndexedDB first (fast)
     await loadChatsFromStorage();
     await loadFoldersFromStorage();
+    
+    // Initialize filtered chats from IndexedDB
+    await updateFilteredChats();
     
     // Fetch folders first, then fetch all chats (which includes folder chats)
     await fetchFolders();

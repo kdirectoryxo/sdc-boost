@@ -241,6 +241,70 @@ class MessageStorage {
         await db.delete(STORE_NAME, key);
         console.log(`[MessageStorage] Deleted message ${messageId} for group ${groupId}`);
     }
+
+    /**
+     * Search messages across all chats and return group IDs that have matching messages
+     * Uses IndexedDB queries for efficient searching
+     * @param query Search query string
+     * @param folderId Optional folder ID to limit search to chats in that folder
+     * @returns Set of group IDs that have messages matching the query
+     */
+    async searchMessages(query: string, folderId?: number | null): Promise<Set<number>> {
+        const db = await this.getDB();
+        const matchingGroupIds = new Set<number>();
+        
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+            return matchingGroupIds;
+        }
+
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const index = store.index('group_id');
+        
+        const lowerQuery = query.toLowerCase();
+        
+        // If folderId is specified, we need to get chats in that folder first
+        let groupIdsToSearch: number[] | null = null;
+        if (folderId !== undefined && folderId !== null) {
+            const chatStore = db.transaction('chats', 'readonly').objectStore('chats');
+            const folderIndex = chatStore.index('folder_id');
+            const folderChats = await folderIndex.getAll(folderId);
+            groupIdsToSearch = folderChats.map((chat: any) => chat.group_id);
+        }
+        
+        // Get all messages (or messages for specific groups if folderId specified)
+        const allMessages = await store.getAll();
+        
+        // Filter messages by group_id if folderId specified
+        const messagesToSearch = groupIdsToSearch 
+            ? allMessages.filter((item: any) => groupIdsToSearch!.includes(item.group_id))
+            : allMessages;
+        
+        // Group messages by group_id and check if any message matches
+        const groupMessages = new Map<number, any[]>();
+        messagesToSearch.forEach((item: any) => {
+            const groupId = item.group_id;
+            if (!groupMessages.has(groupId)) {
+                groupMessages.set(groupId, []);
+            }
+            groupMessages.get(groupId)!.push(item);
+        });
+        
+        // Check each group for matching messages
+        groupMessages.forEach((messages, groupId) => {
+            const hasMatch = messages.some((item: any) => {
+                const messageText = (item.message || '').toLowerCase();
+                return messageText.includes(lowerQuery);
+            });
+            
+            if (hasMatch) {
+                matchingGroupIds.add(groupId);
+            }
+        });
+        
+        console.log(`[MessageStorage] Found ${matchingGroupIds.size} chats with messages matching "${query}"`);
+        return matchingGroupIds;
+    }
 }
 
 // Create singleton instance
