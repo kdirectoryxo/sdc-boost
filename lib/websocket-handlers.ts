@@ -202,14 +202,18 @@ class WebSocketHandlers {
             const chat = allChats.find(c => String(c.group_id) === String(data.group_id));
 
             if (chat) {
-                // Update message_status to indicate messages were seen
-                // Note: The exact meaning of message_status depends on SDC's API
-                // For now, we'll just update the chat to trigger a refresh
-                await chatStorage.updateChat(chat);
+                // Update chat with unread_counter set to 0 when messages are seen
+                const updatedChat: MessengerChatItem = {
+                    ...chat,
+                    unread_counter: 0
+                };
+
+                // Update in storage
+                await chatStorage.updateChat(updatedChat);
 
                 // Emit custom event for Vue components to react to
                 window.dispatchEvent(new CustomEvent('sdc-boost:chat-seen', {
-                    detail: { groupId: data.group_id, chat }
+                    detail: { groupId: data.group_id, chat: updatedChat }
                 }));
             }
         } catch (error) {

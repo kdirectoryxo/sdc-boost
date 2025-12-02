@@ -1333,12 +1333,12 @@ async function handleChatClick(chat: MessengerChatItem) {
     clearSearch(); // Clear message search if no chat search query
   }
   
-  // Optimistically decrease unread counter by 1 if it has one
+  // Optimistically set unread counter to 0 when opening a chat (all messages are seen)
   let chatToUse = chat;
   if (chat.unread_counter && chat.unread_counter > 0) {
     const updatedChat: MessengerChatItem = {
       ...chat,
-      unread_counter: Math.max(0, chat.unread_counter - 1)
+      unread_counter: 0
     };
     
     // Update in chat list
@@ -1355,7 +1355,7 @@ async function handleChatClick(chat: MessengerChatItem) {
     // Refresh folder counts after unread counter change
     await refreshFolderCounts();
     
-    console.log(`[ChatDialog] Optimistically decreased unread counter for chat ${chat.group_id} from ${chat.unread_counter} to ${updatedChat.unread_counter}`);
+    console.log(`[ChatDialog] Optimistically set unread counter for chat ${chat.group_id} from ${chat.unread_counter} to 0`);
   }
   
   selectedChat.value = chatToUse;
