@@ -996,17 +996,40 @@ function findChatByGroupId(groupId: string): MessengerChatItem | null {
 }
 
 async function handleChatClick(chat: MessengerChatItem) {
-  selectedChat.value = chat;
   messages.value = [];
   isLoadingMessages.value = false; // Reset loading state when switching chats
   isSyncing.value = false; // Reset syncing state when switching chats
   typingManager.reset(); // Reset typing when switching chats
   clearSearch(); // Clear search when switching chats
   
-  // Update URL with selected chat
-  updateChatInURL(chat);
+  // Optimistically decrease unread counter by 1 if it has one
+  let chatToUse = chat;
+  if (chat.unread_counter && chat.unread_counter > 0) {
+    const updatedChat: MessengerChatItem = {
+      ...chat,
+      unread_counter: Math.max(0, chat.unread_counter - 1)
+    };
+    
+    // Update in chat list
+    const chatIndex = chatList.value.findIndex(c => getChatKey(c) === getChatKey(chat));
+    if (chatIndex !== -1) {
+      chatList.value[chatIndex] = updatedChat;
+    }
+    
+    chatToUse = updatedChat;
+    
+    // Update in storage optimistically
+    chatStorage.updateChat(updatedChat).catch(console.error);
+    
+    console.log(`[ChatDialog] Optimistically decreased unread counter for chat ${chat.group_id} from ${chat.unread_counter} to ${updatedChat.unread_counter}`);
+  }
   
-  await handleLoadMessages(chat);
+  selectedChat.value = chatToUse;
+  
+  // Update URL with selected chat
+  updateChatInURL(chatToUse);
+  
+  await handleLoadMessages(chatToUse);
   
   // Always scroll to bottom when opening a chat
   await nextTick();
@@ -1015,7 +1038,13 @@ async function handleChatClick(chat: MessengerChatItem) {
   }
   
   // Send seen event when opening a chat
-  sendSeenEvent(chat);
+  sendSeenEvent(chatToUse);
+  
+  // Refresh counters after 2 seconds to sync with server
+  setTimeout(async () => {
+    await countersManager.refresh();
+    console.log('[ChatDialog] Refreshed counters after opening chat');
+  }, 2000);
 }
 
 function handleClose() {
@@ -1154,20 +1183,49 @@ watch(() => props.modelValue, async (newValue) => {
         await nextTick();
         // Don't update URL again since we're restoring from URL
         // Temporarily disable URL update to avoid removing chatId
-        selectedChat.value = chat;
+        
+        // Optimistically decrease unread counter by 1 if it has one
+        let chatToUse = chat;
+        if (chat.unread_counter && chat.unread_counter > 0) {
+          const updatedChat: MessengerChatItem = {
+            ...chat,
+            unread_counter: Math.max(0, chat.unread_counter - 1)
+          };
+          
+          // Update in chat list
+          const chatIndex = chatList.value.findIndex(c => getChatKey(c) === getChatKey(chat));
+          if (chatIndex !== -1) {
+            chatList.value[chatIndex] = updatedChat;
+          }
+          
+          chatToUse = updatedChat;
+          
+          // Update in storage optimistically
+          chatStorage.updateChat(updatedChat).catch(console.error);
+          
+          console.log(`[ChatDialog] Optimistically decreased unread counter for chat ${chat.group_id} from ${chat.unread_counter} to ${updatedChat.unread_counter}`);
+        }
+        
+        selectedChat.value = chatToUse;
         messages.value = [];
         isLoadingMessages.value = false;
         isSyncing.value = false;
         typingManager.reset();
         clearSearch();
-        await handleLoadMessages(chat);
+        await handleLoadMessages(chatToUse);
         await nextTick();
         if (messagesContainer.value) {
           messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
         }
-        sendSeenEvent(chat);
+        sendSeenEvent(chatToUse);
         // Now update URL to ensure it's set correctly (should be same value)
-        updateChatInURL(chat);
+        updateChatInURL(chatToUse);
+        
+        // Refresh counters after 2 seconds to sync with server
+        setTimeout(async () => {
+          await countersManager.refresh();
+          console.log('[ChatDialog] Refreshed counters after opening chat');
+        }, 2000);
       }
     }
   } else {
