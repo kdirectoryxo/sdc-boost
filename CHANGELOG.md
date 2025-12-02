@@ -1,4 +1,4 @@
-# [1.1.0](https://github.com/kdirectoryxo/sdc-boost/compare/v1.0.1...v1.1.0) (2025-12-02)
+## [1.1.1](https://github.com/kdirectoryxo/sdc-boost/compare/v1.0.1...v1.1.1) (2025-12-02)
 
 
 ### Bug Fixes
@@ -32,6 +32,7 @@
 * refactor chat modules to improve navigation handling and remove obsolete functionality ([1f27491](https://github.com/kdirectoryxo/sdc-boost/commit/1f27491c98d28261d31c8e289b81238ac0a57cdd))
 * refactor ChatDialog for improved message handling and user experience ([18938c2](https://github.com/kdirectoryxo/sdc-boost/commit/18938c21d52e5f04ae788109b29a29e4ff05f8f9))
 * update message sending logic to support asynchronous operations ([cf88213](https://github.com/kdirectoryxo/sdc-boost/commit/cf8821397ba7a65ee5b1879828960e1243e28cea))
+* update README and documentation for ChatDialog enhancements ([fb1b565](https://github.com/kdirectoryxo/sdc-boost/commit/fb1b56500d0c384a2560bbd2e901bd9f4d22a4eb))
 
 
 
