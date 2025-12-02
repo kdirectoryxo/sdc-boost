@@ -7,7 +7,7 @@ import { openDB, type IDBPDatabase } from 'idb';
 import type { MessengerChatItem, MessengerFolder, MessengerMessage } from './sdc-api-types';
 
 const DB_NAME = 'sdc-boost-v2';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export interface ChatDB {
     chats: {
@@ -48,6 +48,13 @@ export interface ChatDB {
         };
         indexes: {
             group_id: number;
+        };
+    };
+    sync_metadata: {
+        key: string;
+        value: {
+            key: string;
+            last_sync_time: string;
         };
     };
 }
@@ -105,6 +112,12 @@ export async function getDB(): Promise<IDBPDatabase<ChatDB>> {
                 const store = db.createObjectStore('chat_metadata', { keyPath: 'group_id' });
                 store.createIndex('group_id', 'group_id', { unique: true });
                 console.log('[DB] Created chat_metadata object store');
+            }
+
+            // Create sync_metadata object store (version 4+)
+            if (!db.objectStoreNames.contains('sync_metadata')) {
+                const store = db.createObjectStore('sync_metadata', { keyPath: 'key' });
+                console.log('[DB] Created sync_metadata object store');
             }
         },
     });

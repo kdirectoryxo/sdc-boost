@@ -176,6 +176,7 @@ export async function getMessengerFolderItems(
 
 /**
  * Sync all chats from messenger_latest and all folders
+ * Uses incremental sync: first time fetches all pages, subsequent times only fetches new chats
  * Upserts chats incrementally after each page for fast updates
  * @param onPageSynced Optional callback called after each page is synced (for UI updates)
  * @returns Total number of chats synced
@@ -184,38 +185,16 @@ export async function syncAllChats(onPageSynced?: () => void | Promise<void>): P
     console.log('[Messenger API] Syncing all chats...');
     let totalSynced = 0;
 
-    // Sync messenger_latest (inbox)
-    console.log('[Messenger API] Syncing inbox chats...');
-    const inboxCount = await chatStorage.syncChatsFromEndpoint(
-        (page) => getMessengerLatest(page),
-        async (chats, total) => {
-            console.log(`[Messenger API] Synced ${chats.length} inbox chats (total: ${total})`);
-            // Trigger UI update after each page
-            if (onPageSynced) {
-                await onPageSynced();
-            }
-        }
-    );
+    // Sync messenger_latest (inbox) - uses incremental sync
+    const inboxCount = await syncInboxChats(onPageSynced);
     totalSynced += inboxCount;
-    console.log(`[Messenger API] Synced ${inboxCount} inbox chats`);
 
-    // Sync each folder
+    // Sync each folder - uses incremental sync
     const folderList = await folderStorage.getAllFolders();
     for (const folder of folderList) {
         try {
-            console.log(`[Messenger API] Syncing folder "${folder.name}" (${folder.id})...`);
-            const folderCount = await chatStorage.syncChatsFromEndpoint(
-                (page) => getMessengerFolderItems(folder.id, page),
-                async (chats, total) => {
-                    console.log(`[Messenger API] Synced ${chats.length} chats from folder "${folder.name}" (total: ${total})`);
-                    // Trigger UI update after each page
-                    if (onPageSynced) {
-                        await onPageSynced();
-                    }
-                }
-            );
+            const folderCount = await syncFolderChats(folder.id, onPageSynced);
             totalSynced += folderCount;
-            console.log(`[Messenger API] Synced ${folderCount} chats from folder "${folder.name}"`);
         } catch (err) {
             console.error(`[Messenger API] Failed to sync folder ${folder.id}:`, err);
             // Continue with other folders even if one fails
@@ -228,7 +207,7 @@ export async function syncAllChats(onPageSynced?: () => void | Promise<void>): P
 
 /**
  * Sync inbox chats (messenger_latest) only
- * Removes existing inbox chats first, then syncs fresh data
+ * Uses incremental sync: first time fetches all pages, subsequent times only fetches new chats
  * Upserts chats incrementally after each page for fast updates
  * @param onPageSynced Optional callback called after each page is synced (for UI updates)
  * @returns Total number of chats synced
@@ -236,11 +215,17 @@ export async function syncAllChats(onPageSynced?: () => void | Promise<void>): P
 export async function syncInboxChats(onPageSynced?: () => void | Promise<void>): Promise<number> {
     console.log('[Messenger API] Syncing inbox chats...');
     
-    // Remove existing inbox chats
-    await chatStorage.removeInboxChats();
+    // Get last sync time for incremental sync
+    const lastSyncTime = await chatStorage.getInboxLastSyncTime();
     
-    // Sync messenger_latest
-    const count = await chatStorage.syncChatsFromEndpoint(
+    if (lastSyncTime) {
+        console.log(`[Messenger API] Incremental sync: last sync was at ${lastSyncTime}`);
+    } else {
+        console.log('[Messenger API] First-time sync: fetching all pages');
+    }
+    
+    // Sync messenger_latest with incremental sync support
+    const result = await chatStorage.syncChatsFromEndpoint(
         (page) => getMessengerLatest(page),
         async (chats, total) => {
             console.log(`[Messenger API] Synced ${chats.length} inbox chats (total: ${total})`);
@@ -248,16 +233,35 @@ export async function syncInboxChats(onPageSynced?: () => void | Promise<void>):
             if (onPageSynced) {
                 await onPageSynced();
             }
-        }
+        },
+        lastSyncTime
     );
     
-    console.log(`[Messenger API] Synced ${count} inbox chats`);
-    return count;
+    // Update last sync time
+    // If first-time sync, always save (use mostRecentDateTime or current time)
+    // If incremental sync, only update if we have a more recent date_time
+    if (!lastSyncTime) {
+        // First-time sync: always save sync time
+        const syncTimeToSave = result.mostRecentDateTime || new Date().toISOString();
+        await chatStorage.setLastSyncTime('inbox', syncTimeToSave);
+        console.log(`[Messenger API] Set inbox last sync time to ${syncTimeToSave}`);
+    } else if (result.mostRecentDateTime) {
+        // Incremental sync: only update if we have a more recent date_time
+        const mostRecentTimestamp = new Date(result.mostRecentDateTime).getTime();
+        const lastSyncTimestamp = new Date(lastSyncTime).getTime();
+        if (mostRecentTimestamp >= lastSyncTimestamp) {
+            await chatStorage.setLastSyncTime('inbox', result.mostRecentDateTime);
+            console.log(`[Messenger API] Updated inbox last sync time to ${result.mostRecentDateTime}`);
+        }
+    }
+    
+    console.log(`[Messenger API] Synced ${result.totalSynced} inbox chats`);
+    return result.totalSynced;
 }
 
 /**
  * Sync chats for a specific folder
- * Removes existing chats for that folder first, then syncs fresh data
+ * Uses incremental sync: first time fetches all pages, subsequent times only fetches new chats
  * Upserts chats incrementally after each page for fast updates
  * @param folderId The folder ID to sync chats for
  * @param onPageSynced Optional callback called after each page is synced (for UI updates)
@@ -266,11 +270,17 @@ export async function syncInboxChats(onPageSynced?: () => void | Promise<void>):
 export async function syncFolderChats(folderId: number, onPageSynced?: () => void | Promise<void>): Promise<number> {
     console.log(`[Messenger API] Syncing chats for folder ${folderId}...`);
     
-    // Remove existing chats for this folder
-    await chatStorage.removeChatsByFolderId(folderId);
+    // Get last sync time for incremental sync
+    const lastSyncTime = await chatStorage.getFolderLastSyncTime(folderId);
     
-    // Sync folder chats
-    const count = await chatStorage.syncChatsFromEndpoint(
+    if (lastSyncTime) {
+        console.log(`[Messenger API] Incremental sync for folder ${folderId}: last sync was at ${lastSyncTime}`);
+    } else {
+        console.log(`[Messenger API] First-time sync for folder ${folderId}: fetching all pages`);
+    }
+    
+    // Sync folder chats with incremental sync support
+    const result = await chatStorage.syncChatsFromEndpoint(
         (page) => getMessengerFolderItems(folderId, page),
         async (chats, total) => {
             console.log(`[Messenger API] Synced ${chats.length} chats from folder ${folderId} (total: ${total})`);
@@ -278,11 +288,30 @@ export async function syncFolderChats(folderId: number, onPageSynced?: () => voi
             if (onPageSynced) {
                 await onPageSynced();
             }
-        }
+        },
+        lastSyncTime
     );
     
-    console.log(`[Messenger API] Synced ${count} chats from folder ${folderId}`);
-    return count;
+    // Update last sync time
+    // If first-time sync, always save (use mostRecentDateTime or current time)
+    // If incremental sync, only update if we have a more recent date_time
+    if (!lastSyncTime) {
+        // First-time sync: always save sync time
+        const syncTimeToSave = result.mostRecentDateTime || new Date().toISOString();
+        await chatStorage.setLastSyncTime(`folder_${folderId}`, syncTimeToSave);
+        console.log(`[Messenger API] Set folder ${folderId} last sync time to ${syncTimeToSave}`);
+    } else if (result.mostRecentDateTime) {
+        // Incremental sync: only update if we have a more recent date_time
+        const mostRecentTimestamp = new Date(result.mostRecentDateTime).getTime();
+        const lastSyncTimestamp = new Date(lastSyncTime).getTime();
+        if (mostRecentTimestamp >= lastSyncTimestamp) {
+            await chatStorage.setLastSyncTime(`folder_${folderId}`, result.mostRecentDateTime);
+            console.log(`[Messenger API] Updated folder ${folderId} last sync time to ${result.mostRecentDateTime}`);
+        }
+    }
+    
+    console.log(`[Messenger API] Synced ${result.totalSynced} chats from folder ${folderId}`);
+    return result.totalSynced;
 }
 
 /**

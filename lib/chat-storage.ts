@@ -160,18 +160,31 @@ class ChatStorage {
     }
 
     /**
+     * Helper function to parse date_time and get timestamp
+     */
+    private getDateTimeTimestamp(dateTime: string | null | undefined): number {
+        if (!dateTime || dateTime === '') return 0;
+        const parsed = new Date(dateTime).getTime();
+        return isNaN(parsed) ? 0 : parsed;
+    }
+
+    /**
      * Sync chats from an endpoint with pagination, upserting after each page
      * @param fetchFn Function to fetch a page, returns response with chat_list and url_more
      * @param onProgress Optional callback called after each page is upserted
-     * @returns Total number of chats synced
+     * @param lastSyncTime Optional ISO date string - if provided, stops fetching when encountering older chats
+     * @returns Object with total number of chats synced and most recent date_time
      */
     async syncChatsFromEndpoint(
         fetchFn: (page: number) => Promise<{ info: { chat_list?: MessengerChatItem[]; url_more?: string } }>,
-        onProgress?: (pageChats: MessengerChatItem[], totalSynced: number) => void
-    ): Promise<number> {
+        onProgress?: (pageChats: MessengerChatItem[], totalSynced: number) => void,
+        lastSyncTime: string | null = null
+    ): Promise<{ totalSynced: number; mostRecentDateTime: string | null }> {
         let totalSynced = 0;
         let page = 0;
         let hasMore = true;
+        let mostRecentDateTime: string | null = null;
+        const lastSyncTimestamp = lastSyncTime ? this.getDateTimeTimestamp(lastSyncTime) : null;
 
         while (hasMore) {
             const response = await fetchFn(page);
@@ -185,6 +198,27 @@ class ChatStorage {
             // Deduplicate this page's chats
             const deduplicatedPageChats = deduplicateChats(chats);
 
+            // Track most recent date_time from this page and check for incremental sync stop condition
+            let shouldStopDueToOlderChats = false;
+            for (const chat of deduplicatedPageChats) {
+                // Track most recent date_time
+                if (chat.date_time && chat.date_time !== '') {
+                    const chatTimestamp = this.getDateTimeTimestamp(chat.date_time);
+                    if (!mostRecentDateTime || chatTimestamp > this.getDateTimeTimestamp(mostRecentDateTime)) {
+                        mostRecentDateTime = chat.date_time;
+                    }
+                }
+                
+                // Check if this chat is older than last sync time (for incremental sync)
+                if (lastSyncTimestamp !== null) {
+                    const chatTimestamp = this.getDateTimeTimestamp(chat.date_time);
+                    if (chatTimestamp > 0 && chatTimestamp < lastSyncTimestamp) {
+                        shouldStopDueToOlderChats = true;
+                        // Don't break - continue processing all chats on this page
+                    }
+                }
+            }
+            
             // Upsert this page's chats immediately
             await this.upsertChats(deduplicatedPageChats);
             totalSynced += deduplicatedPageChats.length;
@@ -194,6 +228,12 @@ class ChatStorage {
                 onProgress(deduplicatedPageChats, totalSynced);
             }
             
+            // If we found older chats, stop fetching more pages (but we've already processed this page)
+            if (shouldStopDueToOlderChats) {
+                hasMore = false;
+                break;
+            }
+
             // Check if there are more pages
             const urlMore = response.info.url_more;
             if (!urlMore || urlMore === '-1' || urlMore === '') {
@@ -214,7 +254,7 @@ class ChatStorage {
             }
         }
 
-        return totalSynced;
+        return { totalSynced, mostRecentDateTime };
     }
 
     /**
@@ -262,6 +302,48 @@ class ChatStorage {
         
         await tx.done;
         console.log(`[ChatStorage] Removed ${chatsToRemove.length} inbox chats`);
+    }
+
+    /**
+     * Get last sync time for a given key (inbox or folder)
+     * @param key The sync key ('inbox' or 'folder_${folderId}')
+     * @returns Last sync time as ISO date string, or null if not found
+     */
+    async getLastSyncTime(key: string): Promise<string | null> {
+        const db = await this.getDB();
+        const item = await db.get('sync_metadata', key);
+        return item?.last_sync_time || null;
+    }
+
+    /**
+     * Set last sync time for a given key
+     * @param key The sync key ('inbox' or 'folder_${folderId}')
+     * @param dateTime ISO date string from chat date_time field
+     */
+    async setLastSyncTime(key: string, dateTime: string): Promise<void> {
+        const db = await this.getDB();
+        await db.put('sync_metadata', {
+            key,
+            last_sync_time: dateTime,
+        });
+        console.log(`[ChatStorage] Set last sync time for ${key}: ${dateTime}`);
+    }
+
+    /**
+     * Get last sync time for inbox (messenger_latest)
+     * @returns Last sync time as ISO date string, or null if not found
+     */
+    async getInboxLastSyncTime(): Promise<string | null> {
+        return this.getLastSyncTime('inbox');
+    }
+
+    /**
+     * Get last sync time for a specific folder
+     * @param folderId The folder ID
+     * @returns Last sync time as ISO date string, or null if not found
+     */
+    async getFolderLastSyncTime(folderId: number): Promise<string | null> {
+        return this.getLastSyncTime(`folder_${folderId}`);
     }
 }
 
