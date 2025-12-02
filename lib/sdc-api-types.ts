@@ -366,3 +366,68 @@ export interface CountersResponse {
     info: CountersInfo;
 }
 
+/**
+ * Messenger Chat Message Types
+ */
+export interface MessengerMessage {
+    message: string;
+    url_videos: string;
+    message_id: number;
+    share_data: any | null;
+    share_biz_list: any[];
+    message_type: number | null;
+    seen: number;
+    sender: number; // 0 = current user, 1 = other user
+    gender1: number;
+    gender2: number;
+    date: string;
+    account_id: string;
+    date2: number; // Unix timestamp
+    db_id: number;
+    extra1: string;
+    forward: number;
+    forward_extra_text: string;
+    forward_db_id: number;
+    forward_account_id?: string | null;
+    forward_gender1?: number | null;
+    forward_gender2?: number | null;
+    forward_profile_type?: number | null;
+    is_quote: number;
+    q_message?: string;
+    q_url_videos?: string;
+    q_account_id?: string;
+    q_db_id?: number;
+    qgender1?: number;
+    qgender2?: number;
+    is_lt_offer: number;
+}
+
+export interface MessengerChatDetailsInfo {
+    code: string;
+    ot_session_id: string;
+    target_db_id: number;
+    ot_token: string;
+    group_id: number;
+    message_list: MessengerMessage[];
+    pin_chat: number;
+    muted: number;
+    group_name: string;
+    folder_id: number;
+    online: number;
+    isHelpdesk: boolean;
+    account_id: string;
+    gender1: number;
+    gender2: number;
+    profile_type: number;
+    primary_photo: string;
+    admin: boolean;
+    url_more: string | null;
+    report_spam: number;
+    isBotHelpSession: number;
+    blockUMedia: number;
+}
+
+export interface MessengerChatDetailsResponse {
+    info: MessengerChatDetailsInfo;
+}
+

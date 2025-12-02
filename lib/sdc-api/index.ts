@@ -18,7 +18,10 @@ export type {
     MessengerLatestInfo,
     MessengerFoldersResponse,
     MessengerFolder,
-    MessengerTemplate
+    MessengerTemplate,
+    MessengerChatDetailsResponse,
+    MessengerChatDetailsInfo,
+    MessengerMessage
 } from '../sdc-api-types';
 
 // Re-export utility functions
@@ -36,6 +39,7 @@ export {
     getMessengerIOV2, 
     getMessengerFolders, 
     getMessengerFolderItems,
+    getMessengerChatDetails,
     syncAllChats,
     syncInboxChats,
     syncFolderChats

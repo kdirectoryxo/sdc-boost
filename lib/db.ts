@@ -4,10 +4,10 @@
  */
 
 import { openDB, type IDBPDatabase } from 'idb';
-import type { MessengerChatItem, MessengerFolder } from './sdc-api-types';
+import type { MessengerChatItem, MessengerFolder, MessengerMessage } from './sdc-api-types';
 
 const DB_NAME = 'sdc-boost-v2';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export interface ChatDB {
     chats: {
@@ -28,6 +28,15 @@ export interface ChatDB {
         indexes: {
             name: string;
             new_messages: number;
+        };
+    };
+    messages: {
+        key: string;
+        value: MessengerMessage & { id: string; group_id: number };
+        indexes: {
+            group_id: number;
+            message_id: number;
+            date2: number;
         };
     };
 }
@@ -71,11 +80,17 @@ export async function getDB(): Promise<IDBPDatabase<ChatDB>> {
                 console.log('[DB] Created folders object store');
             }
 
-            // Future migrations can be added here based on oldVersion/newVersion
-            // Example:
-            // if (oldVersion < 2) {
-            //   // Migration logic for version 2
-            // }
+            // Migrations based on version
+            if (oldVersion < 2) {
+                // Create messages object store in version 2
+                if (!db.objectStoreNames.contains('messages')) {
+                    const store = db.createObjectStore('messages', { keyPath: 'id' });
+                    store.createIndex('group_id', 'group_id', { unique: false });
+                    store.createIndex('message_id', 'message_id', { unique: false });
+                    store.createIndex('date2', 'date2', { unique: false });
+                    console.log('[DB] Created messages object store');
+                }
+            }
         },
     });
 

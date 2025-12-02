@@ -6,6 +6,7 @@
 import { getCounters } from './sdc-api/counters';
 import type { CountersInfo } from './sdc-api-types';
 import { websocketManager } from './websocket-manager';
+import { chatStorage } from './chat-storage';
 
 type CounterUpdateCallback = (counters: CountersInfo) => void;
 type CounterChangeCallback = (key: string, oldValue: number, newValue: number) => void;
@@ -44,6 +45,23 @@ class CountersManager {
     }
 
     /**
+     * Calculate messenger counter from stored chats
+     * This matches how the original SDC site calculates it (sum of all unread_counter values)
+     */
+    private async calculateMessengerCounterFromChats(): Promise<number> {
+        try {
+            const allChats = await chatStorage.getAllChats();
+            const totalUnread = allChats.reduce((sum, chat) => {
+                return sum + (chat.unread_counter || 0);
+            }, 0);
+            return totalUnread;
+        } catch (error) {
+            console.error('[CountersManager] Failed to calculate messenger counter from chats:', error);
+            return 0;
+        }
+    }
+
+    /**
      * Refresh counters from API
      */
     async refresh(): Promise<void> {
@@ -52,6 +70,21 @@ class CountersManager {
             if (response.info.code === 200) {
                 const oldCounters = this.counters;
                 this.counters = response.info;
+
+                // Calculate messenger counter from stored chats
+                // The original SDC site calculates it by summing unread_counter from all chats
+                // The API counter might exclude certain chats (e.g., in folders or certain types)
+                // So we use the maximum of API counter and calculated counter to match the original site
+                const calculatedMessengerCount = await this.calculateMessengerCounterFromChats();
+                const apiMessengerCount = this.counters.messenger || 0;
+                
+                // Use the maximum to ensure we show the correct count (matching original site behavior)
+                // This handles cases where API returns 4 but actual unread count is 6
+                this.counters.messenger = Math.max(apiMessengerCount, calculatedMessengerCount);
+                
+                if (calculatedMessengerCount !== apiMessengerCount) {
+                    console.log(`[CountersManager] Messenger counter mismatch - API: ${apiMessengerCount}, Calculated: ${calculatedMessengerCount}, Using: ${this.counters.messenger}`);
+                }
 
                 // Notify listeners of update
                 this.notifyUpdate();
@@ -70,31 +103,57 @@ class CountersManager {
      * Set up WebSocket listeners for counter updates
      */
     private setupWebSocketListeners(): void {
-        // Listen for new messages - decrement messenger counter when message is read
-        this.unsubscribeMessage = websocketManager.on('message', (data) => {
-            // When a new message arrives, it might affect counters
-            // We'll refresh counters after a short delay to ensure API is updated
+        // Listen for new messages - update messenger counter
+        this.unsubscribeMessage = websocketManager.on('message', async (data) => {
+            // When a new message arrives, recalculate from chats immediately
+            // Then refresh API counters after a delay to keep them in sync
+            if (this.counters) {
+                const calculatedCount = await this.calculateMessengerCounterFromChats();
+                const oldValue = this.counters.messenger;
+                this.counters.messenger = calculatedCount;
+                this.notifyUpdate();
+                if (oldValue !== calculatedCount) {
+                    this.notifyChange('messenger', oldValue, calculatedCount);
+                }
+            }
+            
+            // Also refresh API counters after a delay to ensure they're updated
             setTimeout(() => {
                 this.refresh().catch(console.error);
             }, 1000);
         });
 
-        // Listen for seen events - might affect messenger counter
-        this.unsubscribeSeen = websocketManager.on('seen', (data) => {
-            // Refresh counters when messages are seen
+        // Listen for seen events - update messenger counter
+        this.unsubscribeSeen = websocketManager.on('seen', async (data) => {
+            // When messages are seen, recalculate from chats immediately
+            if (this.counters) {
+                const calculatedCount = await this.calculateMessengerCounterFromChats();
+                const oldValue = this.counters.messenger;
+                this.counters.messenger = calculatedCount;
+                this.notifyUpdate();
+                if (oldValue !== calculatedCount) {
+                    this.notifyChange('messenger', oldValue, calculatedCount);
+                }
+            }
+            
+            // Also refresh API counters after a delay
             setTimeout(() => {
                 this.refresh().catch(console.error);
             }, 500);
         });
 
         // Listen for unseen events - increment messenger counter
-        this.unsubscribeUnseen = websocketManager.on('unseen', (data) => {
-            // When a message becomes unseen, increment messenger counter
+        this.unsubscribeUnseen = websocketManager.on('unseen', async (data) => {
+            // When a message becomes unseen, recalculate from chats to get accurate count
+            // This ensures we match the original site's behavior
             if (this.counters) {
                 const oldValue = this.counters.messenger;
-                this.counters.messenger = oldValue + 1;
+                const calculatedCount = await this.calculateMessengerCounterFromChats();
+                this.counters.messenger = calculatedCount;
                 this.notifyUpdate();
-                this.notifyChange('messenger', oldValue, this.counters.messenger);
+                if (oldValue !== calculatedCount) {
+                    this.notifyChange('messenger', oldValue, calculatedCount);
+                }
             }
         });
     }

@@ -2,7 +2,7 @@
  * SDC API Messenger Functions
  * Functions for fetching and working with messenger/chat data
  */
-import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse } from '../sdc-api-types';
+import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse } from '../sdc-api-types';
 import { getCurrentMuid } from './utils';
 import { chatStorage } from '../chat-storage';
 import { folderStorage } from '../folder-storage';
@@ -264,5 +264,57 @@ export async function syncFolderChats(folderId: number): Promise<number> {
     
     console.log(`[Messenger API] Synced ${count} chats from folder ${folderId}`);
     return count;
+}
+
+/**
+ * Get messenger_chat_details data (messages for a specific chat)
+ * @param dbId The DB_ID of the other user/chat
+ * @param groupId The GroupID of the chat
+ * @param type The type of chat (default: 0)
+ * @param page Page number (default: 0)
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Chat details with messages
+ */
+export async function getMessengerChatDetails(
+    dbId: number,
+    groupId: number,
+    type: number = 0,
+    page: number = 0,
+    muid?: string | null
+): Promise<MessengerChatDetailsResponse> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot fetch chat details.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_chat_details');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('DB_ID', dbId.toString());
+    url.searchParams.set('type', type.toString());
+    url.searchParams.set('GroupID', groupId.toString());
+    url.searchParams.set('page', page.toString());
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Chat Details API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data as MessengerChatDetailsResponse;
+    } catch (error) {
+        console.error('[SDC API] Failed to fetch chat details:', error);
+        throw error;
+    }
 }
 
