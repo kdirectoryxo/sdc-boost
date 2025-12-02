@@ -648,6 +648,57 @@ function handleQuoteMessage(message: MessengerMessage): void {
 }
 
 /**
+ * Scroll to the quoted message when clicking on a quote
+ */
+function scrollToQuotedMessage(quotingMessage: MessengerMessage): void {
+  if (!quotingMessage.is_quote || !quotingMessage.q_message || !quotingMessage.q_account_id) return;
+  
+  const qMessage = quotingMessage.q_message;
+  const qAccountId = quotingMessage.q_account_id;
+  
+  // Find the original quoted message by matching content and account
+  const quotedMessage = messages.value.find(msg => {
+    // Match by message content and account_id
+    const matchesContent = msg.message === qMessage || 
+                          (qMessage.length > 0 && msg.message.includes(qMessage.substring(0, Math.min(50, qMessage.length))));
+    const matchesAccount = msg.account_id === qAccountId;
+    
+    // Also check if db_id matches if available
+    const matchesDbId = quotingMessage.q_db_id ? msg.db_id === quotingMessage.q_db_id : true;
+    
+    return matchesContent && matchesAccount && matchesDbId;
+  });
+  
+  if (quotedMessage && messagesContainer.value) {
+    // Find the message element by ID (using same pattern as v-for key)
+    const messageIndex = messages.value.indexOf(quotedMessage);
+    const messageId = quotedMessage.message_id > 0 
+      ? `message-${quotedMessage.message_id}`
+      : `message-opt_${quotedMessage.extra1 || messageIndex}_${quotedMessage.date2}`;
+    
+    const messageElement = document.getElementById(messageId);
+    
+    if (messageElement) {
+      // Scroll to the message with smooth behavior
+      messageElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+      
+      // Highlight the message briefly with a ring effect
+      messageElement.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-[#1a1a1a]', 'transition-all');
+      setTimeout(() => {
+        messageElement.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-[#1a1a1a]', 'transition-all');
+      }, 2000);
+    } else {
+      console.log('[ChatDialog] Could not find message element with ID:', messageId);
+    }
+  } else {
+    console.log('[ChatDialog] Could not find quoted message to scroll to');
+  }
+}
+
+/**
  * Cancel quoted message
  */
 function cancelQuote(): void {
@@ -1183,6 +1234,7 @@ onUnmounted(() => {
                 <div
                   v-for="(message, index) in messages"
                   :key="message.message_id > 0 ? `msg_${message.message_id}` : `opt_${message.extra1 || index}_${message.date2}`"
+                  :id="`message-${message.message_id > 0 ? message.message_id : `opt_${index}_${message.date2}`}`"
                   :class="[
                     'flex gap-3 min-w-0 w-full group',
                     isOwnMessage(message) ? 'flex-row-reverse' : 'flex-row'
@@ -1206,11 +1258,12 @@ onUnmounted(() => {
                     <!-- Quoted Message -->
                     <div
                       v-if="message.is_quote && message.q_message"
+                      @click.stop="scrollToQuotedMessage(message)"
                       :class="[
-                        'px-3 py-2 rounded-lg text-sm border-l-2 min-w-0 w-full',
+                        'px-3 py-2 rounded-lg text-sm border-l-2 min-w-0 w-full cursor-pointer transition-colors',
                         isOwnMessage(message)
-                          ? 'bg-[#2a2a2a] border-blue-500 text-[#ccc]'
-                          : 'bg-[#0f0f0f] border-[#444] text-[#999]'
+                          ? 'bg-[#2a2a2a] border-blue-500 text-[#ccc] hover:bg-[#333]'
+                          : 'bg-[#0f0f0f] border-[#444] text-[#999] hover:bg-[#1a1a1a]'
                       ]"
                     >
                       <div class="font-semibold text-xs mb-1 truncate">
