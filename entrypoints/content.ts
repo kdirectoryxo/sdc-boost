@@ -12,6 +12,7 @@ import { createApp, ref, watch } from 'vue';
 import ChatDialogWrapper from '@/components/ChatDialogWrapper.vue';
 import { websocketManager } from '@/lib/websocket-manager';
 import { countersManager } from '@/lib/counters-manager';
+import { websocketHandlers } from '@/lib/websocket-handlers';
 import '~/assets/tailwind.css';
 
 export default defineContentScript({
@@ -194,7 +195,10 @@ export default defineContentScript({
 
     // Initialize WebSocket connection (wait a bit for page to be ready)
     setTimeout(() => {
-      websocketManager.connect().catch((error) => {
+      websocketManager.connect().then(() => {
+        // Initialize WebSocket event handlers after connection is established
+        websocketHandlers.initialize();
+      }).catch((error) => {
         console.error('[SDC Boost] Failed to initialize WebSocket:', error);
       });
     }, 1000);

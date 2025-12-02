@@ -6,10 +6,12 @@ interface Props {
   chat: MessengerChatItem;
   selected?: boolean;
   folderName?: string;
+  isTyping?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   selected: false,
+  isTyping: false,
 });
 
 const emit = defineEmits<{
@@ -85,7 +87,8 @@ function handleClick() {
         <div class="flex items-center justify-between gap-2">
           <p class="text-sm text-[#999] truncate flex-1">
             <span v-if="chat.broadcast || chat.type === 100" class="inline-block mr-1">📢</span>
-            {{ displayMessage }}
+            <span v-if="isTyping" class="italic text-blue-400">typing...</span>
+            <span v-else>{{ displayMessage }}</span>
           </p>
           
           <div class="flex items-center gap-2 shrink-0">

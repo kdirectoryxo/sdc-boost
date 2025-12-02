@@ -6,6 +6,7 @@ import ChatListItem from '@/components/ChatListItem.vue';
 import { websocketManager } from '@/lib/websocket-manager';
 import { chatStorage } from '@/lib/chat-storage';
 import { folderStorage } from '@/lib/folder-storage';
+import { typingStateManager } from '@/lib/websocket-handlers';
 
 interface Props {
   modelValue: boolean;
@@ -25,6 +26,8 @@ const searchQuery = ref('');
 const selectedChat = ref<MessengerChatItem | null>(null);
 const selectedFolderId = ref<number | null>(null); // null = all chats, 0 = inbox (no folder), number = specific folder
 const isRefreshing = ref(false);
+const typingStates = ref<Map<string, boolean>>(new Map()); // Map of groupId -> isTyping
+const isWebSocketConnected = ref(false);
 
 // Helper function to sort chats: pinned first, then by date_time
 function sortChats(chats: MessengerChatItem[]): MessengerChatItem[] {
@@ -256,13 +259,11 @@ function handleClose() {
   emit('close');
 }
 
-// WebSocket event handlers
-let unsubscribeSeen: (() => void) | null = null;
-let unsubscribeMessage: (() => void) | null = null;
-let unsubscribeOnline: (() => void) | null = null;
-
 // Track if initial load is complete to avoid refetching on mount
 const isInitialLoad = ref(true);
+
+// Custom event listeners for WebSocket events
+let typingUnsubscribe: (() => void) | null = null;
 
 // Watch for folder selection changes to refetch in background
 watch(selectedFolderId, async (newFolderId, oldFolderId) => {
@@ -309,57 +310,89 @@ watch(() => props.modelValue, async (newValue) => {
     // Mark initial load as complete
     isInitialLoad.value = false;
     
-    // Set up WebSocket listeners
-    setupWebSocketListeners();
+    // Set up event listeners
+    setupEventListeners();
   } else {
-    cleanupWebSocketListeners();
+    cleanupEventListeners();
     // Reset initial load flag when dialog closes
     isInitialLoad.value = true;
   }
 }, { immediate: true });
 
-function setupWebSocketListeners() {
-  // Listen for "seen" events (message read receipts)
-  unsubscribeSeen = websocketManager.on('seen', (data) => {
-    console.log('[ChatDialog] Message seen:', data);
-    // Update chat item if it exists
-    const chat = chatList.value.find(c => c.group_id === data.group_id);
-    if (chat) {
-      // Mark as read or update status
-      // You can update the chat's message_status here
-    }
+let connectionCheckInterval: ReturnType<typeof setInterval> | null = null;
+
+function setupEventListeners() {
+  // Update WebSocket connection status
+  const updateConnectionStatus = () => {
+    isWebSocketConnected.value = websocketManager.connected;
+  };
+  updateConnectionStatus();
+  
+  // Check connection status periodically
+  connectionCheckInterval = setInterval(updateConnectionStatus, 1000);
+
+  // Listen for typing state changes
+  typingUnsubscribe = typingStateManager.onTypingChange((groupId, state) => {
+    typingStates.value.set(groupId, state?.isTyping || false);
   });
 
-  // Listen for new messages
-  unsubscribeMessage = websocketManager.on('message', (data) => {
-    console.log('[ChatDialog] New message:', data);
-    // Refresh chat list from API and update IndexedDB
-    fetchAllChats();
-  });
-
-  // Listen for online status changes
-  unsubscribeOnline = websocketManager.on('online', (data) => {
-    console.log('[ChatDialog] Online status:', data);
-    // Update online status for the chat
-    const chat = chatList.value.find(c => c.db_id === data.db_id);
+  // Listen for new message events
+  const handleNewMessage = async (event: Event) => {
+    const customEvent = event as CustomEvent;
+    const { chat, groupId } = customEvent.detail;
     if (chat) {
-      chat.online = data.online || 0;
+      // Update chat in list if it exists
+      const index = chatList.value.findIndex(c => String(c.group_id) === String(groupId));
+      if (index !== -1) {
+        chatList.value[index] = chat;
+      } else {
+        // New chat - reload from storage
+        await loadChatsFromStorage();
+      }
+    } else {
+      // Unknown chat - refresh to get it
+      await loadChatsFromStorage();
     }
-  });
+  };
+
+  // Listen for seen events
+  const handleSeen = async (event: Event) => {
+    const customEvent = event as CustomEvent;
+    const { chat, groupId } = customEvent.detail;
+    if (chat) {
+      const index = chatList.value.findIndex(c => String(c.group_id) === String(groupId));
+      if (index !== -1) {
+        chatList.value[index] = chat;
+      }
+    }
+  };
+
+  window.addEventListener('sdc-boost:new-message', handleNewMessage);
+  window.addEventListener('sdc-boost:chat-seen', handleSeen);
+
+  // Store cleanup functions
+  (window as any).__sdcBoostChatDialogCleanup = () => {
+    window.removeEventListener('sdc-boost:new-message', handleNewMessage);
+    window.removeEventListener('sdc-boost:chat-seen', handleSeen);
+    if (connectionCheckInterval) {
+      clearInterval(connectionCheckInterval);
+      connectionCheckInterval = null;
+    }
+  };
 }
 
-function cleanupWebSocketListeners() {
-  if (unsubscribeSeen) {
-    unsubscribeSeen();
-    unsubscribeSeen = null;
+function cleanupEventListeners() {
+  if (typingUnsubscribe) {
+    typingUnsubscribe();
+    typingUnsubscribe = null;
   }
-  if (unsubscribeMessage) {
-    unsubscribeMessage();
-    unsubscribeMessage = null;
+  if (connectionCheckInterval) {
+    clearInterval(connectionCheckInterval);
+    connectionCheckInterval = null;
   }
-  if (unsubscribeOnline) {
-    unsubscribeOnline();
-    unsubscribeOnline = null;
+  if ((window as any).__sdcBoostChatDialogCleanup) {
+    (window as any).__sdcBoostChatDialogCleanup();
+    delete (window as any).__sdcBoostChatDialogCleanup;
   }
 }
 
@@ -378,12 +411,12 @@ onMounted(async () => {
     // Mark initial load as complete
     isInitialLoad.value = false;
     
-    setupWebSocketListeners();
+    setupEventListeners();
   }
 });
 
 onUnmounted(() => {
-  cleanupWebSocketListeners();
+  cleanupEventListeners();
 });
 </script>
 
@@ -400,7 +433,22 @@ onUnmounted(() => {
     >
       <!-- Header -->
       <div class="flex items-center justify-between px-6 py-4 border-b border-[#333] shrink-0">
-        <h2 class="text-xl font-semibold text-white">Chats</h2>
+        <div class="flex items-center gap-3">
+          <h2 class="text-xl font-semibold text-white">Chats</h2>
+          <!-- WebSocket Connection Status -->
+          <div class="flex items-center gap-2">
+            <div
+              :class="[
+                'w-2 h-2 rounded-full',
+                isWebSocketConnected ? 'bg-green-500' : 'bg-red-500'
+              ]"
+              :title="isWebSocketConnected ? 'WebSocket Connected' : 'WebSocket Disconnected'"
+            />
+            <span class="text-xs text-[#666]">
+              {{ isWebSocketConnected ? 'Live' : 'Offline' }}
+            </span>
+          </div>
+        </div>
         <button
           @click="handleClose"
           class="p-2 hover:bg-[#333] rounded-md transition-colors"
@@ -529,6 +577,7 @@ onUnmounted(() => {
                 :chat="chat"
                 :selected="getChatKey(selectedChat) === getChatKey(chat)"
                 :folder-name="getFolderName(chat.folder_id)"
+                :is-typing="typingStates.get(String(chat.group_id)) || false"
                 @click="handleChatClick(chat)"
               />
             </div>

@@ -169,11 +169,26 @@ class WebSocketManager {
                     if (handshakeData.sid) {
                         // Session ID available for future use
                     }
+                    // After handshake, connect to Socket.IO namespace by sending '40'
+                    if (this.ws && this.isConnected) {
+                        console.log('[WebSocket] Sending Socket.IO connect (40)');
+                        this.ws.send('40');
+                    }
                 } catch (error) {
                     console.log('[WebSocket] Engine.IO handshake (parse error):', data);
+                    // Still try to connect even if parsing fails
+                    if (this.ws && this.isConnected) {
+                        console.log('[WebSocket] Sending Socket.IO connect (40)');
+                        this.ws.send('40');
+                    }
                 }
             } else {
                 console.log('[WebSocket] Engine.IO handshake');
+                // Still try to connect even if no handshake data
+                if (this.ws && this.isConnected) {
+                    console.log('[WebSocket] Sending Socket.IO connect (40)');
+                    this.ws.send('40');
+                }
             }
             return;
         }
@@ -286,9 +301,9 @@ class WebSocketManager {
         }
 
         try {
-            // Socket.IO protocol: '2' = EVENT (Engine.IO v4)
-            // Format: 2["eventName", {...data}]
-            const message = `2${JSON.stringify([eventName, data])}`;
+            // Socket.IO protocol: '42' = EVENT (Socket.IO layer)
+            // Format: 42["eventName", {...data}]
+            const message = `42${JSON.stringify([eventName, data])}`;
             this.ws.send(message);
             console.log('[WebSocket] Sent event:', eventName, data);
         } catch (error) {
