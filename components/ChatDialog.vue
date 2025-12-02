@@ -37,6 +37,7 @@ const typingStates = ref<Map<string, boolean>>(new Map()); // Map of groupId -> 
 const isWebSocketConnected = ref(false);
 const messages = ref<MessengerMessage[]>([]);
 const isLoadingMessages = ref(false);
+const isSyncing = ref(false); // Track if we're syncing all pages for first-time load
 const messagesContainer = ref<HTMLElement | null>(null);
 const messageInput = ref('');
 const typingManager = new TypingManager();
@@ -298,13 +299,14 @@ async function handleLoadMessages(chat: MessengerChatItem): Promise<void> {
   error.value = null;
   
   // Check if this is a first-time load (will need to fetch all messages)
-  // If so, show loading spinner
+  // If so, show loading spinner and syncing notice
   const hasBeenFetched = await messageStorage.hasChatBeenFetched(chat.group_id);
   const storedMessages = await messageStorage.getMessages(chat.group_id);
   const isFirstTimeLoad = !hasBeenFetched || storedMessages.length === 0;
   
   if (isFirstTimeLoad) {
     isLoadingMessages.value = true;
+    isSyncing.value = true; // Show syncing notice while fetching all pages
   }
 
   try {
@@ -331,6 +333,7 @@ async function handleLoadMessages(chat: MessengerChatItem): Promise<void> {
       messages.value = result.messages;
       // Always set loading to false after loadMessages completes
       isLoadingMessages.value = false;
+      isSyncing.value = false; // Hide syncing notice when done
       
       // Always scroll to bottom after loading (with multiple attempts for reliability)
       await nextTick();
@@ -346,6 +349,7 @@ async function handleLoadMessages(chat: MessengerChatItem): Promise<void> {
     } else {
       // Chat was switched, ensure loading state is cleared
       isLoadingMessages.value = false;
+      isSyncing.value = false;
     }
   } catch (err) {
     console.error('[ChatDialog] Failed to load messages:', err);
@@ -353,9 +357,11 @@ async function handleLoadMessages(chat: MessengerChatItem): Promise<void> {
     if (selectedChat.value && selectedChat.value.group_id === currentChatGroupId) {
       error.value = 'Failed to load messages';
       isLoadingMessages.value = false;
+      isSyncing.value = false;
     } else {
       // Chat was switched, ensure loading state is cleared
       isLoadingMessages.value = false;
+      isSyncing.value = false;
     }
   }
 }
@@ -652,6 +658,7 @@ async function handleChatClick(chat: MessengerChatItem) {
   selectedChat.value = chat;
   messages.value = [];
   isLoadingMessages.value = false; // Reset loading state when switching chats
+  isSyncing.value = false; // Reset syncing state when switching chats
   typingManager.reset(); // Reset typing when switching chats
   await handleLoadMessages(chat);
   
@@ -1153,8 +1160,19 @@ onUnmounted(() => {
             <div 
               ref="messagesContainer"
               @click="openDropdownMessageId = null"
-              class="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4 min-w-0"
+              class="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4 min-w-0 relative"
             >
+              <!-- Syncing Notice (sticky centered overlay) -->
+              <div 
+                v-if="isSyncing" 
+                class="sticky top-6 z-10 flex justify-center mb-4"
+              >
+                <div class="px-4 py-2 bg-[#1a1a1a] border border-[#333] rounded-lg shadow-lg flex items-center gap-2">
+                  <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span class="text-white text-sm font-medium">Syncing..</span>
+                </div>
+              </div>
+
               <!-- Loading Indicator -->
               <div v-if="isLoadingMessages && messages.length === 0" class="flex justify-center py-8">
                 <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
