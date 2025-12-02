@@ -2,19 +2,17 @@
  * SDC API Messenger Functions
  * Functions for fetching and working with messenger/chat data
  */
-import type { MessengerLatestResponse } from '../sdc-api-types';
+import type { MessengerLatestResponse, MessengerIOV2Response } from '../sdc-api-types';
 import { getCurrentMuid } from './utils';
 
 /**
  * Get messenger_latest data (chat list)
  * @param page Page number (default: 0)
- * @param searchMember Search member filter (default: empty string)
  * @param muid Optional MUID (will be extracted from cookies if not provided)
  * @returns Messenger chat list data
  */
 export async function getMessengerLatest(
     page: number = 0,
-    searchMember: string = '',
     muid?: string | null
 ): Promise<MessengerLatestResponse> {
     const currentMuid = muid || getCurrentMuid();
@@ -23,11 +21,8 @@ export async function getMessengerLatest(
         throw new Error('MUID not found. Cannot fetch messenger data.');
     }
 
-    // Use messenger_search when searching, messenger_latest when not
-    const endpoint = searchMember.trim() ? 'messenger_search' : 'messenger_latest';
-    const url = new URL(`https://api.sdc.com/v1/${endpoint}`);
+    const url = new URL('https://api.sdc.com/v1/messenger_latest');
     url.searchParams.set('muid', currentMuid);
-    url.searchParams.set('search_member', searchMember);
     url.searchParams.set('page', page.toString());
 
     try {

@@ -4,6 +4,7 @@ import { getMessengerLatest } from '@/lib/sdc-api';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import ChatListItem from '@/components/ChatListItem.vue';
 import { websocketManager } from '@/lib/websocket-manager';
+import { chatStorage } from '@/lib/chat-storage';
 
 interface Props {
   modelValue: boolean;
@@ -17,14 +18,10 @@ const emit = defineEmits<{
 
 const chatList = ref<MessengerChatItem[]>([]);
 const isLoading = ref(false);
-const isLoadingMore = ref(false);
 const error = ref<string | null>(null);
 const searchQuery = ref('');
 const selectedChat = ref<MessengerChatItem | null>(null);
-const currentPage = ref(0);
-const hasMore = ref(false);
-const urlMore = ref<string | null>(null);
-const searchTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
+const isRefreshing = ref(false);
 
 // Helper function to sort chats: pinned first, then by date_time
 function sortChats(chats: MessengerChatItem[]): MessengerChatItem[] {
@@ -112,86 +109,107 @@ function deduplicateChats(chats: MessengerChatItem[]): MessengerChatItem[] {
   return Array.from(seen.values());
 }
 
-// Filter chats (no sorting here - data is already sorted)
+// Filter and sort chats client-side
 const filteredChats = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return chatList.value;
+  let chats = chatList.value;
+
+  // Client-side filtering
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase();
+    chats = chats.filter(chat => 
+      (chat.account_id && chat.account_id.toLowerCase().includes(query)) ||
+      (chat.last_message && chat.last_message.toLowerCase().includes(query)) ||
+      (chat.subject && chat.subject.toLowerCase().includes(query))
+    );
   }
 
-  const query = searchQuery.value.toLowerCase();
-  return chatList.value.filter(chat => 
-    (chat.account_id && chat.account_id.toLowerCase().includes(query)) ||
-    (chat.last_message && chat.last_message.toLowerCase().includes(query)) ||
-    (chat.subject && chat.subject.toLowerCase().includes(query))
-  );
+  // Client-side sorting
+  return sortChats(chats);
 });
 
-async function fetchChatList(page: number = 0, searchMember: string = '') {
-  if (isLoading.value && page === 0) return;
-  if (isLoadingMore.value && page > 0) return;
-
-  if (page === 0) {
-    isLoading.value = true;
-  } else {
-    isLoadingMore.value = true;
-  }
+/**
+ * Fetch all chats from API and store in IndexedDB
+ * Uses pagination to fetch all available chats
+ */
+async function fetchAllChats(): Promise<void> {
+  if (isRefreshing.value) return;
+  
+  isRefreshing.value = true;
   error.value = null;
 
   try {
-    const response = await getMessengerLatest(page, searchMember);
-    
-    let newChats = response.info.chat_list || [];
-    
-    // Deduplicate and sort new chats
-    newChats = deduplicateChats(newChats);
-    newChats = sortChats(newChats);
-    
-    if (page === 0 || searchMember) {
-      // Replace list for first page or when searching
-      chatList.value = newChats;
-    } else {
-      // Merge and deduplicate for pagination
-      const merged = [...chatList.value, ...newChats];
-      chatList.value = sortChats(deduplicateChats(merged));
+    console.log('[ChatDialog] Fetching all chats from API...');
+    const allChats: MessengerChatItem[] = [];
+    let page = 0;
+    let hasMore = true;
+
+    // Fetch all pages
+    while (hasMore) {
+      const response = await getMessengerLatest(page);
+      const chats = response.info.chat_list || [];
+      
+      if (chats.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      allChats.push(...chats);
+      
+      // Check if there are more pages
+      const urlMore = response.info.url_more;
+      if (!urlMore || urlMore === '-1' || urlMore === '') {
+        hasMore = false;
+      } else {
+        // Extract next page number from url_more
+        const match = urlMore.match(/page=(\d+)/);
+        if (match) {
+          const nextPage = parseInt(match[1], 10);
+          if (nextPage > page) {
+            page = nextPage;
+          } else {
+            hasMore = false;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
     }
 
-    urlMore.value = response.info.url_more || null;
-    hasMore.value = !!(urlMore.value && urlMore.value !== '-1' && urlMore.value !== '');
-    currentPage.value = page;
+    console.log(`[ChatDialog] Fetched ${allChats.length} chats from API`);
+
+    // Deduplicate chats
+    const deduplicatedChats = deduplicateChats(allChats);
+
+    // Upsert to IndexedDB
+    await chatStorage.upsertChats(deduplicatedChats);
+
+    // Load from IndexedDB and update UI
+    await loadChatsFromStorage();
   } catch (err) {
-    console.error('[ChatDialog] Failed to fetch chat list:', err);
+    console.error('[ChatDialog] Failed to fetch chats:', err);
     error.value = 'Failed to load chats. Please try again.';
+    // Try to load from storage anyway
+    await loadChatsFromStorage();
   } finally {
-    isLoading.value = false;
-    isLoadingMore.value = false;
+    isRefreshing.value = false;
   }
 }
 
-// Watch search query and debounce API calls
-watch(searchQuery, (newQuery) => {
-  if (searchTimeout.value) {
-    clearTimeout(searchTimeout.value);
-  }
-  
-  searchTimeout.value = setTimeout(() => {
-    fetchChatList(0, newQuery);
-  }, 300);
-});
-
-// Infinite scroll handler
-function handleScroll(event: Event) {
-  const target = event.target as HTMLElement;
-  const scrollBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
-  
-  // Load more when within 200px of bottom
-  if (scrollBottom < 200 && hasMore.value && !isLoadingMore.value && !searchQuery.value.trim()) {
-    const match = urlMore.value?.match(/page=(\d+)/);
-    if (match) {
-      const nextPage = parseInt(match[1], 10);
-      fetchChatList(nextPage);
-    }
+/**
+ * Load chats from IndexedDB
+ */
+async function loadChatsFromStorage(): Promise<void> {
+  try {
+    const chats = await chatStorage.getAllChats();
+    chatList.value = chats;
+    console.log(`[ChatDialog] Loaded ${chats.length} chats from IndexedDB`);
+  } catch (err) {
+    console.error('[ChatDialog] Failed to load chats from storage:', err);
+    error.value = 'Failed to load chats from storage.';
   }
 }
+
+// Search is now client-side only, no need for debounced API calls
 
 function handleChatClick(chat: MessengerChatItem) {
   selectedChat.value = chat;
@@ -209,13 +227,15 @@ let unsubscribeMessage: (() => void) | null = null;
 let unsubscribeOnline: (() => void) | null = null;
 
 // Watch for modelValue changes to fetch data when dialog opens
-watch(() => props.modelValue, (newValue) => {
-  if (newValue && chatList.value.length === 0) {
-    fetchChatList(0, '');
-  }
-  
-  // Set up WebSocket listeners when dialog opens
+watch(() => props.modelValue, async (newValue) => {
   if (newValue) {
+    // Load from IndexedDB first (fast)
+    await loadChatsFromStorage();
+    
+    // Then fetch fresh data from API and update IndexedDB
+    await fetchAllChats();
+    
+    // Set up WebSocket listeners
     setupWebSocketListeners();
   } else {
     cleanupWebSocketListeners();
@@ -237,10 +257,8 @@ function setupWebSocketListeners() {
   // Listen for new messages
   unsubscribeMessage = websocketManager.on('message', (data) => {
     console.log('[ChatDialog] New message:', data);
-    // Refresh chat list or update specific chat
-    if (!searchQuery.value.trim()) {
-      fetchChatList(0, '');
-    }
+    // Refresh chat list from API and update IndexedDB
+    fetchAllChats();
   });
 
   // Listen for online status changes
@@ -269,11 +287,12 @@ function cleanupWebSocketListeners() {
   }
 }
 
-onMounted(() => {
-  if (props.modelValue && chatList.value.length === 0) {
-    fetchChatList(0, '');
-  }
+onMounted(async () => {
   if (props.modelValue) {
+    // Load from IndexedDB first
+    await loadChatsFromStorage();
+    // Then fetch fresh data
+    await fetchAllChats();
     setupWebSocketListeners();
   }
 });
@@ -334,7 +353,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Chat List -->
-          <div class="flex-1 overflow-y-auto" @scroll="handleScroll">
+          <div class="flex-1 overflow-y-auto">
             <div v-if="isLoading && chatList.length === 0" class="flex items-center justify-center h-full">
               <div class="flex flex-col items-center gap-3">
                 <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -358,10 +377,13 @@ onUnmounted(() => {
                 :selected="getChatKey(selectedChat) === getChatKey(chat)"
                 @click="handleChatClick(chat)"
               />
-              
-              <!-- Loading more indicator -->
-              <div v-if="isLoadingMore" class="flex items-center justify-center py-4">
-                <div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            
+            <!-- Refresh indicator -->
+            <div v-if="isRefreshing" class="flex items-center justify-center py-2 border-t border-[#333]">
+              <div class="flex items-center gap-2 text-sm text-[#999]">
+                <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <span>Refreshing...</span>
               </div>
             </div>
           </div>

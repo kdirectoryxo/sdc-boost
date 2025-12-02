@@ -293,6 +293,33 @@ export interface MessengerLatestResponse {
     info: MessengerLatestInfo;
 }
 
+/**
+ * Messenger Folder Types
+ */
+export interface MessengerFolder {
+    id: number;
+    name: string;
+    new_messages: number;
+}
+
+export interface MessengerTemplate {
+    id: number;
+    title: string;
+    description: string;
+}
+
+export interface MessengerFoldersInfo {
+    code: number;
+    folders: MessengerFolder[];
+    templates: MessengerTemplate[];
+    isStaff: number;
+    message: string;
+}
+
+export interface MessengerFoldersResponse {
+    info: MessengerFoldersInfo;
+}
+
 export interface MessengerIOV2Info {
     code: number;
     db_id: number;
