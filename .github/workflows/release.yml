@@ -81,7 +81,14 @@ jobs:
       - name: Create GitHub Release
         id: create_release
         run: |
-          cat > /tmp/release_notes.md << EOF
+          TAG="v${{ steps.version.outputs.version }}"
+          
+          # Check if release already exists
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists. Skipping creation."
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            cat > /tmp/release_notes.md << EOF
           $(cat /tmp/changelog_section.md)
           
           ## Downloads
@@ -89,10 +96,12 @@ jobs:
           - Chrome Web Store ZIP: \`${{ steps.zip_file.outputs.name }}\`
           EOF
           
-          gh release create "v${{ steps.version.outputs.version }}" \
-            --title "Release v${{ steps.version.outputs.version }}" \
-            --notes-file /tmp/release_notes.md \
-            "${{ steps.zip_file.outputs.file }}"
+            gh release create "$TAG" \
+              --title "Release $TAG" \
+              --notes-file /tmp/release_notes.md \
+              "${{ steps.zip_file.outputs.file }}"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
       
