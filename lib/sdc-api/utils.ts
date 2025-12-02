@@ -83,8 +83,18 @@ export function getCurrentDBId(): string | null {
         const userInfoStr = localStorage.getItem('user_info');
         if (userInfoStr) {
             const userInfo = JSON.parse(userInfoStr);
+            // Check directly on userInfo first (snake_case)
             if (userInfo.db_id) {
                 return String(userInfo.db_id);
+            }
+            // Check inside user object (both snake_case and camelCase)
+            if (userInfo.user) {
+                if (userInfo.user.db_id) {
+                    return String(userInfo.user.db_id);
+                }
+                if (userInfo.user.dbId) {
+                    return String(userInfo.user.dbId);
+                }
             }
         }
     } catch (error) {
@@ -101,8 +111,13 @@ export function getConnId(): string | null {
         const userInfoStr = localStorage.getItem('user_info');
         if (userInfoStr) {
             const userInfo = JSON.parse(userInfoStr);
+            // Check directly on userInfo first
             if (userInfo.messengerConnId) {
                 return String(userInfo.messengerConnId);
+            }
+            // Check inside user object
+            if (userInfo.user && userInfo.user.messengerConnId) {
+                return String(userInfo.user.messengerConnId);
             }
         }
     } catch (error) {
@@ -195,11 +210,24 @@ export function getCurrentAccountId(): string | null {
         const userInfoStr = localStorage.getItem('user_info');
         if (userInfoStr) {
             const userInfo = JSON.parse(userInfoStr);
+            // Check directly on userInfo first (snake_case)
             if (userInfo.account_id) {
                 return userInfo.account_id;
             }
             if (userInfo.username) {
                 return userInfo.username;
+            }
+            // Check inside user object (both snake_case and camelCase)
+            if (userInfo.user) {
+                if (userInfo.user.account_id) {
+                    return userInfo.user.account_id;
+                }
+                if (userInfo.user.accountId) {
+                    return userInfo.user.accountId;
+                }
+                if (userInfo.user.username) {
+                    return userInfo.user.username;
+                }
             }
         }
     } catch (error) {

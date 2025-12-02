@@ -21,7 +21,20 @@ function getUserInfo(): { dbId: string; accountId: string } | null {
             if (userInfoStr) {
                 const userInfo = JSON.parse(userInfoStr);
                 console.log('[ChatService] Available user_info keys:', Object.keys(userInfo));
-                console.log('[ChatService] user_info content:', userInfo);
+                if (userInfo.user) {
+                    console.log('[ChatService] Available user_info.user keys:', Object.keys(userInfo.user));
+                    console.log('[ChatService] user_info.user content:', userInfo.user);
+                }
+                // Try to extract from user object if available (check both snake_case and camelCase)
+                if (userInfo.user) {
+                    const userDbId = userInfo.user.db_id || userInfo.user.dbId;
+                    const userAccountId = userInfo.user.account_id || userInfo.user.accountId || userInfo.user.username;
+                    
+                    if (userDbId && userAccountId) {
+                        console.log('[ChatService] Found user info in user_info.user object');
+                        return { dbId: String(userDbId), accountId: String(userAccountId) };
+                    }
+                }
             } else {
                 console.warn('[ChatService] user_info not found in localStorage');
             }

@@ -371,6 +371,7 @@ const isInitialLoad = ref(true);
 
 // Custom event listeners for WebSocket events
 let typingUnsubscribe: (() => void) | null = null;
+let connectionCheckInterval: ReturnType<typeof setInterval> | null = null;
 
 // Watch for folder selection changes to refetch in background
 watch(selectedFolderId, async (newFolderId, oldFolderId) => {
@@ -425,8 +426,6 @@ watch(() => props.modelValue, async (newValue) => {
     isInitialLoad.value = true;
   }
 }, { immediate: true });
-
-let connectionCheckInterval: ReturnType<typeof setInterval> | null = null;
 
 function setupEventListeners() {
   // Update WebSocket connection status
