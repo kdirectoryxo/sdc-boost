@@ -335,7 +335,7 @@ function handleMessageInput(chat: MessengerChatItem): void {
 /**
  * Handle message send
  */
-function handleSendMessage(): void {
+async function handleSendMessage(): Promise<void> {
   if (!selectedChat.value || !messageInput.value.trim()) {
     return;
   }
@@ -345,6 +345,17 @@ function handleSendMessage(): void {
     messageInput.value = '';
     // Stop typing indicator
     typingManager.stopTyping();
+    
+    // Refetch latest page to show the sent message
+    await refreshLatestPage(selectedChat.value, (updatedMessages) => {
+      messages.value = updatedMessages;
+      // Scroll to bottom to show new message
+      nextTick().then(() => {
+        if (messagesContainer.value) {
+          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+        }
+      });
+    });
   }
 }
 
