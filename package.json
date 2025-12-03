@@ -15,10 +15,10 @@
     "postinstall": "wxt prepare",
     "generate-icons": "node scripts/generate-icons.js",
     "generate-store-images": "node scripts/generate-store-images.js",
-    "release": "git pull --rebase && bumpp --no-push && conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md && git commit --amend --no-edit && git push --follow-tags",
-    "release:patch": "git pull --rebase && bumpp --patch --no-push && conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md && git commit --amend --no-edit && git push --follow-tags",
-    "release:minor": "git pull --rebase && bumpp --minor --no-push && conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md && git commit --amend --no-edit && git push --follow-tags",
-    "release:major": "git pull --rebase && bumpp --major --no-push && conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md && git commit --amend --no-edit && git push --follow-tags"
+    "release": "git pull --rebase && bumpp --no-push && bunx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md && git commit --amend --no-edit && git push --follow-tags",
+    "release:patch": "git pull --rebase && bumpp --patch --no-push && bunx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md && git commit --amend --no-edit && git push --follow-tags",
+    "release:minor": "git pull --rebase && bumpp --minor --no-push && bunx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md && git commit --amend --no-edit && git push --follow-tags",
+    "release:major": "git pull --rebase && bumpp --major --no-push && bunx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md && git commit --amend --no-edit && git push --follow-tags"
   },
   "dependencies": {
     "@vueuse/core": "^14.1.0",
