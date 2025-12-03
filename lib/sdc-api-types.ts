@@ -244,6 +244,30 @@ export interface AlbumsResponse {
     info: AlbumsInfo;
 }
 
+export interface PinChatInfo {
+    code: number;
+    message: string;
+    success: boolean;
+}
+
+export interface PinChatResponse {
+    info: PinChatInfo;
+}
+
+export interface MarkUnreadInfo {
+    code: number;
+    message: string;
+    updated: boolean;
+    last_unread_message_id?: number;
+    target_db_id?: number;
+    db_id?: number;
+    group_id?: number;
+}
+
+export interface MarkUnreadResponse {
+    info: MarkUnreadInfo;
+}
+
 export interface Community {
     id: number;
     belongs: number;

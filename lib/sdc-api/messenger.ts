@@ -2,7 +2,7 @@
  * SDC API Messenger Functions
  * Functions for fetching and working with messenger/chat data
  */
-import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse, GalleryPhotosResponse, AlbumsResponse } from '../sdc-api-types';
+import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse, GalleryPhotosResponse, AlbumsResponse, PinChatResponse } from '../sdc-api-types';
 import { getCurrentMuid } from './utils';
 import { chatStorage } from '../chat-storage';
 import { folderStorage } from '../folder-storage';
@@ -669,6 +669,58 @@ export async function readBroadcast(
         return data;
     } catch (error) {
         console.error('[SDC API] Failed to read broadcast:', error);
+        throw error;
+    }
+}
+
+/**
+ * Pin or unpin a chat
+ * @param groupId The group ID of the chat to pin/unpin
+ * @param pin Pin status: 1 to pin, 0 to unpin
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Response indicating success
+ */
+export async function pinChat(
+    groupId: number,
+    pin: 0 | 1,
+    muid?: string | null
+): Promise<PinChatResponse> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot pin/unpin chat.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_pin_chat');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('group_id', groupId.toString());
+    url.searchParams.set('pin', pin.toString());
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8,ar;q=0.7,nl;q=0.6',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Pin Chat API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json() as PinChatResponse;
+        
+        // Check if the operation was successful
+        if (!data.info.success || data.info.code !== 200) {
+            throw new Error(data.info.message || 'Failed to pin/unpin chat');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('[SDC API] Failed to pin/unpin chat:', error);
         throw error;
     }
 }

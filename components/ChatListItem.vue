@@ -1,7 +1,9 @@
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
+import Dropdown from '@/components/ui/Dropdown.vue';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { parseGalleryMessage } from '@/lib/composables/chat/utils';
+import { useChatPin } from '@/lib/composables/chat/useChatPin';
 
 interface Props {
   chat: MessengerChatItem;
@@ -18,6 +20,9 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   click: [chat: MessengerChatItem];
 }>();
+
+const { togglePinChat } = useChatPin();
+const openDropdownId = ref<number | null>(null);
 
 const nameColor = computed(() => {
   if (props.chat.broadcast || props.chat.type === 100) {
@@ -79,12 +84,21 @@ const displayMessage = computed(() => {
 function handleClick() {
   emit('click', props.chat);
 }
+
+function handleTogglePin() {
+  togglePinChat(props.chat);
+  openDropdownId.value = null;
+}
+
+function handleDropdownToggle(open: boolean) {
+  openDropdownId.value = open ? props.chat.group_id : null;
+}
 </script>
 
 <template>
   <div
     :class="[
-      'px-4 py-3 cursor-pointer transition-colors hover:bg-[#1a1a1a]',
+      'px-4 py-3 cursor-pointer transition-colors hover:bg-[#1a1a1a] group',
       selected ? 'bg-[#1a1a1a]' : ''
     ]"
     @click="handleClick"
@@ -145,6 +159,50 @@ function handleClick() {
               <path d="M5 17h14l-1-7H6l-1 7z"></path>
               <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
             </svg>
+
+            <!-- Dropdown Menu -->
+            <div @click.stop class="w-4 h-4 flex items-center justify-center">
+              <Dropdown
+                :model-value="openDropdownId === chat.group_id"
+                @update:model-value="handleDropdownToggle"
+                placement="bottom"
+                alignment="end"
+                width="w-32"
+                offset="mt-1"
+                :z-index="9999999"
+              >
+                <template #trigger="{ isOpen, toggle }">
+                  <button
+                    @click.stop="toggle"
+                    class="p-0 rounded transition-colors flex items-center justify-center group/btn"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] group-hover/btn:text-white transition-colors">
+                      <circle cx="12" cy="12" r="1"></circle>
+                      <circle cx="12" cy="5" r="1"></circle>
+                      <circle cx="12" cy="19" r="1"></circle>
+                    </svg>
+                  </button>
+                </template>
+                <template #content="{ close }">
+                  <div
+                    class="w-32 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
+                    @click.stop
+                  >
+                    <button
+                      @click.stop="handleTogglePin(); close()"
+                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="17" x2="12" y2="22"></line>
+                        <path d="M5 17h14l-1-7H6l-1 7z"></path>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                      </svg>
+                      {{ chat.pin_chat === 1 ? 'Unpin chat' : 'Pin chat' }}
+                    </button>
+                  </div>
+                </template>
+              </Dropdown>
+            </div>
 
             <!-- Unread Badge -->
             <span

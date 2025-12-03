@@ -1,7 +1,9 @@
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
+import Dropdown from '@/components/ui/Dropdown.vue';
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
 import ChatMessageItem from '@/components/chat/ChatMessageItem.vue';
+import { useChatPin } from '@/lib/composables/chat/useChatPin';
 
 interface Props {
   selectedChat: MessengerChatItem | null;
@@ -32,6 +34,8 @@ const emit = defineEmits<{
 }>();
 
 const messagesContainer = ref<HTMLElement | null>(null);
+const { togglePinChat } = useChatPin();
+const openHeaderDropdown = ref<boolean>(false);
 
 defineExpose({
   messagesContainer
@@ -43,6 +47,17 @@ const isBroadcast = computed(() => {
 
 function handleContainerClick() {
   emit('update:openDropdownMessageId', null);
+}
+
+function handleTogglePin() {
+  if (props.selectedChat) {
+    togglePinChat(props.selectedChat);
+    openHeaderDropdown.value = false;
+  }
+}
+
+function handleHeaderDropdownToggle(open: boolean) {
+  openHeaderDropdown.value = open;
 }
 </script>
 
@@ -67,7 +82,7 @@ function handleContainerClick() {
   </div>
   <div v-else class="flex-1 flex flex-col min-w-0 overflow-hidden">
     <!-- Chat Header -->
-    <div class="px-6 py-4 border-b border-[#333] shrink-0 flex items-center gap-4 min-w-0">
+    <div class="px-6 py-4 border-b border-[#333] shrink-0 flex items-center gap-4 min-w-0 relative z-50">
       <img
         :src="`https://pictures.sdc.com/photos/${selectedChat.primary_photo}`"
         :alt="selectedChat.account_id"
@@ -88,7 +103,53 @@ function handleContainerClick() {
         <p v-else class="text-xs text-yellow-400">📢 Broadcast</p>
       </div>
       
-      <slot v-if="!isBroadcast" name="message-search" />
+      <div v-if="!isBroadcast" class="flex items-center gap-2">
+        <slot name="message-search" />
+        
+        <!-- Dropdown Menu -->
+        <div @click.stop class="relative z-50">
+          <Dropdown
+            :model-value="openHeaderDropdown"
+            @update:model-value="handleHeaderDropdownToggle"
+            placement="bottom"
+            alignment="end"
+            width="w-32"
+            offset="mt-1"
+            :z-index="50"
+          >
+            <template #trigger="{ isOpen, toggle }">
+              <button
+                @click.stop="toggle"
+                class="p-1.5 rounded hover:bg-[#2a2a2a] transition-colors shrink-0"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+                  <circle cx="12" cy="12" r="1"></circle>
+                  <circle cx="12" cy="5" r="1"></circle>
+                  <circle cx="12" cy="19" r="1"></circle>
+                </svg>
+              </button>
+            </template>
+            <template #content="{ close }">
+              <div
+                class="w-32 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
+                @click.stop
+              >
+                <button
+                  @click.stop="handleTogglePin(); close()"
+                  class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="17" x2="12" y2="22"></line>
+                    <path d="M5 17h14l-1-7H6l-1 7z"></path>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                  {{ selectedChat?.pin_chat === 1 ? 'Unpin chat' : 'Pin chat' }}
+                </button>
+              </div>
+            </template>
+          </Dropdown>
+        </div>
+      </div>
     </div>
 
     <!-- Broadcast Content -->
@@ -121,7 +182,7 @@ function handleContainerClick() {
       v-else
       ref="messagesContainer"
       @click="handleContainerClick"
-      class="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4 min-w-0 relative"
+      class="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4 min-w-0 relative z-0"
     >
       <!-- Syncing Notice (sticky centered overlay) -->
       <div 
