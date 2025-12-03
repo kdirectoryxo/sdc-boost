@@ -1,3 +1,29 @@
+## [1.1.4](https://github.com/kdirectoryxo/sdc-boost/compare/v1.1.2...v1.1.4) (2025-12-03)
+
+
+### Bug Fixes
+
+* update unread counter handling in ChatDialog and WebSocketHandlers ([f9bc0dd](https://github.com/kdirectoryxo/sdc-boost/commit/f9bc0dd671cca700dc20206518f383cc8d981493))
+
+
+### Features
+
+* add album selection feature in chat components ([107e7ea](https://github.com/kdirectoryxo/sdc-boost/commit/107e7ea39fef22f31045e26d1dde67b1f0a23f2c))
+* add archives management and filtering options in ChatDialog ([9a0eacc](https://github.com/kdirectoryxo/sdc-boost/commit/9a0eacc54883c0dbce2dbc24607c9f8abc30a859))
+* add blocked chat filter and UI enhancements in ChatDialog ([3a632dd](https://github.com/kdirectoryxo/sdc-boost/commit/3a632dd42b360f9be51d23c458c58efef50f3805))
+* add image upload and message sending functionality in ChatDialog ([070e3e9](https://github.com/kdirectoryxo/sdc-boost/commit/070e3e9e71deff7d903780b99900420618fa80b9))
+* enhance ChatDialog with improved state management and error handling ([5d8a3c8](https://github.com/kdirectoryxo/sdc-boost/commit/5d8a3c81ad5b6bbacd93e6947279408b6ff95cee))
+* implement chat blocking and error handling in ChatDialog ([7e2d376](https://github.com/kdirectoryxo/sdc-boost/commit/7e2d376120956137904e4b9aef74c4220cc71550))
+* implement gallery feature in chat components ([34d6f25](https://github.com/kdirectoryxo/sdc-boost/commit/34d6f25cceb9a71c8c2307b9c3ec9b487332bebe))
+* implement message synchronization for unsynced chats in ChatDialog ([d7440f1](https://github.com/kdirectoryxo/sdc-boost/commit/d7440f11bc7a5d6dcc0b3359db4684b9b9a407cd))
+* implement optimistic message removal in chat state management ([63a6881](https://github.com/kdirectoryxo/sdc-boost/commit/63a68819a404795e4f7c316f6b3f88021460997b))
+* integrate vue-easy-lightbox for enhanced image viewing in ChatDialog ([d9e7dea](https://github.com/kdirectoryxo/sdc-boost/commit/d9e7deac1a1b56774739744716059f2376a5d21e))
+* refactor chat composables to utilize global state management ([eab211f](https://github.com/kdirectoryxo/sdc-boost/commit/eab211f9a2f64cac4cb66fb7d983a7829759ae42))
+* refactor dropdown handling and UI components in ChatDialog ([78c2d93](https://github.com/kdirectoryxo/sdc-boost/commit/78c2d93386f43f0c4a01e6a487b072c6a4532066))
+* update ChatDialog with new dependencies and UI component refactoring ([57b7a26](https://github.com/kdirectoryxo/sdc-boost/commit/57b7a263863c59d79fc070006aee433ad445a261))
+
+
+
 ## [1.1.2](https://github.com/kdirectoryxo/sdc-boost/compare/v1.1.0...v1.1.2) (2025-12-02)
 
 
