@@ -50,7 +50,7 @@ function handleClearFilters() {
 <template>
   <div class="w-[35%] border-r border-[#333] flex flex-col bg-[#0f0f0f]">
     <!-- Search Bar and Filter -->
-    <div class="p-4 border-b border-[#333] shrink-0">
+    <div class="p-4 border-b border-[#333] shrink-0 relative z-10">
       <div class="flex items-center gap-2">
         <div class="relative flex-1 flex items-center gap-1 bg-[#1a1a1a] border border-[#333] rounded-lg px-4 py-2 focus-within:border-blue-500 transition-colors">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#666] shrink-0">
@@ -84,6 +84,7 @@ function handleClearFilters() {
           alignment="end"
           width="w-56"
           offset="mt-2"
+          :z-index="100"
         >
           <template #trigger="{ isOpen, toggle }">
             <button
@@ -253,7 +254,7 @@ function handleClearFilters() {
     </div>
 
     <!-- Chat List -->
-    <div class="flex-1 overflow-y-auto">
+    <div class="flex-1 overflow-y-auto relative z-0">
       <div v-if="isLoading && filteredChats.length === 0" class="flex items-center justify-center h-full">
         <div class="flex flex-col items-center gap-4 px-6 max-w-sm">
           <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
