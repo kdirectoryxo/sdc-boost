@@ -22,12 +22,10 @@ export function useChatDialogLifecycle(
     getChatIdFromURL,
     findChatByGroupId 
   } = useChatState();
-  const { loadFoldersFromStorage, fetchFolders } = useChatFolders();
-  const { updateFilteredChats } = useChatFilters();
+  const { fetchFolders } = useChatFolders();
   const { 
     isLoading, 
     isInitialLoad, 
-    loadChatsFromStorage, 
     fetchAllChats 
   } = useChatSync();
   const { setupEventListeners, cleanupEventListeners } = useChatWebSocket();
@@ -70,11 +68,12 @@ export function useChatDialogLifecycle(
     
     const chatIdFromURL = getChatIdFromURL();
     
-    await loadChatsFromStorage();
-    await loadFoldersFromStorage();
-    await updateFilteredChats();
+    // Fetch data from API - reactivity will handle UI updates
     await fetchFolders();
     await fetchAllChats();
+    
+    // Wait a bit for reactive queries to populate
+    await nextTick();
     
     isInitialLoad.value = false;
     
@@ -112,7 +111,7 @@ export function useChatDialogLifecycle(
           }
         } else if (selectedChat.value) {
           selectedChat.value = null;
-          messages.value = [];
+          // Messages will update reactively when selectedChat changes
         }
       }
     }

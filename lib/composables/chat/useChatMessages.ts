@@ -1,4 +1,4 @@
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, toRef } from 'vue';
 import { createGlobalState } from '@vueuse/core';
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
 import { loadMessages, refreshLatestPage } from '@/lib/message-service';
@@ -8,12 +8,76 @@ import { chatStorage } from '@/lib/chat-storage';
 import { useChatState } from './useChatState';
 import { useChatFilters } from './useChatFilters';
 import { highlightText } from './utils';
+import { useLiveQuery } from '@/lib/composables/useLiveQuery';
+import { db } from '@/lib/db';
 
 export const useChatMessages = createGlobalState(() => {
   const { selectedChat, chatList } = useChatState();
   const { searchQuery, updateFilteredChats } = useChatFilters();
   
-  const messages = ref<MessengerMessage[]>([]);
+  // Optimistic message handling (declared first so it can be used in liveQuery)
+  const optimisticMessageTempIds = ref<Map<string, string>>(new Map()); // Track optimistic messages: tempId -> message content
+  const optimisticMessages = ref<Map<string, MessengerMessage>>(new Map()); // Track optimistic messages by tempId
+  
+  // Reactive messages from database, merged with optimistic messages
+  const selectedChatGroupId = computed(() => selectedChat.value?.group_id);
+  const messages = useLiveQuery(async () => {
+    const groupId = selectedChatGroupId.value;
+    if (!groupId) {
+      return [];
+    }
+    const groupMessages = await db.messages
+      .where('group_id')
+      .equals(groupId)
+      .toArray();
+    
+    const dbMessages = groupMessages
+      .map((item) => {
+        const { id, group_id, ...message } = item;
+        return message as MessengerMessage;
+      })
+      .sort((a, b) => a.date2 - b.date2); // Sort by timestamp ascending (oldest first);
+    
+    // Merge optimistic messages (those with message_id === 0 and tempId)
+    const optimisticMsgs = Array.from(optimisticMessages.value.values());
+    const allMessages = [...dbMessages, ...optimisticMsgs];
+    
+    // Remove duplicates: if an optimistic message matches a real one, keep the real one
+    const seen = new Set<number>();
+    const result: MessengerMessage[] = [];
+    
+    // First add all real messages (message_id > 0)
+    for (const msg of allMessages) {
+      if (msg.message_id > 0) {
+        if (!seen.has(msg.message_id)) {
+          seen.add(msg.message_id);
+          result.push(msg);
+        }
+      }
+    }
+    
+    // Then add optimistic messages (message_id === 0) that don't have a matching real message
+    for (const msg of allMessages) {
+      if (msg.message_id === 0) {
+        const tempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
+        if (tempId && optimisticMessages.value.has(tempId)) {
+          // Check if there's already a real message with same content and timestamp
+          const hasMatchingReal = dbMessages.some(real => 
+            real.message === msg.message &&
+            real.sender === msg.sender &&
+            Math.abs(real.date2 - msg.date2) < 30
+          );
+          if (!hasMatchingReal) {
+            result.push(msg);
+          }
+        }
+      }
+    }
+    
+    // Sort by date2
+    return result.sort((a, b) => a.date2 - b.date2);
+  }, [selectedChatGroupId, optimisticMessages]);
+
   const isLoadingMessages = ref(false);
   const isSyncing = ref(false); // Track if we're syncing all pages for first-time load
   const messageError = ref<string | null>(null); // Error for message loading
@@ -23,10 +87,6 @@ export const useChatMessages = createGlobalState(() => {
   const messageSearchQuery = ref('');
   const messageSearchResults = ref<number[]>([]); // Array of message IDs matching the query
   const currentSearchIndex = ref<number>(-1); // Current highlighted result index (-1 means no selection)
-  
-  // Optimistic message handling
-  const optimisticMessageTempIds = ref<Map<string, string>>(new Map()); // Track optimistic messages: tempId -> message content
-  const optimisticMessages = ref<Map<string, MessengerMessage>>(new Map()); // Track optimistic messages by tempId
   
   /**
    * Get search query for messages
@@ -49,14 +109,15 @@ export const useChatMessages = createGlobalState(() => {
   const filteredMessages = computed(() => {
     // Always return all messages - don't filter
     const query = messageSearchQueryComputed.value.toLowerCase();
+    const currentMessages = messages.value || [];
     
     if (!query) {
       messageSearchResults.value = [];
-      return messages.value;
+      return currentMessages;
     }
     
     // Find messages that contain the query and store their IDs
-    const matchingMessages = messages.value.filter(message => {
+    const matchingMessages = currentMessages.filter(message => {
       return message.message.toLowerCase().includes(query);
     });
     
@@ -64,7 +125,7 @@ export const useChatMessages = createGlobalState(() => {
     messageSearchResults.value = matchingMessages.map(msg => msg.message_id);
     
     // Return all messages (not filtered)
-    return messages.value;
+    return currentMessages;
   });
   
   /**
@@ -82,7 +143,8 @@ export const useChatMessages = createGlobalState(() => {
     }
     
     // Find the message in the messages array
-    const currentMessage = messages.value.find(msg => msg.message_id === targetMessageId);
+    const currentMessages = messages.value || [];
+    const currentMessage = currentMessages.find(msg => msg.message_id === targetMessageId);
     if (!currentMessage) {
       return;
     }
@@ -232,8 +294,8 @@ export const useChatMessages = createGlobalState(() => {
     // Store the current chat's group_id to track which chat we're loading
     const currentChatGroupId = chat.group_id;
     
-    // Clear messages and reset error when starting a new load
-    messages.value = [];
+    // Reset error when starting a new load
+    // Note: messages are now reactive, so we don't need to manually clear them
     messageError.value = null;
     
     // Check if this is a first-time load (will need to fetch all messages)
@@ -249,10 +311,9 @@ export const useChatMessages = createGlobalState(() => {
 
     try {
       const result = await loadMessages(chat, (updatedMessages) => {
-        // Only update messages if we're still loading the same chat
-        // This prevents old progress callbacks from updating messages after switching chats
+        // Only update loading state if we're still loading the same chat
+        // Messages will update reactively from database
         if (selectedChat.value && selectedChat.value.group_id === currentChatGroupId) {
-          messages.value = updatedMessages;
           // If we have messages, we can hide the spinner
           if (updatedMessages.length > 0) {
             isLoadingMessages.value = false;
@@ -268,21 +329,12 @@ export const useChatMessages = createGlobalState(() => {
       
       // Only update if we're still on the same chat
       if (selectedChat.value && selectedChat.value.group_id === currentChatGroupId) {
-        messages.value = result.messages;
         // Clear blocked status if messages were successfully loaded
-        if (result.messages.length > 0 && selectedChat.value.isBlocked) {
+        const currentMessages = messages.value || [];
+        if (currentMessages.length > 0 && selectedChat.value.isBlocked) {
           // Clear blocked status in metadata
           await messageStorage.setChatBlocked(selectedChat.value.group_id, false);
-          
-          const updatedChat = { ...selectedChat.value, isBlocked: false };
-          // Update local chat list
-          const chatIndex = chatList.value.findIndex(c => c.group_id === selectedChat.value!.group_id);
-          if (chatIndex !== -1) {
-            chatList.value[chatIndex] = updatedChat;
-          }
-          selectedChat.value = updatedChat;
-          // Refresh filtered chats to update the display
-          await updateFilteredChats();
+          // Chat list will update reactively
         }
         // Always set loading to false after loadMessages completes
         isLoadingMessages.value = false;
@@ -339,7 +391,7 @@ export const useChatMessages = createGlobalState(() => {
         }
         isLoadingMessages.value = false;
         isSyncing.value = false;
-        messages.value = []; // Ensure messages are cleared when there's an error
+        // Messages will update reactively from database
       } else {
         // Chat was switched, ensure loading state is cleared
         isLoadingMessages.value = false;
@@ -375,33 +427,26 @@ export const useChatMessages = createGlobalState(() => {
       // For optimistic messages, just remove from UI and clean up tracking
       const tempId = tempIdMatch[1];
       
-      // Remove from messages array
-      const index = messages.value.findIndex(msg => {
-        const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
-        return msgTempId === tempId;
-      });
-      
-      if (index !== -1) {
-        messages.value.splice(index, 1);
+      // Remove optimistic message from database
+      if (selectedChat.value) {
+        await messageStorage.deleteMessage(selectedChat.value.group_id, 0); // Delete optimistic message
       }
       
       // Clean up optimistic tracking
       optimisticMessages.value.delete(tempId);
       optimisticMessageTempIds.value.delete(tempId);
       
-      console.log(`[useChatMessages] Removed optimistic message ${tempId} from UI`);
+      console.log(`[useChatMessages] Removed optimistic message ${tempId} from database`);
       return;
     }
     
     // For real messages, delete via API
     try {
       await deleteMessage(selectedChat.value.group_id, message.message_id);
-      // Delete from IndexedDB
+      // Delete from IndexedDB - messages will update reactively
       await messageStorage.deleteMessage(selectedChat.value.group_id, message.message_id);
-      // Refresh messages after deletion
-      await refreshLatestPage(selectedChat.value, (updatedMessages) => {
-        messages.value = updatedMessages;
-      });
+      // Refresh messages after deletion to get latest state
+      await refreshLatestPage(selectedChat.value);
     } catch (err) {
       console.error('[useChatMessages] Failed to delete message:', err);
       throw err; // Let caller handle error display
@@ -439,7 +484,8 @@ export const useChatMessages = createGlobalState(() => {
     const qAccountId = quotingMessage.q_account_id;
     
     // Find the original quoted message by matching content and account
-    const quotedMessage = messages.value.find(msg => {
+    const currentMessages = messages.value || [];
+    const quotedMessage = currentMessages.find(msg => {
       // Match by message content and account_id
       const matchesContent = msg.message === qMessage || 
                             (qMessage.length > 0 && msg.message.includes(qMessage.substring(0, Math.min(50, qMessage.length))));
@@ -453,7 +499,7 @@ export const useChatMessages = createGlobalState(() => {
     
     if (quotedMessage && messagesContainer.value) {
       // Find the message element by ID (using same pattern as v-for key)
-      const messageIndex = messages.value.indexOf(quotedMessage);
+      const messageIndex = currentMessages.indexOf(quotedMessage);
       const messageId = quotedMessage.message_id > 0 
         ? `message-${quotedMessage.message_id}`
         : `message-opt_${quotedMessage.extra1 || messageIndex}_${quotedMessage.date2}`;
@@ -531,7 +577,7 @@ export const useChatMessages = createGlobalState(() => {
   }
 
   return {
-    messages,
+    messages: computed(() => messages.value || []),
     isLoadingMessages,
     isSyncing,
     messageError,

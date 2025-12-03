@@ -1,13 +1,11 @@
 /**
- * IndexedDB storage manager for chats
+ * IndexedDB storage manager for chats using Dexie
  * Handles storing and retrieving chat list items
  */
 
-import { getDB } from './db';
+import { db, type ChatEntity, type ChatMetadata, type SyncMetadata } from './db';
 import type { MessengerChatItem } from './sdc-api-types';
 import { messageStorage } from './message-storage';
-
-const STORE_NAME = 'chats';
 
 /**
  * Helper function to deduplicate chats
@@ -56,13 +54,6 @@ function deduplicateChats(chats: MessengerChatItem[]): MessengerChatItem[] {
 
 class ChatStorage {
     /**
-     * Get the shared database instance
-     */
-    private async getDB() {
-        return getDB();
-    }
-
-    /**
      * Get a unique ID for a chat item
      */
     private getChatId(chat: MessengerChatItem): string {
@@ -83,10 +74,6 @@ class ChatStorage {
      * @param markAsArchived Optional flag to mark chats as archived
      */
     async upsertChats(chats: MessengerChatItem[], markAsArchived: boolean = false): Promise<void> {
-        const db = await this.getDB();
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-
         // First, upsert all chats
         await Promise.all(
             chats.map(async (chat) => {
@@ -95,41 +82,20 @@ class ChatStorage {
                 // Remove archived from chat item (it's stored in metadata now)
                 const { archived, ...chatWithoutArchived } = chat as any;
                 
-                const chatWithId = {
+                const chatWithId: ChatEntity = {
                     ...chatWithoutArchived,
                     id: chatId,
                 };
-                await store.put(chatWithId);
+                await db.chats.put(chatWithId);
             })
         );
 
-        await tx.done;
-
-        // Then update metadata if needed (using separate transaction)
-        if (markAsArchived && db.objectStoreNames.contains('chat_metadata')) {
-            // First, get all existing metadata in one transaction
-            const readTx = db.transaction('chat_metadata', 'readonly');
-            const readStore = readTx.objectStore('chat_metadata');
-            const existingMetadataMap = new Map<number, any>();
-            
+        // Then update metadata if needed
+        if (markAsArchived) {
             await Promise.all(
                 chats.map(async (chat) => {
-                    const metadata = await readStore.get(chat.group_id) as any;
-                    if (metadata) {
-                        existingMetadataMap.set(chat.group_id, metadata);
-                    }
-                })
-            );
-            await readTx.done;
-
-            // Then update all metadata in a separate write transaction
-            const writeTx = db.transaction('chat_metadata', 'readwrite');
-            const writeStore = writeTx.objectStore('chat_metadata');
-            
-            await Promise.all(
-                chats.map(async (chat) => {
-                    const existing = existingMetadataMap.get(chat.group_id);
-                    await writeStore.put({
+                    const existing = await db.chat_metadata.get(chat.group_id);
+                    await db.chat_metadata.put({
                         group_id: chat.group_id,
                         messages_fetched: existing?.messages_fetched || false,
                         last_fetched_at: existing?.last_fetched_at,
@@ -138,7 +104,6 @@ class ChatStorage {
                     });
                 })
             );
-            await writeTx.done;
         }
 
         console.log(`[ChatStorage] Upserted ${chats.length} chats${markAsArchived ? ' (marked as archived)' : ''}`);
@@ -149,19 +114,17 @@ class ChatStorage {
      * Merges isBlocked status from chat_metadata
      */
     async getAllChats(): Promise<MessengerChatItem[]> {
-        const db = await this.getDB();
-        const chats = await db.getAll(STORE_NAME);
+        const chats = await db.chats.toArray();
         
         // Get all metadata to merge isBlocked and isArchived status
-        let metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean }>();
-        if (db.objectStoreNames.contains('chat_metadata')) {
-            const metadataStore = db.transaction('chat_metadata', 'readonly').objectStore('chat_metadata');
-            const allMetadata = await metadataStore.getAll();
-            metadataMap = new Map(allMetadata.map((m: any) => [m.group_id, { 
+        const allMetadata = await db.chat_metadata.toArray();
+        const metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean }>();
+        allMetadata.forEach((m) => {
+            metadataMap.set(m.group_id, { 
                 isBlocked: m.isBlocked, 
                 isArchived: m.isArchived 
-            }]));
-        }
+            });
+        });
         
         // Remove the 'id' field we added for IndexedDB and merge metadata
         const result = chats.map((item) => {
@@ -182,8 +145,7 @@ class ChatStorage {
      * Get a single chat by ID
      */
     async getChatById(id: string): Promise<MessengerChatItem | null> {
-        const db = await this.getDB();
-        const item = await db.get(STORE_NAME, id);
+        const item = await db.chats.get(id);
         
         if (!item) {
             return null;
@@ -198,9 +160,8 @@ class ChatStorage {
      * Returns the raw chat from IndexedDB (archived status is now in metadata)
      */
     async getChatRaw(chat: MessengerChatItem): Promise<MessengerChatItem | null> {
-        const db = await this.getDB();
         const chatId = this.getChatId(chat);
-        const item = await db.get(STORE_NAME, chatId);
+        const item = await db.chats.get(chatId);
         
         if (!item) {
             return null;
@@ -215,25 +176,23 @@ class ChatStorage {
      * Note: isBlocked and isArchived are stored in chat_metadata, not on the chat item
      */
     async updateChat(chat: MessengerChatItem): Promise<void> {
-        const db = await this.getDB();
         const chatId = this.getChatId(chat);
         
         // Remove isBlocked and archived from chat item if present (they're stored in metadata)
         const { isBlocked, archived, ...chatWithoutMetadata } = chat as any;
         
-        const chatWithId = {
+        const chatWithId: ChatEntity = {
             ...chatWithoutMetadata,
             id: chatId,
         };
-        await db.put(STORE_NAME, chatWithId);
+        await db.chats.put(chatWithId);
     }
 
     /**
      * Clear all chats from IndexedDB
      */
     async clearAllChats(): Promise<void> {
-        const db = await this.getDB();
-        await db.clear(STORE_NAME);
+        await db.chats.clear();
         console.log('[ChatStorage] Cleared all chats');
     }
 
@@ -241,8 +200,7 @@ class ChatStorage {
      * Delete a chat by ID
      */
     async deleteChat(id: string): Promise<void> {
-        const db = await this.getDB();
-        await db.delete(STORE_NAME, id);
+        await db.chats.delete(id);
     }
 
     /**
@@ -348,22 +306,15 @@ class ChatStorage {
      * @param folderId The folder ID to remove chats for
      */
     async removeChatsByFolderId(folderId: number): Promise<void> {
-        const allChats = await this.getAllChats();
-        const chatsToRemove = allChats.filter(chat => (chat.folder_id || 0) === folderId);
-        
-        // Delete each chat individually
-        const db = await this.getDB();
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
+        const chatsToRemove = await db.chats
+            .where('folder_id')
+            .equals(folderId)
+            .toArray();
         
         await Promise.all(
-            chatsToRemove.map(chat => {
-                const id = this.getChatId(chat);
-                return store.delete(id);
-            })
+            chatsToRemove.map(chat => db.chats.delete(chat.id))
         );
         
-        await tx.done;
         console.log(`[ChatStorage] Removed ${chatsToRemove.length} chats from folder ${folderId}`);
     }
 
@@ -371,22 +322,14 @@ class ChatStorage {
      * Remove inbox chats (folder_id === 0 or null)
      */
     async removeInboxChats(): Promise<void> {
-        const allChats = await this.getAllChats();
+        // Get all chats and filter for folder_id === 0 or null
+        const allChats = await db.chats.toArray();
         const chatsToRemove = allChats.filter(chat => (chat.folder_id || 0) === 0);
         
-        // Delete each chat individually
-        const db = await this.getDB();
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        
         await Promise.all(
-            chatsToRemove.map(chat => {
-                const id = this.getChatId(chat);
-                return store.delete(id);
-            })
+            chatsToRemove.map(chat => db.chats.delete(chat.id))
         );
         
-        await tx.done;
         console.log(`[ChatStorage] Removed ${chatsToRemove.length} inbox chats`);
     }
 
@@ -396,8 +339,7 @@ class ChatStorage {
      * @returns Last sync time as ISO date string, or null if not found
      */
     async getLastSyncTime(key: string): Promise<string | null> {
-        const db = await this.getDB();
-        const item = await db.get('sync_metadata', key);
+        const item = await db.sync_metadata.get(key);
         return item?.last_sync_time || null;
     }
 
@@ -407,8 +349,7 @@ class ChatStorage {
      * @param dateTime ISO date string from chat date_time field
      */
     async setLastSyncTime(key: string, dateTime: string): Promise<void> {
-        const db = await this.getDB();
-        await db.put('sync_metadata', {
+        await db.sync_metadata.put({
             key,
             last_sync_time: dateTime,
         });
@@ -441,7 +382,7 @@ class ChatStorage {
     }
 
     /**
-     * Search chats using IndexedDB queries
+     * Search chats using Dexie queries
      * @param options Search options
      * @returns Array of matching chats
      */
@@ -457,32 +398,28 @@ class ChatStorage {
         blockedOnly?: boolean;
         showArchives?: boolean; // If true, only show archived chats. If false/undefined, exclude archived chats
     }): Promise<MessengerChatItem[]> {
-        const db = await this.getDB();
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        
-        let chats: (MessengerChatItem & { id: string })[] = [];
+        let chats: ChatEntity[] = [];
         
         // Filter by folder using index if specified
         if (options.folderId !== undefined && options.folderId !== null) {
-            const index = store.index('folder_id');
-            const folderId = options.folderId;
-            chats = await index.getAll(folderId);
+            chats = await db.chats
+                .where('folder_id')
+                .equals(options.folderId)
+                .toArray();
         } else {
             // Get all chats
-            chats = await store.getAll();
+            chats = await db.chats.toArray();
         }
         
         // Get metadata for all chats to merge isBlocked and isArchived status
-        let metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean }>();
-        if (db.objectStoreNames.contains('chat_metadata')) {
-            const metadataStore = db.transaction('chat_metadata', 'readonly').objectStore('chat_metadata');
-            const allMetadata = await metadataStore.getAll();
-            metadataMap = new Map(allMetadata.map((m: any) => [m.group_id, { 
+        const allMetadata = await db.chat_metadata.toArray();
+        const metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean }>();
+        allMetadata.forEach((m) => {
+            metadataMap.set(m.group_id, { 
                 isBlocked: m.isBlocked,
                 isArchived: m.isArchived 
-            }]));
-        }
+            });
+        });
         
         // Remove the 'id' field and convert to MessengerChatItem
         // Also filter archived chats based on showArchives option
@@ -628,35 +565,28 @@ class ChatStorage {
      * @returns Number of unread chats in the folder
      */
     async getFolderUnreadCount(folderId: number | null): Promise<number> {
-        const db = await this.getDB();
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        
-        let chats: (MessengerChatItem & { id: string })[];
+        let chats: ChatEntity[] = [];
         
         if (folderId === null) {
             // All chats - get all chats
-            chats = await store.getAll();
+            chats = await db.chats.toArray();
         } else if (folderId === 0) {
             // Inbox - get all chats and filter for folder_id === 0 or null
-            // (IndexedDB indexes don't include null values, so we need to filter manually)
-            const allChats = await store.getAll();
+            const allChats = await db.chats.toArray();
             chats = allChats.filter(chat => {
-                const chatItem = chat as MessengerChatItem;
-                const chatFolderId = chatItem.folder_id || 0;
+                const chatFolderId = chat.folder_id || 0;
                 return chatFolderId === 0;
             });
         } else {
             // Specific folder - use index to filter by folder_id
-            const index = store.index('folder_id');
-            chats = await index.getAll(folderId);
+            chats = await db.chats
+                .where('folder_id')
+                .equals(folderId)
+                .toArray();
         }
         
         // Count chats with unread_counter > 0
-        const unreadCount = chats.filter(chat => {
-            const chatItem = chat as MessengerChatItem;
-            return (chatItem.unread_counter || 0) > 0;
-        }).length;
+        const unreadCount = chats.filter(chat => (chat.unread_counter || 0) > 0).length;
         
         return unreadCount;
     }

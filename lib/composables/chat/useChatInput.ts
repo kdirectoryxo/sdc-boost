@@ -6,6 +6,7 @@ import { refreshLatestPage } from '@/lib/message-service';
 import { getCurrentAccountId, getCurrentDBId } from '@/lib/sdc-api/utils';
 import { uploadFiles } from '@/lib/upload-service';
 import { chatStorage } from '@/lib/chat-storage';
+import { messageStorage } from '@/lib/message-storage';
 import { TypingManager } from '@/lib/typing-manager';
 import { useChatState } from './useChatState';
 import { useChatMessages } from './useChatMessages';
@@ -168,8 +169,10 @@ export const useChatInput = createGlobalState(() => {
       }
     }
 
-    // Add optimistic message to UI immediately
-    messages.value = [...messages.value, optimisticMessage];
+    // Store optimistic message in database and tracking
+    if (selectedChat.value) {
+      await messageStorage.addMessage(selectedChat.value.group_id, optimisticMessage);
+    }
     optimisticMessages.value.set(tempId, optimisticMessage);
     optimisticMessageTempIds.value.set(tempId, finalMessage);
     
@@ -200,11 +203,10 @@ export const useChatInput = createGlobalState(() => {
     }
 
     if (!success) {
-      // Failed to send - remove optimistic message and revert chat update
-      messages.value = messages.value.filter(msg => {
-        const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
-        return msgTempId !== tempId;
-      });
+      // Failed to send - remove optimistic message from database and revert chat update
+      if (selectedChat.value) {
+        await messageStorage.deleteMessage(selectedChat.value.group_id, 0); // Delete optimistic message (message_id = 0)
+      }
       optimisticMessages.value.delete(tempId);
       optimisticMessageTempIds.value.delete(tempId);
       
@@ -214,7 +216,7 @@ export const useChatInput = createGlobalState(() => {
       // This is a fallback in case WebSocket event doesn't come through immediately
       setTimeout(async () => {
         if (optimisticMessages.value.has(tempId) && selectedChat.value) {
-          await refreshLatestPage(selectedChat.value, (updatedMessages) => {
+          await refreshLatestPage(selectedChat.value, async (updatedMessages) => {
             // Check if we got a real message that matches our optimistic one
             // Match by: same message content, same sender (0 = current user), and timestamp within 30 seconds
             const matchingRealMessage = updatedMessages.find(real => 
@@ -226,17 +228,11 @@ export const useChatInput = createGlobalState(() => {
             if (matchingRealMessage) {
               console.log(`[useChatInput] Fallback matched optimistic message ${tempId} with real message ${matchingRealMessage.message_id}`);
               
-              // Replace optimistic message with real one
-              messages.value = messages.value.filter(msg => {
-                const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
-                return msgTempId !== tempId;
-              });
-              
-              // Add real message if not already present
-              const hasRealMessage = messages.value.some(m => m.message_id === matchingRealMessage.message_id);
-              if (!hasRealMessage) {
-                messages.value.push(matchingRealMessage);
-                messages.value.sort((a, b) => a.date2 - b.date2);
+              // Remove optimistic message from database (it will be replaced by real one)
+              if (selectedChat.value) {
+                await messageStorage.deleteMessage(selectedChat.value.group_id, 0); // Delete optimistic message
+                // Add real message to database
+                await messageStorage.addMessage(selectedChat.value.group_id, matchingRealMessage);
               }
               
               // Clean up tracking
@@ -258,13 +254,13 @@ export const useChatInput = createGlobalState(() => {
       }, 2000); // Wait 2 seconds for WebSocket, then fallback to API
       
       // Set up timeout to clean up optimistic message if it's not replaced within 30 seconds
-      setTimeout(() => {
+      setTimeout(async () => {
         if (optimisticMessages.value.has(tempId)) {
           console.warn(`[useChatInput] Optimistic message ${tempId} not replaced after 30s, cleaning up`);
-          messages.value = messages.value.filter(msg => {
-            const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
-            return msgTempId !== tempId;
-          });
+          // Remove optimistic message from database
+          if (selectedChat.value) {
+            await messageStorage.deleteMessage(selectedChat.value.group_id, 0); // Delete optimistic message
+          }
           optimisticMessages.value.delete(tempId);
           optimisticMessageTempIds.value.delete(tempId);
         }
@@ -574,8 +570,10 @@ export const useChatInput = createGlobalState(() => {
       }
     }
 
-    // Add optimistic message to messages array
-    messages.value = [...messages.value, optimisticMessage];
+    // Store optimistic message in database and tracking
+    if (selectedChat.value) {
+      await messageStorage.addMessage(selectedChat.value.group_id, optimisticMessage);
+    }
     optimisticMessages.value.set(tempId, optimisticMessage);
     optimisticMessageTempIds.value.set(tempId, finalMessage);
 
@@ -591,14 +589,12 @@ export const useChatInput = createGlobalState(() => {
     const success = sendAlbums(selectedChat.value, selectedAlbums.value, quotedMessage || undefined);
     if (!success) {
       console.error('[useChatInput] Failed to send albums');
-      // Remove optimistic message on failure
+      // Remove optimistic message from database on failure
+      if (selectedChat.value) {
+        await messageStorage.deleteMessage(selectedChat.value.group_id, 0); // Delete optimistic message
+      }
       optimisticMessages.value.delete(tempId);
       optimisticMessageTempIds.value.delete(tempId);
-      // Remove from messages array
-      const index = messages.value.findIndex(m => m.extra1 === `__tempId:${tempId}__`);
-      if (index !== -1) {
-        messages.value.splice(index, 1);
-      }
     }
 
     // Clear selected albums and close modal

@@ -3,6 +3,7 @@ import { createGlobalState } from '@vueuse/core';
 import { chatStorage } from '@/lib/chat-storage';
 import { messageStorage } from '@/lib/message-storage';
 import { useChatState } from './useChatState';
+import { useLiveQuery } from '@/lib/composables/useLiveQuery';
 
 export const useChatFilters = createGlobalState(() => {
   const { chatList, selectedFolderId, showArchives } = useChatState();
@@ -17,8 +18,60 @@ export const useChatFilters = createGlobalState(() => {
   const filterBlocked = ref<boolean>(false);
   const isFilterDropdownOpen = ref<boolean>(false);
   
-  // Filtered chats using IndexedDB queries
-  const filteredChats = ref<typeof chatList.value>([]);
+  // Reactive filtered chats using liveQuery
+  const filteredChats = useLiveQuery(async () => {
+    const hasSearchQuery = searchQuery.value.trim().length > 0;
+    const currentQuery = searchQuery.value.trim();
+    
+    // First, get chat metadata matches (exact matches will be prioritized in searchChats)
+    const chatMetadataMatches = await chatStorage.searchChats({
+      query: hasSearchQuery ? currentQuery : undefined,
+      folderId: selectedFolderId.value === -1 ? null : selectedFolderId.value,
+      unreadOnly: filterUnread.value,
+      pinnedOnly: filterPinned.value,
+      onlineOnly: filterOnline.value,
+      lastMessageByMe: filterLastMessageByMe.value,
+      lastMessageByOther: filterLastMessageByOther.value,
+      onlyMyMessages: filterOnlyMyMessages.value,
+      blockedOnly: filterBlocked.value,
+      showArchives: showArchives.value,
+    });
+    
+    // If we have a search query, also search in saved messages
+    let messageSearchMatches: typeof chatList.value = [];
+    if (hasSearchQuery) {
+      const matchingGroupIds = await messageStorage.searchMessages(
+        currentQuery,
+        selectedFolderId.value ?? undefined
+      );
+    
+      if (matchingGroupIds.size > 0) {
+        // Get chats that match the message search, applying other filters
+        const allChatsForMessages = await chatStorage.searchChats({
+          folderId: selectedFolderId.value === -1 ? null : selectedFolderId.value,
+          unreadOnly: filterUnread.value,
+          pinnedOnly: filterPinned.value,
+          onlineOnly: filterOnline.value,
+          lastMessageByMe: filterLastMessageByMe.value,
+          lastMessageByOther: filterLastMessageByOther.value,
+          onlyMyMessages: filterOnlyMyMessages.value,
+          blockedOnly: filterBlocked.value,
+          showArchives: showArchives.value,
+        });
+        
+        // Filter to only include chats with matching messages
+        messageSearchMatches = allChatsForMessages.filter(chat => matchingGroupIds.has(chat.group_id));
+        
+        // Remove chats that are already in chatMetadataMatches to avoid duplicates
+        const chatMetadataGroupIds = new Set(chatMetadataMatches.map(c => c.group_id));
+        messageSearchMatches = messageSearchMatches.filter(chat => !chatMetadataGroupIds.has(chat.group_id));
+      }
+    }
+    
+    // Combine results: exact matches first (from chatMetadataMatches), then partial chat matches, then message matches
+    return [...chatMetadataMatches, ...messageSearchMatches];
+  }, [searchQuery, selectedFolderId, showArchives, filterUnread, filterPinned, filterOnline, filterLastMessageByMe, filterLastMessageByOther, filterOnlyMyMessages, filterBlocked, chatList]);
+  
   const isLoadingFilteredChats = ref(false);
   let currentSearchPromise: Promise<void> | null = null;
   let searchDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -45,92 +98,11 @@ export const useChatFilters = createGlobalState(() => {
   
   /**
    * Function to search chats using IndexedDB
+   * @deprecated Filtered chats are now reactive via liveQuery
    */
   async function updateFilteredChats(): Promise<void> {
-    // Capture the current search query at the start
-    const currentQuery = searchQuery.value.trim();
-    
-    // If there's already a search in progress, wait for it to complete
-    if (currentSearchPromise) {
-      await currentSearchPromise;
-      // After waiting, check if searchQuery has changed - if so, start a new search
-      if (searchQuery.value.trim() !== currentQuery) {
-        return updateFilteredChats();
-      }
-    }
-    
-    isLoadingFilteredChats.value = true;
-    
-    // Create a promise for this search
-    currentSearchPromise = (async () => {
-      try {
-        const hasSearchQuery = currentQuery.length > 0;
-      
-        // First, get chat metadata matches (exact matches will be prioritized in searchChats)
-        const chatMetadataMatches = await chatStorage.searchChats({
-          query: hasSearchQuery ? currentQuery : undefined,
-          folderId: selectedFolderId.value === -1 ? null : selectedFolderId.value,
-          unreadOnly: filterUnread.value,
-          pinnedOnly: filterPinned.value,
-          onlineOnly: filterOnline.value,
-          lastMessageByMe: filterLastMessageByMe.value,
-          lastMessageByOther: filterLastMessageByOther.value,
-          onlyMyMessages: filterOnlyMyMessages.value,
-          blockedOnly: filterBlocked.value,
-          showArchives: showArchives.value,
-        });
-        
-        // If we have a search query, also search in saved messages
-        let messageSearchMatches: typeof chatList.value = [];
-        if (hasSearchQuery) {
-          const matchingGroupIds = await messageStorage.searchMessages(
-            currentQuery,
-            selectedFolderId.value ?? undefined
-          );
-        
-          if (matchingGroupIds.size > 0) {
-            // Get chats that match the message search, applying other filters
-            const allChatsForMessages = await chatStorage.searchChats({
-              folderId: selectedFolderId.value === -1 ? null : selectedFolderId.value,
-              unreadOnly: filterUnread.value,
-              pinnedOnly: filterPinned.value,
-              onlineOnly: filterOnline.value,
-              lastMessageByMe: filterLastMessageByMe.value,
-              lastMessageByOther: filterLastMessageByOther.value,
-              onlyMyMessages: filterOnlyMyMessages.value,
-              blockedOnly: filterBlocked.value,
-              showArchives: showArchives.value,
-            });
-            
-            // Filter to only include chats with matching messages
-            messageSearchMatches = allChatsForMessages.filter(chat => matchingGroupIds.has(chat.group_id));
-            
-            // Remove chats that are already in chatMetadataMatches to avoid duplicates
-            const chatMetadataGroupIds = new Set(chatMetadataMatches.map(c => c.group_id));
-            messageSearchMatches = messageSearchMatches.filter(chat => !chatMetadataGroupIds.has(chat.group_id));
-          }
-        }
-        
-        // Combine results: exact matches first (from chatMetadataMatches), then partial chat matches, then message matches
-        const allChats = [...chatMetadataMatches, ...messageSearchMatches];
-        
-        // Only update if searchQuery hasn't changed while we were searching
-        if (searchQuery.value.trim() === currentQuery || (!hasSearchQuery && !searchQuery.value.trim())) {
-          filteredChats.value = allChats;
-        }
-      } catch (error) {
-        console.error('[useChatFilters] Error searching chats:', error);
-        // Only update if searchQuery hasn't changed
-        if (searchQuery.value.trim() === currentQuery || (!currentQuery && !searchQuery.value.trim())) {
-          filteredChats.value = [];
-        }
-      } finally {
-        isLoadingFilteredChats.value = false;
-        currentSearchPromise = null;
-      }
-    })();
-    
-    await currentSearchPromise;
+    // No-op: filteredChats are now reactive via liveQuery
+    console.log('[useChatFilters] updateFilteredChats is deprecated - filtered chats are now reactive');
   }
   
   /**
@@ -163,48 +135,14 @@ export const useChatFilters = createGlobalState(() => {
     filterBlocked.value = false;
   }
   
-  // Watch for changes that require re-searching
-  watch([searchQuery, selectedFolderId, showArchives, filterUnread, filterPinned, filterOnline, filterLastMessageByMe, filterLastMessageByOther, filterOnlyMyMessages, filterBlocked], async (newValues, oldValues) => {
-    // Clear previous timeout
-    if (searchDebounceTimeout) {
-      clearTimeout(searchDebounceTimeout);
-      searchDebounceTimeout = null;
-    }
-    
-    // Check if searchQuery changed (user is typing)
-    const searchQueryChanged = !oldValues || newValues[0] !== oldValues[0];
-    const hasSearchQuery = searchQuery.value.trim().length > 0;
-    
-    // Debounce search queries when user is typing, but execute immediately for folder/filter changes
-    if (searchQueryChanged && hasSearchQuery) {
-      // User is typing - debounce the search to wait for them to finish
-      searchDebounceTimeout = setTimeout(async () => {
-        // Double-check searchQuery still has value (user might have cleared it)
-        if (searchQuery.value.trim()) {
-          await updateFilteredChats();
-        } else {
-          // Search was cleared, update without query
-          await updateFilteredChats();
-        }
-        searchDebounceTimeout = null;
-      }, 500); // 500ms debounce to allow user to finish typing
-    } else {
-      // Folder/filter changed or search cleared - execute immediately
-      await updateFilteredChats();
-    }
-  }, { immediate: false });
-  
-  // Also watch chatList to update filtered chats when chats are loaded
-  watch(chatList, async () => {
-    await updateFilteredChats();
-  }, { immediate: false });
+  // No need to watch for changes - liveQuery handles reactivity automatically
   
   /**
    * Clear the chat search query
    */
   function clearChatSearch() {
     searchQuery.value = '';
-    updateFilteredChats();
+    // Filtered chats will update reactively
   }
 
   return {
@@ -217,7 +155,7 @@ export const useChatFilters = createGlobalState(() => {
     filterOnlyMyMessages,
     filterBlocked,
     isFilterDropdownOpen,
-    filteredChats,
+    filteredChats: computed(() => filteredChats.value || []),
     isLoadingFilteredChats,
     hasActiveFilters,
     activeFilterCount,

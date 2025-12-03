@@ -22,19 +22,11 @@ export const useChatSync = createGlobalState(() => {
   
   /**
    * Load chats from IndexedDB
+   * @deprecated Chats are now reactive, this is no longer needed
    */
   async function loadChatsFromStorage(): Promise<void> {
-    try {
-      const chats = await chatStorage.getAllChats();
-      chatList.value = chats;
-      console.log(`[useChatSync] Loaded ${chats.length} chats from IndexedDB`);
-      
-      // Refresh folder counts from IndexedDB
-      await refreshFolderCounts();
-    } catch (err) {
-      console.error('[useChatSync] Failed to load chats from storage:', err);
-      error.value = 'Failed to load chats from storage.';
-    }
+    // No-op: chats are now reactive via useChatState
+    console.log('[useChatSync] loadChatsFromStorage is deprecated - chats are now reactive');
   }
   
   /**
@@ -48,19 +40,13 @@ export const useChatSync = createGlobalState(() => {
     error.value = null;
 
     try {
-      // Pass callback to reload chats from storage after each page
-      await syncInboxChats(async () => {
-        await loadChatsFromStorage();
-      });
-      // Final reload to ensure everything is up to date
-      await loadChatsFromStorage();
+      // Sync chats - reactivity will handle UI updates
+      await syncInboxChats();
       // Refresh counters to update the count immediately
       await countersManager.refresh();
-      // Refresh folder counts from IndexedDB
-      await refreshFolderCounts();
+      // Folder counts are now reactive
     } catch (err) {
       console.error('[useChatSync] Failed to sync inbox chats:', err);
-      await loadChatsFromStorage();
     } finally {
       isRefreshing.value = false;
     }
@@ -78,19 +64,13 @@ export const useChatSync = createGlobalState(() => {
     error.value = null;
 
     try {
-      // Pass callback to reload chats from storage after each page
-      await syncFolderChats(folderId, async () => {
-        await loadChatsFromStorage();
-      });
-      // Final reload to ensure everything is up to date
-      await loadChatsFromStorage();
+      // Sync chats - reactivity will handle UI updates
+      await syncFolderChats(folderId);
       // Refresh counters to update the count immediately
       await countersManager.refresh();
-      // Refresh folder counts from IndexedDB
-      await refreshFolderCounts();
+      // Folder counts are now reactive
     } catch (err) {
       console.error(`[useChatSync] Failed to sync folder ${folderId} chats:`, err);
-      await loadChatsFromStorage();
     } finally {
       isRefreshing.value = false;
     }
@@ -107,17 +87,12 @@ export const useChatSync = createGlobalState(() => {
     error.value = null;
 
     try {
-      // Pass callback to reload chats from storage after each page
-      await syncArchivesChats(async () => {
-        await loadChatsFromStorage();
-      });
-      // Final reload to ensure everything is up to date
-      await loadChatsFromStorage();
+      // Sync chats - reactivity will handle UI updates
+      await syncArchivesChats();
       // Refresh counters to update the count immediately
       await countersManager.refresh();
     } catch (err) {
       console.error('[useChatSync] Failed to sync archived chats:', err);
-      await loadChatsFromStorage();
     } finally {
       isRefreshing.value = false;
     }
@@ -135,20 +110,14 @@ export const useChatSync = createGlobalState(() => {
     error.value = null;
 
     try {
-      // Pass callback to reload chats from storage after each page
-      await syncAllChats(async () => {
-        await loadChatsFromStorage();
-      });
-      // Final reload to ensure everything is up to date
-      await loadChatsFromStorage();
+      // Sync chats - reactivity will handle UI updates
+      await syncAllChats();
       // Refresh counters to update the count immediately
       await countersManager.refresh();
-      // Refresh folder counts from IndexedDB
-      await refreshFolderCounts();
+      // Folder counts are now reactive
     } catch (err) {
       console.error('[useChatSync] Failed to sync chats:', err);
       error.value = 'Failed to load chats. Please try again.';
-      await loadChatsFromStorage();
     } finally {
       isRefreshing.value = false;
     }

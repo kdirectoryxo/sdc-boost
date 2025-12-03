@@ -36,7 +36,7 @@ export function useChatSelection() {
     if (!chat) return;
     
     // Reset message state
-    messages.value = [];
+    // Note: messages are now reactive, so we don't need to manually clear them
     messageError.value = null;
     isLoadingMessages.value = false;
     isSyncing.value = false;
@@ -116,7 +116,7 @@ export function useChatSelection() {
     }
     
     selectedChat.value = chatToUse;
-    messages.value = [];
+    // Note: messages are now reactive, so we don't need to manually clear them
     isLoadingMessages.value = false;
     isSyncing.value = false;
     typingManager.reset();

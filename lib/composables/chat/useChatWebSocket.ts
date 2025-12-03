@@ -86,22 +86,15 @@ export const useChatWebSocket = createGlobalState(() => {
         // This is a confirmation of an optimistic message via tempId
         matchedTempId = tempId;
         const optimisticMsg = optimisticMessages.value.get(tempId);
-        if (optimisticMsg) {
-          // Find and replace the optimistic message
-          const optimisticIndex = messages.value.findIndex(msg => {
-            const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
-            return msgTempId === tempId;
-          });
-          
-          if (optimisticIndex !== -1) {
-            // Remove optimistic message - the real one will come from refreshLatestPage
-            messages.value.splice(optimisticIndex, 1);
-          }
-          
-          // Clean up tracking
-          optimisticMessages.value.delete(tempId);
-          optimisticMessageTempIds.value.delete(tempId);
+        if (optimisticMsg && chat) {
+          // Remove optimistic message from database - the real one will come from refreshLatestPage
+          const { messageStorage } = await import('@/lib/message-storage');
+          await messageStorage.deleteMessage(chat.group_id, 0); // Delete optimistic message
         }
+        
+        // Clean up tracking
+        optimisticMessages.value.delete(tempId);
+        optimisticMessageTempIds.value.delete(tempId);
       } else if (message && (message as any).message && (message as any).db_id) {
         // No tempId, but try to match by content and timestamp
         // This handles cases where the server doesn't echo back the tempId
@@ -121,14 +114,10 @@ export const useChatWebSocket = createGlobalState(() => {
               matchedTempId = optTempId;
               console.log(`[useChatWebSocket] Matched optimistic message ${optTempId} by content and timestamp`);
               
-              // Remove optimistic message
-              const optimisticIndex = messages.value.findIndex(msg => {
-                const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
-                return msgTempId === optTempId;
-              });
-              
-              if (optimisticIndex !== -1) {
-                messages.value.splice(optimisticIndex, 1);
+              // Remove optimistic message from database
+              if (chat) {
+                const { messageStorage } = await import('@/lib/message-storage');
+                await messageStorage.deleteMessage(chat.group_id, 0); // Delete optimistic message
               }
               
               // Clean up tracking
@@ -170,12 +159,16 @@ export const useChatWebSocket = createGlobalState(() => {
       // If this message is for the currently selected chat, refresh page 0 in background
       if (selectedChat.value && String(selectedChat.value.group_id) === String(groupId)) {
         // Refresh latest page (page 0) in background to get any updates
-        refreshLatestPage(selectedChat.value, (updatedMessages) => {
-          // Try to match optimistic messages with real messages
-          const matchedTempIds = new Set<string>();
+        // Messages will update reactively from database
+        refreshLatestPage(selectedChat.value).catch(console.error);
+        
+        // Try to match optimistic messages with real messages after a short delay
+        setTimeout(async () => {
+          const { messageStorage } = await import('@/lib/message-storage');
+          const updatedMessages = await messageStorage.getMessages(chat.group_id);
           
-          // For each optimistic message, try to find a matching real message
-          optimisticMessages.value.forEach((optimisticMsg, tempId) => {
+          // Remove matched optimistic messages from database and tracking
+          for (const [tempId, optimisticMsg] of optimisticMessages.value.entries()) {
             const matchingRealMessage = updatedMessages.find(real => {
               // Match by: same message content, same sender (0 = current user), and timestamp within 30 seconds
               return real.message === optimisticMsg.message &&
@@ -183,48 +176,18 @@ export const useChatWebSocket = createGlobalState(() => {
                      Math.abs(real.date2 - optimisticMsg.date2) < 30; // Allow 30 second window
             });
             
-            if (matchingRealMessage) {
-              matchedTempIds.add(tempId);
+            if (matchingRealMessage && chat) {
               console.log(`[useChatWebSocket] Matched optimistic message ${tempId} with real message ${matchingRealMessage.message_id}`);
+              // Remove optimistic message from database
+              await messageStorage.deleteMessage(chat.group_id, 0); // Delete optimistic message
+              // Add real message to database if not already there
+              await messageStorage.addMessage(chat.group_id, matchingRealMessage);
+              // Clean up tracking
+              optimisticMessages.value.delete(tempId);
+              optimisticMessageTempIds.value.delete(tempId);
             }
-          });
-          
-          // Remove matched optimistic messages from tracking
-          matchedTempIds.forEach(tempId => {
-            optimisticMessages.value.delete(tempId);
-            optimisticMessageTempIds.value.delete(tempId);
-          });
-          
-          // Filter out optimistic messages that were matched
-          const remainingOptimisticMsgs = Array.from(optimisticMessages.value.values()).filter(msg => {
-            const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
-            return msgTempId && !matchedTempIds.has(msgTempId);
-          });
-          
-          // Combine and deduplicate
-          const allMessages = [...remainingOptimisticMsgs, ...updatedMessages];
-          const uniqueMessages = allMessages.filter((msg, index, self) => {
-            if (msg.message_id > 0) {
-              // Real message - check by message_id
-              return index === self.findIndex(m => m.message_id === msg.message_id && m.message_id > 0);
-            } else {
-              // Optimistic message - check by tempId
-              const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
-              if (msgTempId) {
-                return index === self.findIndex(m => {
-                  const mTempId = m.extra1?.match(/__tempId:(.+?)__/)?.[1];
-                  return mTempId === msgTempId;
-                });
-              }
-              return true;
-            }
-          });
-          
-          // Sort by date2
-          uniqueMessages.sort((a, b) => a.date2 - b.date2);
-          
-          messages.value = uniqueMessages;
-        }).catch(console.error);
+          }
+        }, 1000); // Wait 1 second for refreshLatestPage to complete
       }
     };
 
@@ -240,13 +203,15 @@ export const useChatWebSocket = createGlobalState(() => {
         
         // Optimistically update seen status for messages in the currently selected chat
         if (selectedChat.value && String(selectedChat.value.group_id) === String(groupId)) {
-          // Update all own messages to seen (sender === 0)
-          messages.value = messages.value.map(msg => {
+          // Update all own messages to seen (sender === 0) in database
+          const { messageStorage } = await import('@/lib/message-storage');
+          const currentMessages = messages.value || [];
+          for (const msg of currentMessages) {
             if (msg.sender === 0 && msg.seen === 0) {
-              return { ...msg, seen: 1 };
+              await messageStorage.updateMessage(selectedChat.value.group_id, msg.message_id, { seen: 1 });
             }
-            return msg;
-          });
+          }
+          // Messages will update reactively
         }
         
         // Refresh folder counts after seen event (unread_counter may have changed)

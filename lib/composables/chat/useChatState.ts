@@ -1,13 +1,40 @@
 import { ref, computed } from 'vue';
 import { createGlobalState } from '@vueuse/core';
 import type { MessengerChatItem, MessengerFolder } from '@/lib/sdc-api-types';
+import { useLiveQuery } from '@/lib/composables/useLiveQuery';
+import { db } from '@/lib/db';
 
 /**
  * Global chat state that persists across component instances
  */
 export const useChatState = createGlobalState(() => {
-  const chatList = ref<MessengerChatItem[]>([]);
-  const folders = ref<MessengerFolder[]>([]);
+  // Reactive chat list from database
+  const chatList = useLiveQuery(async () => {
+    const chats = await db.chats.toArray();
+    const allMetadata = await db.chat_metadata.toArray();
+    const metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean }>();
+    allMetadata.forEach((m) => {
+      metadataMap.set(m.group_id, { 
+        isBlocked: m.isBlocked, 
+        isArchived: m.isArchived 
+      });
+    });
+    
+    // Merge metadata into chats
+    return chats.map((item) => {
+      const { id, ...chat } = item;
+      const metadata = metadataMap.get(chat.group_id);
+      return {
+        ...chat,
+        ...(metadata?.isBlocked ? { isBlocked: true } : {}),
+        ...(metadata?.isArchived ? { isArchived: true } : {}),
+      } as MessengerChatItem;
+    });
+  }, []);
+
+  // Reactive folders from database
+  const folders = useLiveQuery(() => db.folders.toArray(), []);
+
   const selectedChat = ref<MessengerChatItem | null>(null);
   const selectedFolderId = ref<number | null>(null); // null = all chats, 0 = inbox (no folder), number = specific folder, -1 = archives
   const showArchives = ref<boolean>(false);
@@ -51,12 +78,13 @@ export const useChatState = createGlobalState(() => {
    * Find chat by group_id
    */
   function findChatByGroupId(groupId: string): MessengerChatItem | null {
-    return chatList.value.find(chat => String(chat.group_id) === groupId) || null;
+    const chats = chatList.value || [];
+    return chats.find(chat => String(chat.group_id) === groupId) || null;
   }
   
   return {
-    chatList,
-    folders,
+    chatList: computed(() => chatList.value || []),
+    folders: computed(() => folders.value || []),
     selectedChat,
     selectedFolderId,
     showArchives,
