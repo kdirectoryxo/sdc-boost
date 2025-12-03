@@ -77,12 +77,16 @@ export function useChatSelection() {
     
     await handleLoadMessages(chatToUse);
     
-    await nextTick();
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    // Don't auto-scroll for broadcasts
+    const isBroadcast = chatToUse.broadcast || chatToUse.type === 100;
+    if (!isBroadcast) {
+      await nextTick();
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      }
     }
     
-    sendSeenEvent(chatToUse);
+    await sendSeenEvent(chatToUse);
     
     setTimeout(async () => {
       await countersManager.refresh();
@@ -122,11 +126,17 @@ export function useChatSelection() {
     typingManager.reset();
     clearSearch();
     await handleLoadMessages(chatToUse);
-    await nextTick();
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    
+    // Don't auto-scroll for broadcasts
+    const isBroadcast = chatToUse.broadcast || chatToUse.type === 100;
+    if (!isBroadcast) {
+      await nextTick();
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      }
     }
-    sendSeenEvent(chatToUse);
+    
+    await sendSeenEvent(chatToUse);
     updateChatInURL(chatToUse);
     
     setTimeout(async () => {

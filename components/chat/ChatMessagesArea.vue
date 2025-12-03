@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
 import ChatMessageItem from '@/components/chat/ChatMessageItem.vue';
 
@@ -35,6 +35,10 @@ const messagesContainer = ref<HTMLElement | null>(null);
 
 defineExpose({
   messagesContainer
+});
+
+const isBroadcast = computed(() => {
+  return props.selectedChat?.broadcast || props.selectedChat?.type === 100;
 });
 
 function handleContainerClick() {
@@ -79,15 +83,42 @@ function handleContainerClick() {
         >
           {{ selectedChat.account_id }}
         </h3>
-        <p v-if="selectedChat.online === 1" class="text-xs text-green-500">Online</p>
-        <p v-else class="text-xs text-[#999]">Offline</p>
+        <p v-if="selectedChat.online === 1 && !isBroadcast" class="text-xs text-green-500">Online</p>
+        <p v-else-if="!isBroadcast" class="text-xs text-[#999]">Offline</p>
+        <p v-else class="text-xs text-yellow-400">📢 Broadcast</p>
       </div>
       
-      <slot name="message-search" />
+      <slot v-if="!isBroadcast" name="message-search" />
     </div>
 
-    <!-- Messages Area -->
+    <!-- Broadcast Content -->
     <div 
+      v-if="isBroadcast"
+      ref="messagesContainer"
+      class="flex-1 overflow-y-auto overflow-x-hidden p-6 min-w-0 relative bg-white"
+    >
+      <div v-if="selectedChat?.body" class="max-w-4xl mx-auto">
+        <!-- Broadcast Subject -->
+        <h2 v-if="selectedChat.subject" class="text-2xl font-bold text-gray-900 mb-4">
+          {{ selectedChat.subject }}
+        </h2>
+        
+        <!-- Broadcast Body HTML -->
+        <div 
+          class="broadcast-content prose max-w-none"
+          v-html="selectedChat.body"
+        ></div>
+      </div>
+      <div v-else class="flex items-center justify-center h-full">
+        <div class="text-center text-gray-500">
+          <p>No broadcast content available</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Messages Area (for regular chats) -->
+    <div 
+      v-else
       ref="messagesContainer"
       @click="handleContainerClick"
       class="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4 min-w-0 relative"
@@ -186,7 +217,95 @@ function handleContainerClick() {
       </div>
     </div>
 
-    <slot name="message-input" />
+    <!-- Message Input (only show for non-broadcast chats) -->
+    <div v-if="!isBroadcast">
+      <slot name="message-input" />
+    </div>
   </div>
 </template>
+
+<style scoped>
+.broadcast-content {
+  color: #1f2937;
+  line-height: 1.6;
+}
+
+.broadcast-content :deep(h1),
+.broadcast-content :deep(h2),
+.broadcast-content :deep(h3),
+.broadcast-content :deep(h4),
+.broadcast-content :deep(h5),
+.broadcast-content :deep(h6) {
+  color: #111827;
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+.broadcast-content :deep(h1) {
+  font-size: 2em;
+}
+
+.broadcast-content :deep(h2) {
+  font-size: 1.5em;
+}
+
+.broadcast-content :deep(h3) {
+  font-size: 1.25em;
+}
+
+.broadcast-content :deep(p) {
+  margin-bottom: 1em;
+  color: #1f2937;
+}
+
+.broadcast-content :deep(strong) {
+  color: #111827;
+  font-weight: 600;
+}
+
+.broadcast-content :deep(em) {
+  font-style: italic;
+}
+
+.broadcast-content :deep(u) {
+  text-decoration: underline;
+}
+
+.broadcast-content :deep(a) {
+  color: #2563eb;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.broadcast-content :deep(a:hover) {
+  color: #1d4ed8;
+}
+
+.broadcast-content :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1em 0;
+}
+
+.broadcast-content :deep(ul),
+.broadcast-content :deep(ol) {
+  margin: 1em 0;
+  padding-left: 2em;
+  color: #1f2937;
+}
+
+.broadcast-content :deep(li) {
+  margin-bottom: 0.5em;
+}
+
+.broadcast-content :deep(.ql-align-center) {
+  text-align: center;
+}
+
+.broadcast-content :deep(.ql-indent-1) {
+  padding-left: 1em;
+}
+</style>
 

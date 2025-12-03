@@ -636,3 +636,40 @@ export async function loadAlbums(dbId: string): Promise<AlbumsResponse> {
     }
 }
 
+/**
+ * Mark a broadcast as read
+ * @param muid The MUID of the current user
+ * @param broadcastId The ID of the broadcast to mark as read
+ * @returns Response indicating success
+ */
+export async function readBroadcast(
+    muid: string,
+    broadcastId: number
+): Promise<{ info: { code: number | string; message?: string } }> {
+    const url = new URL('https://api.sdc.com/v1/messenger_read_broadcast');
+    url.searchParams.set('muid', muid);
+    url.searchParams.set('broadcast_id', broadcastId.toString());
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8,ar;q=0.7,nl;q=0.6',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Read Broadcast API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('[SDC API] Failed to read broadcast:', error);
+        throw error;
+    }
+}
+

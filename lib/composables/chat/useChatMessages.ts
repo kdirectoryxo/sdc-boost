@@ -318,12 +318,15 @@ export const useChatMessages = createGlobalState(() => {
           if (updatedMessages.length > 0) {
             isLoadingMessages.value = false;
           }
-          // Scroll to bottom after each update
-          nextTick().then(() => {
-            if (messagesContainer.value) {
-              messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-            }
-          });
+          // Scroll to bottom after each update (skip for broadcasts)
+          const isBroadcast = selectedChat.value.broadcast || selectedChat.value.type === 100;
+          if (!isBroadcast) {
+            nextTick().then(() => {
+              if (messagesContainer.value) {
+                messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+              }
+            });
+          }
         }
       });
       
@@ -340,16 +343,19 @@ export const useChatMessages = createGlobalState(() => {
         isLoadingMessages.value = false;
         isSyncing.value = false; // Hide syncing notice when done
         
-        // Always scroll to bottom after loading (with multiple attempts for reliability)
-        await nextTick();
-        if (messagesContainer.value) {
-          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-          // Also scroll after a small delay to account for any rendering delays
-          setTimeout(() => {
-            if (messagesContainer.value) {
-              messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-            }
-          }, 100);
+        // Always scroll to bottom after loading (skip for broadcasts)
+        const isBroadcast = selectedChat.value.broadcast || selectedChat.value.type === 100;
+        if (!isBroadcast) {
+          await nextTick();
+          if (messagesContainer.value) {
+            messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+            // Also scroll after a small delay to account for any rendering delays
+            setTimeout(() => {
+              if (messagesContainer.value) {
+                messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+              }
+            }, 100);
+          }
         }
       } else {
         // Chat was switched, ensure loading state is cleared

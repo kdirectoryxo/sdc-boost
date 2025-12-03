@@ -4,9 +4,10 @@
  */
 
 import { websocketManager } from './websocket-manager';
-import { getCurrentDBId, getCurrentAccountId } from './sdc-api/utils';
+import { getCurrentDBId, getCurrentAccountId, getCurrentMuid } from './sdc-api/utils';
 import type { MessengerChatItem, MessengerMessage, Album } from './sdc-api-types';
 import { handleMessageUpdate } from './message-update-service';
+import { readBroadcast } from './sdc-api/messenger';
 
 /**
  * Get user info with retry logic and better error handling
@@ -90,9 +91,36 @@ export function sendTypingEvent(chat: MessengerChatItem, typing: boolean): boole
 }
 
 /**
- * Send seen event via WebSocket
+ * Send seen event via WebSocket or mark broadcast as read
  */
-export function sendSeenEvent(chat: MessengerChatItem): boolean {
+export async function sendSeenEvent(chat: MessengerChatItem): Promise<boolean> {
+    // Check if this is a broadcast
+    const isBroadcast = chat.broadcast || chat.type === 100;
+    
+    if (isBroadcast) {
+        // For broadcasts, use the read broadcast API
+        if (!chat.id_broadcast) {
+            console.warn('[ChatService] Cannot mark broadcast as read - missing id_broadcast');
+            return false;
+        }
+        
+        const muid = getCurrentMuid();
+        if (!muid) {
+            console.warn('[ChatService] Cannot mark broadcast as read - missing MUID');
+            return false;
+        }
+        
+        try {
+            await readBroadcast(muid, chat.id_broadcast);
+            console.log(`[ChatService] Marked broadcast ${chat.id_broadcast} as read`);
+            return true;
+        } catch (error) {
+            console.error('[ChatService] Error marking broadcast as read:', error);
+            return false;
+        }
+    }
+    
+    // For regular chats, use WebSocket seen event
     if (!websocketManager.connected) {
         console.warn('[ChatService] Cannot send seen event - WebSocket not connected');
         return false;

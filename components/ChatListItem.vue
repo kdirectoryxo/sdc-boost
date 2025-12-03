@@ -28,6 +28,16 @@ const nameColor = computed(() => {
   return 'text-purple-400'; // Purple default
 });
 
+/**
+ * Strip HTML tags and extract plain text from HTML string
+ */
+function stripHtml(html: string): string {
+  if (!html) return '';
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+}
+
 const displayMessage = computed(() => {
   // Show blocked status if chat is blocked
   if (props.chat.isBlocked) {
@@ -35,6 +45,13 @@ const displayMessage = computed(() => {
   }
   
   if (props.chat.broadcast || props.chat.type === 100) {
+    // For broadcasts, show body (stripped of HTML) instead of subject
+    if (props.chat.body) {
+      const plainText = stripHtml(props.chat.body);
+      // Truncate to reasonable length for preview
+      return plainText.length > 100 ? plainText.substring(0, 100) + '...' : plainText;
+    }
+    // Fallback to subject if body is not available
     return props.chat.subject || '';
   }
   
