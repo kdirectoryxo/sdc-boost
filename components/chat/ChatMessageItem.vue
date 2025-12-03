@@ -31,6 +31,12 @@ const parsedVideoMessage = computed(() => parseVideoMessage(props.message.messag
 const videoUrls = computed(() => parseVideoUrls(props.message.url_videos));
 const galleryMessage = computed(() => parseGalleryMessage(props.message.message));
 const imageDbId = computed(() => getImageDbId(props.message));
+const quotedGalleryMessage = computed(() => {
+  if (props.message.is_quote && props.message.q_message) {
+    return parseGalleryMessage(props.message.q_message);
+  }
+  return null;
+});
 
 function handleOpenGallery() {
   emit('open-gallery', props.message);
@@ -137,7 +143,25 @@ const messageId = computed(() => {
         <div class="font-semibold text-xs mb-1 truncate">
           {{ message.q_account_id }}
         </div>
-        <div class="text-xs line-clamp-2 wrap-break-word">{{ message.q_message }}</div>
+        <!-- Quoted Album -->
+        <div v-if="quotedGalleryMessage" class="flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 opacity-70">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <div class="text-xs line-clamp-2 wrap-break-word min-w-0">
+            <template v-if="quotedGalleryMessage.albums && quotedGalleryMessage.albums.length > 1">
+              {{ quotedGalleryMessage.albums[0].name }} +{{ quotedGalleryMessage.albums.length - 1 }} more
+            </template>
+            <template v-else>
+              {{ quotedGalleryMessage.galleryName }}
+            </template>
+          </div>
+        </div>
+        <!-- Quoted Regular Message -->
+        <div v-else class="text-xs line-clamp-2 wrap-break-word">{{ message.q_message }}</div>
       </div>
 
       <!-- Message Bubble -->
