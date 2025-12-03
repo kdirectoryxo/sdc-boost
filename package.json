@@ -15,10 +15,10 @@
     "postinstall": "wxt prepare",
     "generate-icons": "node scripts/generate-icons.js",
     "generate-store-images": "node scripts/generate-store-images.js",
-    "release": "git pull --rebase && bumpp --no-push --yes && VERSION=$(node -p \"require('./package.json').version\") && bunx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md package.json package-lock.json && git commit -m \"chore: release v$VERSION\" && git tag \"v$VERSION\" && git push --follow-tags",
-    "release:patch": "git pull --rebase && bumpp --patch --no-push --yes && VERSION=$(node -p \"require('./package.json').version\") && bunx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md package.json package-lock.json && git commit -m \"chore: release v$VERSION\" && git tag \"v$VERSION\" && git push --follow-tags",
-    "release:minor": "git pull --rebase && bumpp --minor --no-push --yes && VERSION=$(node -p \"require('./package.json').version\") && bunx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md package.json package-lock.json && git commit -m \"chore: release v$VERSION\" && git tag \"v$VERSION\" && git push --follow-tags",
-    "release:major": "git pull --rebase && bumpp --major --no-push --yes && VERSION=$(node -p \"require('./package.json').version\") && bunx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md package.json package-lock.json && git commit -m \"chore: release v$VERSION\" && git tag \"v$VERSION\" && git push --follow-tags"
+    "release": "git pull --rebase && bumpp --no-push --yes && VERSION=$(node -p \"require('./package.json').version\") && bunx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md package.json && git commit -m \"chore: release v$VERSION\" && git tag \"v$VERSION\" && git push --follow-tags",
+    "release:patch": "git pull --rebase && bumpp --patch --no-push --yes && VERSION=$(node -p \"require('./package.json').version\") && bunx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md package.json && git commit -m \"chore: release v$VERSION\" && git tag \"v$VERSION\" && git push --follow-tags",
+    "release:minor": "git pull --rebase && bumpp --minor --no-push --yes && VERSION=$(node -p \"require('./package.json').version\") && bunx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md package.json && git commit -m \"chore: release v$VERSION\" && git tag \"v$VERSION\" && git push --follow-tags",
+    "release:major": "git pull --rebase && bumpp --major --no-push --yes && VERSION=$(node -p \"require('./package.json').version\") && bunx conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md package.json && git commit -m \"chore: release v$VERSION\" && git tag \"v$VERSION\" && git push --follow-tags"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
