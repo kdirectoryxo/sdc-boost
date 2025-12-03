@@ -9,9 +9,8 @@ import { useChatMessages } from './useChatMessages';
 import { useChatFolders } from './useChatFolders';
 
 export const useChatWebSocket = createGlobalState(() => {
-  const { selectedChat, chatList } = useChatState();
+  const { selectedChat } = useChatState();
   const { messages } = useChatMessages();
-  const { refreshFolderCounts } = useChatFolders();
   
   const isWebSocketConnected = ref(false);
   const typingStates = ref<Map<string, boolean>>(new Map()); // Map of groupId -> isTyping
@@ -82,31 +81,12 @@ export const useChatWebSocket = createGlobalState(() => {
       // Optimistic messages are cleaned up automatically in refreshLatestPage
       
       if (chat) {
-        // Update chat in list if it exists
-        const index = chatList.value.findIndex(c => String(c.group_id) === String(groupId));
-        if (index !== -1) {
-          // Optimistically move chat to top if it's not already there
-          if (index > 0) {
-            chatList.value.splice(index, 1);
-            chatList.value.unshift(chat);
-          } else {
-            chatList.value[index] = chat;
-          }
-        } else {
-          // New chat - reload from storage
-          const { chatStorage } = await import('@/lib/chat-storage');
-          const allChats = await chatStorage.getAllChats();
-          chatList.value = allChats;
-        }
-        
-        // Refresh folder counts after chat update
-        await refreshFolderCounts();
-      } else {
-        // Unknown chat - refresh to get it
+        // Update chat in database - chatList will update reactively
         const { chatStorage } = await import('@/lib/chat-storage');
-        const allChats = await chatStorage.getAllChats();
-        chatList.value = allChats;
+        await chatStorage.updateChat(chat);
+        // Folder counts are reactive - no need to manually refresh
       }
+      // Unknown chat - chat list will update reactively from database
       
       // If this message is for the currently selected chat, refresh page 0 in background
       if (selectedChat.value && String(selectedChat.value.group_id) === String(groupId)) {
@@ -121,10 +101,9 @@ export const useChatWebSocket = createGlobalState(() => {
       const customEvent = event as CustomEvent;
       const { chat, groupId } = customEvent.detail;
       if (chat) {
-        const index = chatList.value.findIndex(c => String(c.group_id) === String(groupId));
-        if (index !== -1) {
-          chatList.value[index] = chat;
-        }
+        // Update chat in database - chatList will update reactively
+        const { chatStorage } = await import('@/lib/chat-storage');
+        await chatStorage.updateChat(chat);
         
         // Optimistically update seen status for messages in the currently selected chat
         if (selectedChat.value && String(selectedChat.value.group_id) === String(groupId)) {
@@ -138,9 +117,7 @@ export const useChatWebSocket = createGlobalState(() => {
           }
           // Messages will update reactively
         }
-        
-        // Refresh folder counts after seen event (unread_counter may have changed)
-        await refreshFolderCounts();
+        // Folder counts are reactive - no need to manually refresh
       }
     };
 

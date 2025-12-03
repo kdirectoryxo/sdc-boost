@@ -14,8 +14,7 @@ import { useChatInput } from './useChatInput';
  * Composable for handling chat selection and opening logic
  */
 export function useChatSelection() {
-  const { chatList, selectedChat, updateChatInURL } = useChatState();
-  const { refreshFolderCounts } = useChatFolders();
+  const { selectedChat, updateChatInURL } = useChatState();
   const { searchQuery } = useChatFilters();
   const { 
     messages, 
@@ -59,15 +58,10 @@ export function useChatSelection() {
         unread_counter: 0
       };
       
-      const chatIndex = chatList.value.findIndex(c => getChatKey(c) === getChatKey(chat));
-      if (chatIndex !== -1) {
-        chatList.value[chatIndex] = updatedChat;
-      }
-      
       chatToUse = updatedChat;
       
+      // Update in database - chatList will update reactively
       await chatStorage.updateChat(updatedChat);
-      await refreshFolderCounts();
       
       console.log(`[ChatDialog] Optimistically set unread counter for chat ${chat.group_id} from ${chat.unread_counter} to 0`);
     }
@@ -105,16 +99,11 @@ export function useChatSelection() {
         unread_counter: 0
       };
       
-      const chatIndex = chatList.value.findIndex(c => getChatKey(c) === getChatKey(chat));
-      if (chatIndex !== -1) {
-        chatList.value[chatIndex] = updatedChat;
-      }
-      
       chatToUse = updatedChat;
       
+      // Update in database - chatList will update reactively
       await chatStorage.updateChat(updatedChat);
       await countersManager.recalculateMessengerCounter();
-      await refreshFolderCounts();
       
       console.log(`[ChatDialog] Optimistically set unread counter for chat ${chat.group_id} from ${chat.unread_counter} to 0`);
     }

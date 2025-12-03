@@ -11,7 +11,6 @@ import { useChatFilters } from './useChatFilters';
 
 export const useChatSync = createGlobalState(() => {
   const { chatList, selectedFolderId, showArchives } = useChatState();
-  const { refreshFolderCounts } = useChatFolders();
   const { updateFilteredChats } = useChatFilters();
   
   const isLoading = ref(false);

@@ -157,12 +157,9 @@ export const useChatInput = createGlobalState(() => {
           date: optimisticMessage.date,
           unread_counter: 0, // Reset unread counter for own messages
         };
-        // Remove from current position and add to top
-        chatList.value.splice(chatIndex, 1);
-        chatList.value.unshift(updatedChat);
         selectedChat.value = updatedChat;
         
-        // Update in storage optimistically
+        // Update in storage - chatList will update reactively
         chatStorage.updateChat(updatedChat).catch(console.error);
       }
     }
@@ -534,16 +531,12 @@ export const useChatInput = createGlobalState(() => {
           }),
         };
         
-        // Move to top
-        chatList.value.splice(chatIndex, 1);
-        chatList.value.unshift(updatedChat);
-        
         // Update selected chat
         if (selectedChat.value.group_id === updatedChat.group_id) {
-          Object.assign(selectedChat.value, updatedChat);
+          selectedChat.value = updatedChat;
         }
         
-        // Update in storage
+        // Update in storage - chatList will update reactively
         chatStorage.updateChat(updatedChat).catch(console.error);
       }
     }

@@ -349,10 +349,8 @@ export const useChatMessages = createGlobalState(() => {
               isBlocked: true,
             };
             
-            const chatIndex = chatList.value.findIndex(c => c.group_id === selectedChat.value!.group_id);
-            if (chatIndex !== -1) {
-              chatList.value[chatIndex] = updatedChat;
-            }
+            // Update in database - chatList will update reactively
+            await chatStorage.updateChat(updatedChat);
             selectedChat.value = updatedChat;
             // Refresh filtered chats to update the display
             await updateFilteredChats();
