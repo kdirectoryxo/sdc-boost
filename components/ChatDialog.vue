@@ -83,6 +83,7 @@ const filterOnline = ref<boolean>(false);
 const filterLastMessageByMe = ref<boolean>(false);
 const filterLastMessageByOther = ref<boolean>(false);
 const filterOnlyMyMessages = ref<boolean>(false);
+const filterBlocked = ref<boolean>(false);
 const isFilterDropdownOpen = ref<boolean>(false);
 const filterDropdownRef = ref<HTMLElement | null>(null);
 
@@ -99,7 +100,8 @@ const isSearchActive = computed(() => {
 // Computed property to check if any filters are active
 const hasActiveFilters = computed(() => {
   return filterUnread.value || filterPinned.value || filterOnline.value || 
-         filterLastMessageByMe.value || filterLastMessageByOther.value || filterOnlyMyMessages.value;
+         filterLastMessageByMe.value || filterLastMessageByOther.value || filterOnlyMyMessages.value ||
+         filterBlocked.value;
 });
 
 // Computed property to count active filters
@@ -111,6 +113,7 @@ const activeFilterCount = computed(() => {
   if (filterLastMessageByMe.value) count++;
   if (filterLastMessageByOther.value) count++;
   if (filterOnlyMyMessages.value) count++;
+  if (filterBlocked.value) count++;
   return count;
 });
 
@@ -380,6 +383,7 @@ function clearAllFilters(): void {
   filterLastMessageByMe.value = false;
   filterLastMessageByOther.value = false;
   filterOnlyMyMessages.value = false;
+  filterBlocked.value = false;
 }
 
 /**
@@ -492,6 +496,7 @@ async function updateFilteredChats(): Promise<void> {
         lastMessageByMe: filterLastMessageByMe.value,
         lastMessageByOther: filterLastMessageByOther.value,
         onlyMyMessages: filterOnlyMyMessages.value,
+        blockedOnly: filterBlocked.value,
         showArchives: showArchives.value,
       });
       
@@ -513,6 +518,7 @@ async function updateFilteredChats(): Promise<void> {
             lastMessageByMe: filterLastMessageByMe.value,
             lastMessageByOther: filterLastMessageByOther.value,
             onlyMyMessages: filterOnlyMyMessages.value,
+            blockedOnly: filterBlocked.value,
             showArchives: showArchives.value,
           });
           
@@ -551,7 +557,7 @@ async function updateFilteredChats(): Promise<void> {
 let searchDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // Watch for changes that require re-searching
-watch([searchQuery, selectedFolderId, showArchives, filterUnread, filterPinned, filterOnline, filterLastMessageByMe, filterLastMessageByOther, filterOnlyMyMessages], async (newValues, oldValues) => {
+watch([searchQuery, selectedFolderId, showArchives, filterUnread, filterPinned, filterOnline, filterLastMessageByMe, filterLastMessageByOther, filterOnlyMyMessages, filterBlocked], async (newValues, oldValues) => {
   // Clear previous timeout
   if (searchDebounceTimeout) {
     clearTimeout(searchDebounceTimeout);
@@ -2533,13 +2539,26 @@ onUnmounted(() => {
                   ]"
                   title="Filter chats"
                 >
+                  <!-- Filter icon -->
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
                   </svg>
+                  <!-- Cross icon for quick clear (shown when filters are active, positioned top-right) -->
+                  <button
+                    v-if="hasActiveFilters"
+                    @click.stop="clearAllFilters(); isFilterDropdownOpen = false"
+                    class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center z-30 transition-colors"
+                    title="Clear all filters"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
                   <!-- Active filter badge -->
                   <span
                     v-if="activeFilterCount > 0"
-                    class="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center"
+                    class="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center z-20"
                   >
                     {{ activeFilterCount }}
                   </span>
@@ -2553,64 +2572,109 @@ onUnmounted(() => {
                 >
                   <div class="p-2">
                     <!-- Unread Filter -->
-                    <label class="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors">
-                      <input
-                        type="checkbox"
-                        v-model="filterUnread"
-                        class="w-4 h-4 rounded border-[#444] bg-[#0f0f0f] text-blue-500 focus:ring-blue-500 focus:ring-2"
-                      />
-                      <span class="text-white text-sm">Unread only</span>
+                    <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
+                      <div class="relative flex items-center">
+                        <input
+                          type="checkbox"
+                          v-model="filterUnread"
+                          class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
+                        />
+                        <svg v-if="filterUnread" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                      </div>
+                      <span class="text-white text-sm select-none">Unread only</span>
                     </label>
                     
                     <!-- Pinned Filter -->
-                    <label class="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors">
-                      <input
-                        type="checkbox"
-                        v-model="filterPinned"
-                        class="w-4 h-4 rounded border-[#444] bg-[#0f0f0f] text-blue-500 focus:ring-blue-500 focus:ring-2"
-                      />
-                      <span class="text-white text-sm">Pinned only</span>
+                    <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
+                      <div class="relative flex items-center">
+                        <input
+                          type="checkbox"
+                          v-model="filterPinned"
+                          class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
+                        />
+                        <svg v-if="filterPinned" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                      </div>
+                      <span class="text-white text-sm select-none">Pinned only</span>
                     </label>
                     
                     <!-- Online Filter -->
-                    <label class="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors">
-                      <input
-                        type="checkbox"
-                        v-model="filterOnline"
-                        class="w-4 h-4 rounded border-[#444] bg-[#0f0f0f] text-blue-500 focus:ring-blue-500 focus:ring-2"
-                      />
-                      <span class="text-white text-sm">Online only</span>
+                    <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
+                      <div class="relative flex items-center">
+                        <input
+                          type="checkbox"
+                          v-model="filterOnline"
+                          class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
+                        />
+                        <svg v-if="filterOnline" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                      </div>
+                      <span class="text-white text-sm select-none">Online only</span>
+                    </label>
+                    
+                    <!-- Blocked Filter -->
+                    <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
+                      <div class="relative flex items-center">
+                        <input
+                          type="checkbox"
+                          v-model="filterBlocked"
+                          class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
+                        />
+                        <svg v-if="filterBlocked" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                      </div>
+                      <span class="text-white text-sm select-none">Blocked only</span>
                     </label>
                     
                     <!-- Last Message Filters -->
                     <div class="border-t border-[#333] mt-2 pt-2">
                       <div class="px-3 py-1 text-xs text-[#666] uppercase tracking-wide mb-1">Last Message</div>
                       
-                      <label class="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors">
-                        <input
-                          type="checkbox"
-                          v-model="filterLastMessageByMe"
-                          class="w-4 h-4 rounded border-[#444] bg-[#0f0f0f] text-blue-500 focus:ring-blue-500 focus:ring-2"
-                        />
-                        <span class="text-white text-sm">I sent last</span>
+                      <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
+                        <div class="relative flex items-center">
+                          <input
+                            type="checkbox"
+                            v-model="filterLastMessageByMe"
+                            class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
+                          />
+                          <svg v-if="filterLastMessageByMe" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                          </svg>
+                        </div>
+                        <span class="text-white text-sm select-none">I sent last</span>
                       </label>
                       
-                      <label class="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors">
-                        <input
-                          type="checkbox"
-                          v-model="filterLastMessageByOther"
-                          class="w-4 h-4 rounded border-[#444] bg-[#0f0f0f] text-blue-500 focus:ring-blue-500 focus:ring-2"
-                        />
-                        <span class="text-white text-sm">Other sent last</span>
+                      <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
+                        <div class="relative flex items-center">
+                          <input
+                            type="checkbox"
+                            v-model="filterLastMessageByOther"
+                            class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
+                          />
+                          <svg v-if="filterLastMessageByOther" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                          </svg>
+                        </div>
+                        <span class="text-white text-sm select-none">Other sent last</span>
                       </label>
                       
-                      <label class="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors">
-                        <input
-                          type="checkbox"
-                          v-model="filterOnlyMyMessages"
-                          class="w-4 h-4 rounded border-[#444] bg-[#0f0f0f] text-blue-500 focus:ring-blue-500 focus:ring-2"
-                        />
-                        <span class="text-white text-sm">Only my messages</span>
+                      <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
+                        <div class="relative flex items-center">
+                          <input
+                            type="checkbox"
+                            v-model="filterOnlyMyMessages"
+                            class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
+                          />
+                          <svg v-if="filterOnlyMyMessages" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                          </svg>
+                        </div>
+                        <span class="text-white text-sm select-none">Only my messages</span>
                       </label>
                     </div>
                     

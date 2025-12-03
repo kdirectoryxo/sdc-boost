@@ -454,6 +454,7 @@ class ChatStorage {
         lastMessageByMe?: boolean;
         lastMessageByOther?: boolean;
         onlyMyMessages?: boolean;
+        blockedOnly?: boolean;
         showArchives?: boolean; // If true, only show archived chats. If false/undefined, exclude archived chats
     }): Promise<MessengerChatItem[]> {
         const db = await this.getDB();
@@ -490,13 +491,19 @@ class ChatStorage {
             const chatItem = chat as MessengerChatItem;
             const metadata = metadataMap.get(chatItem.group_id);
             const isArchived = metadata?.isArchived === true;
+            const isBlocked = metadata?.isBlocked === true;
             
             // Merge isBlocked and isArchived from metadata
             const chatWithMetadata = {
                 ...chatItem,
-                ...(metadata?.isBlocked ? { isBlocked: true } : {}),
-                ...(metadata?.isArchived ? { isArchived: true } : {}),
+                ...(isBlocked ? { isBlocked: true } : {}),
+                ...(isArchived ? { isArchived: true } : {}),
             };
+            
+            // Filter by blocked status if blockedOnly is true
+            if (options.blockedOnly === true && !isBlocked) {
+                return null;
+            }
             
             // If showArchives is explicitly true, only include archived chats
             if (options.showArchives === true) {
