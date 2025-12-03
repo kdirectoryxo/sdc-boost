@@ -21,6 +21,7 @@
     "release:major": "bash scripts/release-major.sh"
   },
   "dependencies": {
+    "@vueuse/core": "^14.1.0",
     "@vueuse/rxjs": "^14.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -28,18 +29,20 @@
     "idb": "^8.0.3",
     "rxjs": "^7.8.2",
     "tailwind-merge": "^3.4.0",
-    "vue": "^3.5.21"
+    "vue": "^3.5.21",
+    "vue-easy-lightbox": "^1.19.0"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.1.17",
     "@wxt-dev/module-vue": "^1.0.2",
+    "bumpp": "^9.4.0",
+    "conventional-changelog-cli": "^4.1.0",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.1.17",
+    "terser": "^5.44.1",
     "typescript": "^5.9.2",
     "vue-tsc": "^3.0.6",
-    "wxt": "^0.20.6",
-    "bumpp": "^9.4.0",
-    "conventional-changelog-cli": "^4.1.0"
+    "wxt": "^0.20.6"
   }
 }
