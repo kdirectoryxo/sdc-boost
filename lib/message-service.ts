@@ -73,7 +73,8 @@ export async function fetchAllMessages(
                 page
             );
 
-            if (response.info.code === '200') {
+            const responseCode = response.info.code;
+            if (responseCode === '200' || responseCode === 200) {
                 const pageMessages = response.info.message_list || [];
                 
                 if (pageMessages.length === 0) {
@@ -83,6 +84,11 @@ export async function fetchAllMessages(
 
                 // Store messages immediately after each page
                 await messageStorage.upsertMessages(chat.group_id, pageMessages);
+                
+                // Clear blocked status if chat was previously blocked (messages are now available)
+                if ((chat as any).isBlocked) {
+                    await messageStorage.setChatBlocked(chat.group_id, false);
+                }
                 
                 // Add messages to collection (they come in reverse chronological order from API)
                 allMessages.push(...pageMessages);
@@ -112,10 +118,26 @@ export async function fetchAllMessages(
                         hasMore = false;
                     }
                 }
+            } else if (responseCode === '402' || responseCode === 402) {
+                // Blocked chat - this should have been caught by getMessengerChatDetails, but handle it here too
+                const blockedError = new Error(response.info.message || 'Chat is blocked') as Error & {
+                    code: string | number;
+                    allowed?: number;
+                    isBlockedChat: boolean;
+                };
+                blockedError.code = response.info.code;
+                blockedError.allowed = response.info.allowed;
+                blockedError.isBlockedChat = true;
+                blockedError.name = 'BlockedChatError';
+                throw blockedError;
             } else {
                 hasMore = false;
             }
         } catch (err) {
+            // Check if this is a blocked chat error - re-throw it so UI can handle it
+            if (err && typeof err === 'object' && 'isBlockedChat' in err && err.isBlockedChat) {
+                throw err;
+            }
             console.error(`[MessageService] Failed to fetch page ${page}:`, err);
             hasMore = false;
         }
@@ -146,12 +168,18 @@ export async function refreshLatestPage(
             0
         );
 
-        if (response.info.code === '200') {
+        const responseCode = response.info.code;
+        if (responseCode === '200' || responseCode === 200) {
             const pageMessages = response.info.message_list || [];
             
             if (pageMessages.length > 0) {
                 // Store messages
                 await messageStorage.upsertMessages(chat.group_id, pageMessages);
+                
+                // Clear blocked status if chat was previously blocked (messages are now available)
+                if ((chat as any).isBlocked) {
+                    await messageStorage.setChatBlocked(chat.group_id, false);
+                }
                 
                 // Reload messages from storage to get updated list
                 const storedMessages = await messageStorage.getMessages(chat.group_id);
@@ -160,8 +188,24 @@ export async function refreshLatestPage(
                     onUpdate(storedMessages);
                 }
             }
+        } else if (responseCode === '402' || responseCode === 402) {
+            // Blocked chat
+            const blockedError = new Error(response.info.message || 'Chat is blocked') as Error & {
+                code: string | number;
+                allowed?: number;
+                isBlockedChat: boolean;
+            };
+            blockedError.code = response.info.code;
+            blockedError.allowed = response.info.allowed;
+            blockedError.isBlockedChat = true;
+            blockedError.name = 'BlockedChatError';
+            throw blockedError;
         }
     } catch (err) {
+        // Check if this is a blocked chat error - re-throw it so UI can handle it
+        if (err && typeof err === 'object' && 'isBlockedChat' in err && err.isBlockedChat) {
+            throw err;
+        }
         console.error('[MessageService] Failed to refresh latest page:', err);
     }
 }
@@ -193,7 +237,8 @@ export async function fetchNewMessagesOnly(
             0
         );
 
-        if (response.info.code === '200') {
+        const responseCode = response.info.code;
+        if (responseCode === '200' || responseCode === 200) {
             const pageMessages = response.info.message_list || [];
             
             if (pageMessages.length === 0) {
@@ -207,6 +252,11 @@ export async function fetchNewMessagesOnly(
                 // Store new messages
                 await messageStorage.upsertMessages(chat.group_id, newMessages);
                 
+                // Clear blocked status if chat was previously blocked (messages are now available)
+                if ((chat as any).isBlocked) {
+                    await messageStorage.setChatBlocked(chat.group_id, false);
+                }
+                
                 // Get all messages from storage (sorted)
                 const storedMessages = await messageStorage.getMessages(chat.group_id);
                 
@@ -216,8 +266,24 @@ export async function fetchNewMessagesOnly(
                 
                 console.log(`[MessageService] Added ${newMessages.length} new messages for chat ${chat.group_id}`);
             }
+        } else if (responseCode === '402' || responseCode === 402) {
+            // Blocked chat
+            const blockedError = new Error(response.info.message || 'Chat is blocked') as Error & {
+                code: string | number;
+                allowed?: number;
+                isBlockedChat: boolean;
+            };
+            blockedError.code = response.info.code;
+            blockedError.allowed = response.info.allowed;
+            blockedError.isBlockedChat = true;
+            blockedError.name = 'BlockedChatError';
+            throw blockedError;
         }
     } catch (err) {
+        // Check if this is a blocked chat error - re-throw it so UI can handle it
+        if (err && typeof err === 'object' && 'isBlockedChat' in err && err.isBlockedChat) {
+            throw err;
+        }
         console.error('[MessageService] Failed to fetch new messages:', err);
         throw err;
     }

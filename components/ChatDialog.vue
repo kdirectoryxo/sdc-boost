@@ -32,7 +32,8 @@ const emit = defineEmits<{
 const chatList = ref<MessengerChatItem[]>([]);
 const folders = ref<MessengerFolder[]>([]);
 const isLoading = ref(false);
-const error = ref<string | null>(null);
+const error = ref<string | null>(null); // Error for chat list operations
+const messageError = ref<string | null>(null); // Error for message loading (separate from chat list error)
 const searchQuery = ref('');
 const selectedChat = ref<MessengerChatItem | null>(null);
 const selectedFolderId = ref<number | null>(null); // null = all chats, 0 = inbox (no folder), number = specific folder, -1 = archives
@@ -971,7 +972,7 @@ async function handleLoadMessages(chat: MessengerChatItem): Promise<void> {
   
   // Clear messages and reset error when starting a new load
   messages.value = [];
-  error.value = null;
+  messageError.value = null;
   
   // Check if this is a first-time load (will need to fetch all messages)
   // If so, show loading spinner and syncing notice
@@ -1006,6 +1007,21 @@ async function handleLoadMessages(chat: MessengerChatItem): Promise<void> {
     // Only update if we're still on the same chat
     if (selectedChat.value && selectedChat.value.group_id === currentChatGroupId) {
       messages.value = result.messages;
+      // Clear blocked status if messages were successfully loaded
+      if (result.messages.length > 0 && selectedChat.value.isBlocked) {
+        // Clear blocked status in metadata
+        await messageStorage.setChatBlocked(selectedChat.value.group_id, false);
+        
+        const updatedChat = { ...selectedChat.value, isBlocked: false };
+        // Update local chat list
+        const chatIndex = chatList.value.findIndex(c => c.group_id === selectedChat.value!.group_id);
+        if (chatIndex !== -1) {
+          chatList.value[chatIndex] = updatedChat;
+        }
+        selectedChat.value = updatedChat;
+        // Refresh filtered chats to update the display
+        await updateFilteredChats();
+      }
       // Always set loading to false after loadMessages completes
       isLoadingMessages.value = false;
       isSyncing.value = false; // Hide syncing notice when done
@@ -1030,9 +1046,38 @@ async function handleLoadMessages(chat: MessengerChatItem): Promise<void> {
     console.error('[ChatDialog] Failed to load messages:', err);
     // Only update error/loading state if we're still on the same chat
     if (selectedChat.value && selectedChat.value.group_id === currentChatGroupId) {
-      error.value = 'Failed to load messages';
+      // Check if this is a blocked chat error
+      if (err && typeof err === 'object' && 'isBlockedChat' in err && err.isBlockedChat) {
+        // Use the error message from the API (e.g., "Geblokkeerd")
+        const blockedError = err as Error & { isBlockedChat: boolean };
+        messageError.value = blockedError.message || 'Geblokkeerd';
+        console.log('[ChatDialog] Blocked chat error set:', messageError.value);
+        
+        // Mark chat as blocked in metadata
+        if (selectedChat.value) {
+          // Store blocked status in chat_metadata (not on chat item)
+          await messageStorage.setChatBlocked(selectedChat.value.group_id, true);
+          
+          // Update local chat list to show blocked status
+          const updatedChat = { 
+            ...selectedChat.value, 
+            isBlocked: true,
+          };
+          
+          const chatIndex = chatList.value.findIndex(c => c.group_id === selectedChat.value!.group_id);
+          if (chatIndex !== -1) {
+            chatList.value[chatIndex] = updatedChat;
+          }
+          selectedChat.value = updatedChat;
+          // Refresh filtered chats to update the display
+          await updateFilteredChats();
+        }
+      } else {
+        messageError.value = 'Failed to load messages';
+      }
       isLoadingMessages.value = false;
       isSyncing.value = false;
+      messages.value = []; // Ensure messages are cleared when there's an error
     } else {
       // Chat was switched, ensure loading state is cleared
       isLoadingMessages.value = false;
@@ -1683,6 +1728,7 @@ function findChatByGroupId(groupId: string): MessengerChatItem | null {
 
 async function handleChatClick(chat: MessengerChatItem) {
   messages.value = [];
+  messageError.value = null; // Clear any previous message errors when switching chats
   isLoadingMessages.value = false; // Reset loading state when switching chats
   isSyncing.value = false; // Reset syncing state when switching chats
   typingManager.reset(); // Reset typing when switching chats
@@ -1896,12 +1942,12 @@ watch(() => props.modelValue, async (newValue) => {
         // Don't update URL again since we're restoring from URL
         // Temporarily disable URL update to avoid removing chatId
         
-        // Optimistically decrease unread counter by 1 if it has one
+        // Optimistically set unread counter to 0 when opening a chat (all messages are seen)
         let chatToUse = chat;
         if (chat.unread_counter && chat.unread_counter > 0) {
           const updatedChat: MessengerChatItem = {
             ...chat,
-            unread_counter: Math.max(0, chat.unread_counter - 1)
+            unread_counter: 0
           };
           
           // Update in chat list
@@ -1915,10 +1961,13 @@ watch(() => props.modelValue, async (newValue) => {
           // Update in storage optimistically
           await chatStorage.updateChat(updatedChat);
           
+          // Recalculate messenger counter immediately after updating chat in DB
+          await countersManager.recalculateMessengerCounter();
+          
           // Refresh folder counts after unread counter change
           await refreshFolderCounts();
           
-          console.log(`[ChatDialog] Optimistically decreased unread counter for chat ${chat.group_id} from ${chat.unread_counter} to ${updatedChat.unread_counter}`);
+          console.log(`[ChatDialog] Optimistically set unread counter for chat ${chat.group_id} from ${chat.unread_counter} to 0`);
         }
         
         selectedChat.value = chatToUse;
@@ -2729,8 +2778,31 @@ onUnmounted(() => {
               </div>
 
               <!-- Loading Indicator -->
-              <div v-if="isLoadingMessages && messages.length === 0" class="flex justify-center py-8">
+              <div v-if="isLoadingMessages && messages.length === 0 && !messageError" class="flex justify-center py-8">
                 <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+
+              <!-- Error Message (e.g., blocked chat) -->
+              <div v-else-if="messageError" class="flex flex-col items-center justify-center py-12 px-6">
+                <div class="text-center">
+                  <svg
+                    width="48"
+                    height="48"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="mx-auto mb-4 text-red-500"
+                  >
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                  </svg>
+                  <p class="text-red-500 text-lg font-semibold mb-2">{{ messageError }}</p>
+                  <p class="text-[#999] text-sm">This chat cannot be accessed</p>
+                </div>
               </div>
 
               <!-- Messages List -->

@@ -45,6 +45,8 @@ export interface ChatDB {
             group_id: number;
             messages_fetched: boolean;
             last_fetched_at?: number;
+            isBlocked?: boolean; // Local state: true when chat is blocked (code 402)
+            isArchived?: boolean; // Local state: true when chat is archived
         };
         indexes: {
             group_id: number;

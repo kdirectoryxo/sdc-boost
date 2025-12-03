@@ -87,32 +87,91 @@ class ChatStorage {
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
 
+        // First, upsert all chats
         await Promise.all(
-            chats.map((chat) => {
+            chats.map(async (chat) => {
+                const chatId = this.getChatId(chat);
+                
+                // Remove archived from chat item (it's stored in metadata now)
+                const { archived, ...chatWithoutArchived } = chat as any;
+                
                 const chatWithId = {
-                    ...chat,
-                    id: this.getChatId(chat),
-                    archived: markAsArchived || (chat as any).archived || false,
+                    ...chatWithoutArchived,
+                    id: chatId,
                 };
-                return store.put(chatWithId);
+                await store.put(chatWithId);
             })
         );
 
         await tx.done;
+
+        // Then update metadata if needed (using separate transaction)
+        if (markAsArchived && db.objectStoreNames.contains('chat_metadata')) {
+            // First, get all existing metadata in one transaction
+            const readTx = db.transaction('chat_metadata', 'readonly');
+            const readStore = readTx.objectStore('chat_metadata');
+            const existingMetadataMap = new Map<number, any>();
+            
+            await Promise.all(
+                chats.map(async (chat) => {
+                    const metadata = await readStore.get(chat.group_id) as any;
+                    if (metadata) {
+                        existingMetadataMap.set(chat.group_id, metadata);
+                    }
+                })
+            );
+            await readTx.done;
+
+            // Then update all metadata in a separate write transaction
+            const writeTx = db.transaction('chat_metadata', 'readwrite');
+            const writeStore = writeTx.objectStore('chat_metadata');
+            
+            await Promise.all(
+                chats.map(async (chat) => {
+                    const existing = existingMetadataMap.get(chat.group_id);
+                    await writeStore.put({
+                        group_id: chat.group_id,
+                        messages_fetched: existing?.messages_fetched || false,
+                        last_fetched_at: existing?.last_fetched_at,
+                        isBlocked: existing?.isBlocked,
+                        isArchived: true,
+                    });
+                })
+            );
+            await writeTx.done;
+        }
+
         console.log(`[ChatStorage] Upserted ${chats.length} chats${markAsArchived ? ' (marked as archived)' : ''}`);
     }
 
     /**
      * Get all chats from IndexedDB
+     * Merges isBlocked status from chat_metadata
      */
     async getAllChats(): Promise<MessengerChatItem[]> {
         const db = await this.getDB();
         const chats = await db.getAll(STORE_NAME);
         
-        // Remove the 'id' field we added for IndexedDB
+        // Get all metadata to merge isBlocked and isArchived status
+        let metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean }>();
+        if (db.objectStoreNames.contains('chat_metadata')) {
+            const metadataStore = db.transaction('chat_metadata', 'readonly').objectStore('chat_metadata');
+            const allMetadata = await metadataStore.getAll();
+            metadataMap = new Map(allMetadata.map((m: any) => [m.group_id, { 
+                isBlocked: m.isBlocked, 
+                isArchived: m.isArchived 
+            }]));
+        }
+        
+        // Remove the 'id' field we added for IndexedDB and merge metadata
         const result = chats.map((item) => {
             const { id, ...chat } = item;
-            return chat as MessengerChatItem;
+            const metadata = metadataMap.get(chat.group_id);
+            return {
+                ...chat,
+                ...(metadata?.isBlocked ? { isBlocked: true } : {}),
+                ...(metadata?.isArchived ? { isArchived: true } : {}),
+            } as MessengerChatItem;
         });
         
         console.log(`[ChatStorage] Retrieved ${result.length} chats from IndexedDB`);
@@ -135,13 +194,36 @@ class ChatStorage {
     }
 
     /**
+     * Get a single chat by chat object (uses getChatId internally)
+     * Returns the raw chat from IndexedDB (archived status is now in metadata)
+     */
+    async getChatRaw(chat: MessengerChatItem): Promise<MessengerChatItem | null> {
+        const db = await this.getDB();
+        const chatId = this.getChatId(chat);
+        const item = await db.get(STORE_NAME, chatId);
+        
+        if (!item) {
+            return null;
+        }
+        
+        const { id, ...chatData } = item;
+        return chatData as MessengerChatItem;
+    }
+
+    /**
      * Update a single chat
+     * Note: isBlocked and isArchived are stored in chat_metadata, not on the chat item
      */
     async updateChat(chat: MessengerChatItem): Promise<void> {
         const db = await this.getDB();
+        const chatId = this.getChatId(chat);
+        
+        // Remove isBlocked and archived from chat item if present (they're stored in metadata)
+        const { isBlocked, archived, ...chatWithoutMetadata } = chat as any;
+        
         const chatWithId = {
-            ...chat,
-            id: this.getChatId(chat),
+            ...chatWithoutMetadata,
+            id: chatId,
         };
         await db.put(STORE_NAME, chatWithId);
     }
@@ -390,22 +472,41 @@ class ChatStorage {
             chats = await store.getAll();
         }
         
+        // Get metadata for all chats to merge isBlocked and isArchived status
+        let metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean }>();
+        if (db.objectStoreNames.contains('chat_metadata')) {
+            const metadataStore = db.transaction('chat_metadata', 'readonly').objectStore('chat_metadata');
+            const allMetadata = await metadataStore.getAll();
+            metadataMap = new Map(allMetadata.map((m: any) => [m.group_id, { 
+                isBlocked: m.isBlocked,
+                isArchived: m.isArchived 
+            }]));
+        }
+        
         // Remove the 'id' field and convert to MessengerChatItem
         // Also filter archived chats based on showArchives option
         let result = chats.map((item) => {
-            const { id, archived, ...chat } = item;
+            const { id, ...chat } = item;
             const chatItem = chat as MessengerChatItem;
-            const isArchived = archived === true;
+            const metadata = metadataMap.get(chatItem.group_id);
+            const isArchived = metadata?.isArchived === true;
+            
+            // Merge isBlocked and isArchived from metadata
+            const chatWithMetadata = {
+                ...chatItem,
+                ...(metadata?.isBlocked ? { isBlocked: true } : {}),
+                ...(metadata?.isArchived ? { isArchived: true } : {}),
+            };
             
             // If showArchives is explicitly true, only include archived chats
             if (options.showArchives === true) {
-                return isArchived ? chatItem : null;
+                return isArchived ? chatWithMetadata : null;
             }
             // Otherwise, exclude archived chats from regular views
             if (options.showArchives === false || options.showArchives === undefined) {
-                return !isArchived ? chatItem : null;
+                return !isArchived ? chatWithMetadata : null;
             }
-            return chatItem;
+            return chatWithMetadata;
         }).filter((chat): chat is MessengerChatItem => chat !== null);
         
         // Apply text search filter and categorize matches

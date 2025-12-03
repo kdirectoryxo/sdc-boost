@@ -203,14 +203,110 @@ class MessageStorage {
         }
 
         try {
+            // Get existing metadata to preserve isBlocked and isArchived flags
+            const existing = await db.get(METADATA_STORE_NAME, groupId) as any;
             await db.put(METADATA_STORE_NAME, {
                 group_id: groupId,
                 messages_fetched: true,
                 last_fetched_at: Date.now(),
+                ...(existing?.isBlocked ? { isBlocked: existing.isBlocked } : {}),
+                ...(existing?.isArchived ? { isArchived: existing.isArchived } : {}),
             });
             console.log(`[MessageStorage] Marked chat ${groupId} as fetched`);
         } catch (error) {
             console.error(`[MessageStorage] Error marking chat ${groupId} as fetched:`, error);
+        }
+    }
+
+    /**
+     * Set blocked status for a chat
+     */
+    async setChatBlocked(groupId: number, isBlocked: boolean): Promise<void> {
+        const db = await this.getDB();
+        
+        if (!db.objectStoreNames.contains(METADATA_STORE_NAME)) {
+            console.warn('[MessageStorage] Chat metadata store not available. Skipping.');
+            return;
+        }
+
+        try {
+            // Get existing metadata to preserve other fields
+            const existing = await db.get(METADATA_STORE_NAME, groupId) as any;
+            await db.put(METADATA_STORE_NAME, {
+                group_id: groupId,
+                messages_fetched: existing?.messages_fetched || false,
+                last_fetched_at: existing?.last_fetched_at,
+                isBlocked: isBlocked,
+                ...(existing?.isArchived ? { isArchived: existing.isArchived } : {}),
+            });
+            console.log(`[MessageStorage] Set chat ${groupId} blocked status to ${isBlocked}`);
+        } catch (error) {
+            console.error(`[MessageStorage] Error setting blocked status for chat ${groupId}:`, error);
+        }
+    }
+
+    /**
+     * Get blocked status for a chat
+     */
+    async isChatBlocked(groupId: number): Promise<boolean> {
+        const db = await this.getDB();
+        
+        if (!db.objectStoreNames.contains(METADATA_STORE_NAME)) {
+            return false;
+        }
+
+        try {
+            const metadata = await db.get(METADATA_STORE_NAME, groupId) as any;
+            return metadata?.isBlocked === true;
+        } catch (error) {
+            console.error(`[MessageStorage] Error checking blocked status for chat ${groupId}:`, error);
+            return false;
+        }
+    }
+
+    /**
+     * Set archived status for a chat
+     */
+    async setChatArchived(groupId: number, isArchived: boolean): Promise<void> {
+        const db = await this.getDB();
+        
+        if (!db.objectStoreNames.contains(METADATA_STORE_NAME)) {
+            console.warn('[MessageStorage] Chat metadata store not available. Skipping.');
+            return;
+        }
+
+        try {
+            // Get existing metadata to preserve other fields
+            const existing = await db.get(METADATA_STORE_NAME, groupId) as any;
+            await db.put(METADATA_STORE_NAME, {
+                group_id: groupId,
+                messages_fetched: existing?.messages_fetched || false,
+                last_fetched_at: existing?.last_fetched_at,
+                ...(existing?.isBlocked ? { isBlocked: existing.isBlocked } : {}),
+                isArchived: isArchived,
+            });
+            console.log(`[MessageStorage] Set chat ${groupId} archived status to ${isArchived}`);
+        } catch (error) {
+            console.error(`[MessageStorage] Error setting archived status for chat ${groupId}:`, error);
+        }
+    }
+
+    /**
+     * Get archived status for a chat
+     */
+    async isChatArchived(groupId: number): Promise<boolean> {
+        const db = await this.getDB();
+        
+        if (!db.objectStoreNames.contains(METADATA_STORE_NAME)) {
+            return false;
+        }
+
+        try {
+            const metadata = await db.get(METADATA_STORE_NAME, groupId) as any;
+            return metadata?.isArchived === true;
+        } catch (error) {
+            console.error(`[MessageStorage] Error checking archived status for chat ${groupId}:`, error);
+            return false;
         }
     }
 

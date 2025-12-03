@@ -247,6 +247,32 @@ class CountersManager {
     }
 
     /**
+     * Recalculate messenger counter from stored chats immediately
+     * This is useful when a chat's unread_counter is updated locally
+     * and we need to update the counter without waiting for WebSocket events
+     */
+    async recalculateMessengerCounter(): Promise<void> {
+        if (!this.counters) {
+            return;
+        }
+
+        const calculatedCount = await this.calculateMessengerCounterFromChats();
+        const oldValue = this.counters.messenger;
+        
+        // Use the maximum of API counter and calculated counter to match original site behavior
+        const apiMessengerCount = this.rawApiMessengerCounter ?? this.counters.messenger ?? 0;
+        this.counters.messenger = Math.max(apiMessengerCount, calculatedCount);
+        
+        // Notify listeners of update
+        this.notifyUpdate();
+        
+        // Notify change if value changed
+        if (oldValue !== this.counters.messenger) {
+            this.notifyChange('messenger', oldValue, this.counters.messenger);
+        }
+    }
+
+    /**
      * Subscribe to counter updates
      * @returns Unsubscribe function
      */

@@ -368,8 +368,33 @@ export async function getMessengerChatDetails(
         }
 
         const data = await response.json();
+        
+        // Check if the response indicates a blocked chat (code 402)
+        // Handle both string '402' and number 402
+        const responseCode = data.info?.code;
+        if (data.info && (responseCode === '402' || responseCode === 402)) {
+            console.log('[SDC API] Blocked chat detected:', data.info);
+            const blockedError = new Error(data.info.message || 'Chat is blocked') as Error & {
+                code: string | number;
+                allowed?: number;
+                isBlockedChat: boolean;
+            };
+            blockedError.code = responseCode;
+            blockedError.allowed = data.info.allowed;
+            blockedError.isBlockedChat = true;
+            blockedError.name = 'BlockedChatError';
+            console.log('[SDC API] Throwing blocked chat error:', blockedError);
+            throw blockedError;
+        }
+        
+        console.log('[SDC API] Response code:', responseCode, 'type:', typeof responseCode);
+        
         return data as MessengerChatDetailsResponse;
     } catch (error) {
+        // Re-throw blocked chat errors as-is
+        if (error && typeof error === 'object' && 'isBlockedChat' in error && error.isBlockedChat) {
+            throw error;
+        }
         console.error('[SDC API] Failed to fetch chat details:', error);
         throw error;
     }

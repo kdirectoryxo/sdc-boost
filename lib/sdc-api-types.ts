@@ -281,6 +281,9 @@ export interface MessengerChatItem {
     extra_data?: any;
     subject?: string;
     body?: string;
+    // Custom fields for local state (merged from metadata when loading)
+    isBlocked?: boolean; // True when chat is blocked (code 402) - stored in chat_metadata
+    isArchived?: boolean; // True when chat is archived - stored in chat_metadata
 }
 
 export interface MessengerLatestInfo {
@@ -403,28 +406,31 @@ export interface MessengerMessage {
 }
 
 export interface MessengerChatDetailsInfo {
-    code: string;
-    ot_session_id: string;
-    target_db_id: number;
-    ot_token: string;
-    group_id: number;
-    message_list: MessengerMessage[];
-    pin_chat: number;
-    muted: number;
-    group_name: string;
-    folder_id: number;
-    online: number;
-    isHelpdesk: boolean;
-    account_id: string;
-    gender1: number;
-    gender2: number;
-    profile_type: number;
-    primary_photo: string;
-    admin: boolean;
-    url_more: string | null;
-    report_spam: number;
-    isBotHelpSession: number;
-    blockUMedia: number;
+    code: string | number; // Can be "200" or 200 for success, "402" or 402 for blocked, etc.
+    ot_session_id?: string;
+    target_db_id?: number;
+    ot_token?: string;
+    group_id?: number;
+    message_list?: MessengerMessage[];
+    pin_chat?: number;
+    muted?: number;
+    group_name?: string;
+    folder_id?: number;
+    online?: number;
+    isHelpdesk?: boolean;
+    account_id?: string;
+    gender1?: number;
+    gender2?: number;
+    profile_type?: number;
+    primary_photo?: string;
+    admin?: boolean;
+    url_more?: string | null;
+    report_spam?: number;
+    isBotHelpSession?: number;
+    blockUMedia?: number;
+    // Error fields (present when code is 402 or other error codes)
+    allowed?: number;
+    message?: string;
 }
 
 export interface MessengerChatDetailsResponse {

@@ -28,12 +28,17 @@ const nameColor = computed(() => {
 });
 
 const displayMessage = computed(() => {
+  // Show blocked status if chat is blocked
+  if (props.chat.isBlocked) {
+    return 'Geblokkeerd';
+  }
+  
   if (props.chat.broadcast || props.chat.type === 100) {
     return props.chat.subject || '';
   }
   
   // Check if it's an image message
-  if (props.chat.last_message.startsWith('[') && props.chat.last_message.includes('|')) {
+  if (props.chat.last_message && props.chat.last_message.startsWith('[') && props.chat.last_message.includes('|')) {
     return '📷 Image';
   }
   
@@ -85,7 +90,7 @@ function handleClick() {
         </div>
 
         <div class="flex items-center justify-between gap-2">
-          <p class="text-sm text-[#999] truncate flex-1">
+          <p class="text-sm truncate flex-1" :class="chat.isBlocked ? 'text-red-500' : 'text-[#999]'">
             <span v-if="chat.broadcast || chat.type === 100" class="inline-block mr-1">📢</span>
             <span v-if="isTyping" class="italic text-blue-400">typing...</span>
             <span v-else>{{ displayMessage }}</span>
