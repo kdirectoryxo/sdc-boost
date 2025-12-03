@@ -26,6 +26,7 @@ const showPasswordInput = ref(false);
 const password = ref('');
 const passwordError = ref<string | null>(null);
 const isPasswordProtected = ref(false);
+const failedThumbnails = ref<Set<string>>(new Set());
 
 
 async function fetchPhotos(providedPassword?: string, isRetry: boolean = false) {
@@ -150,6 +151,26 @@ function handleVideoClick(index: number) {
   }
 }
 
+function handleThumbnailError(event: Event, photo: GalleryPhoto) {
+  const img = event.target as HTMLImageElement;
+  const src = img.src;
+  
+  // Mark this thumbnail as failed
+  failedThumbnails.value.add(src);
+  
+  // Hide the broken image
+  img.style.display = 'none';
+  
+  // Try alternative thumbnail URL if available
+  if (src.includes('_thumbnail.0000001.png') && photo.thumbnail) {
+    const altSrc = photo.thumbnail.replace('_thumbnail.0000001.png', '_thumbnail.png');
+    if (!failedThumbnails.value.has(altSrc)) {
+      img.src = altSrc;
+      img.style.display = 'block';
+    }
+  }
+}
+
 watch(() => props.visible, async (newValue) => {
   if (newValue) {
     // Reset state when opening
@@ -266,7 +287,9 @@ onMounted(() => {
                 :src="photo.thumbnail"
                 :alt="photo.photoname || 'Video thumbnail'"
                 class="w-full h-full object-contain"
-                @error="(e) => { (e.target as HTMLImageElement).style.display = 'none'; }"
+                crossorigin="use-credentials"
+                @error="(e) => handleThumbnailError(e, photo)"
+                @load="(e) => { (e.target as HTMLImageElement).style.display = 'block'; }"
               />
               <div v-else class="w-full h-full flex items-center justify-center bg-[#0f0f0f]">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#666]">
@@ -274,8 +297,22 @@ onMounted(() => {
                 </svg>
               </div>
               
+              <!-- Fallback for failed thumbnails -->
+              <div
+                v-if="photo.thumbnail && failedThumbnails.has(photo.thumbnail)"
+                class="absolute inset-0 flex flex-col items-center justify-center bg-[#0f0f0f] text-[#666]"
+              >
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-1">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <span class="text-xs">Video</span>
+              </div>
+              
               <!-- Play Icon Overlay -->
-              <div class="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+              <div 
+                v-if="!photo.thumbnail || !failedThumbnails.has(photo.thumbnail)"
+                class="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors"
+              >
                 <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm group-hover:bg-white/30 transition-colors">
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polygon points="5 3 19 12 5 21 5 3"></polygon>
