@@ -367,6 +367,33 @@ export const useChatMessages = createGlobalState(() => {
       return; // User cancelled
     }
     
+    // Check if this is an optimistic message (message_id === 0 and has tempId)
+    const tempIdMatch = message.extra1?.match(/__tempId:(.+?)__/);
+    const isOptimistic = message.message_id === 0 && tempIdMatch;
+    
+    if (isOptimistic) {
+      // For optimistic messages, just remove from UI and clean up tracking
+      const tempId = tempIdMatch[1];
+      
+      // Remove from messages array
+      const index = messages.value.findIndex(msg => {
+        const msgTempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
+        return msgTempId === tempId;
+      });
+      
+      if (index !== -1) {
+        messages.value.splice(index, 1);
+      }
+      
+      // Clean up optimistic tracking
+      optimisticMessages.value.delete(tempId);
+      optimisticMessageTempIds.value.delete(tempId);
+      
+      console.log(`[useChatMessages] Removed optimistic message ${tempId} from UI`);
+      return;
+    }
+    
+    // For real messages, delete via API
     try {
       await deleteMessage(selectedChat.value.group_id, message.message_id);
       // Delete from IndexedDB
