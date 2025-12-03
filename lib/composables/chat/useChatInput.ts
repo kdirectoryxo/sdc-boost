@@ -16,9 +16,7 @@ export const useChatInput = createGlobalState(() => {
   const { selectedChat, chatList } = useChatState();
   const { 
     messages, 
-    messagesContainer, 
-    optimisticMessages, 
-    optimisticMessageTempIds 
+    messagesContainer
   } = useChatMessages();
   
   const messageInput = ref('');
@@ -135,7 +133,7 @@ export const useChatInput = createGlobalState(() => {
       account_id: accountId,
       date2: date2,
       db_id: parseInt(dbId),
-      extra1: `__tempId:${tempId}__`, // Store tempId in extra1 for tracking
+      extra1: `__tempId:${tempId}__group:${selectedChat.value.group_id}__`, // Store tempId and group_id in extra1 for tracking
       forward: 0,
       forward_extra_text: '',
       forward_db_id: 0,
@@ -169,12 +167,12 @@ export const useChatInput = createGlobalState(() => {
       }
     }
 
-    // Store optimistic message in database and tracking
+    // Store optimistic message in database (so it shows up immediately via liveQuery)
+    // No Map needed - cleanup happens when API returns latest page
     if (selectedChat.value) {
       await messageStorage.addMessage(selectedChat.value.group_id, optimisticMessage);
+      console.log(`[useChatInput] Added optimistic message ${tempId} to DB for group ${selectedChat.value.group_id}`);
     }
-    optimisticMessages.value.set(tempId, optimisticMessage);
-    optimisticMessageTempIds.value.set(tempId, finalMessage);
     
     // Scroll to bottom to show new message
     await nextTick();
@@ -203,66 +201,46 @@ export const useChatInput = createGlobalState(() => {
     }
 
     if (!success) {
-      // Failed to send - remove optimistic message from database and revert chat update
+      // Failed to send - remove optimistic message from DB
       if (selectedChat.value) {
-        await messageStorage.deleteMessage(selectedChat.value.group_id, 0); // Delete optimistic message (message_id = 0)
+        await messageStorage.deleteMessage(selectedChat.value.group_id, 0);
       }
-      optimisticMessages.value.delete(tempId);
-      optimisticMessageTempIds.value.delete(tempId);
       
       throw new Error('Failed to send message');
     } else {
       // Refetch latest page after a short delay to get the real message
       // This is a fallback in case WebSocket event doesn't come through immediately
+      // refreshLatestPage will clean up optimistic messages automatically
       setTimeout(async () => {
-        if (optimisticMessages.value.has(tempId) && selectedChat.value) {
-          await refreshLatestPage(selectedChat.value, async (updatedMessages) => {
-            // Check if we got a real message that matches our optimistic one
-            // Match by: same message content, same sender (0 = current user), and timestamp within 30 seconds
-            const matchingRealMessage = updatedMessages.find(real => 
-              real.message === messageText &&
-              real.sender === 0 &&
-              Math.abs(real.date2 - date2) < 30 // Increased window to 30 seconds
-            );
-            
-            if (matchingRealMessage) {
-              console.log(`[useChatInput] Fallback matched optimistic message ${tempId} with real message ${matchingRealMessage.message_id}`);
-              
-              // Remove optimistic message from database (it will be replaced by real one)
-              if (selectedChat.value) {
-                await messageStorage.deleteMessage(selectedChat.value.group_id, 0); // Delete optimistic message
-                // Add real message to database
-                await messageStorage.addMessage(selectedChat.value.group_id, matchingRealMessage);
+        if (selectedChat.value) {
+          const currentChat = selectedChat.value;
+          await refreshLatestPage(currentChat, async () => {
+            // Scroll to bottom after refresh
+            nextTick().then(() => {
+              if (messagesContainer.value) {
+                messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
               }
-              
-              // Clean up tracking
-              optimisticMessages.value.delete(tempId);
-              optimisticMessageTempIds.value.delete(tempId);
-              
-              // Scroll to bottom
-              nextTick().then(() => {
-                if (messagesContainer.value) {
-                  messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-                }
-              });
-            } else {
-              // Still no match - try again after another delay
-              console.log(`[useChatInput] Optimistic message ${tempId} not matched yet, will retry...`);
-            }
+            });
           }).catch(console.error);
         }
       }, 2000); // Wait 2 seconds for WebSocket, then fallback to API
       
       // Set up timeout to clean up optimistic message if it's not replaced within 30 seconds
       setTimeout(async () => {
-        if (optimisticMessages.value.has(tempId)) {
-          console.warn(`[useChatInput] Optimistic message ${tempId} not replaced after 30s, cleaning up`);
-          // Remove optimistic message from database
-          if (selectedChat.value) {
-            await messageStorage.deleteMessage(selectedChat.value.group_id, 0); // Delete optimistic message
+        if (selectedChat.value) {
+          // Check if optimistic message still exists in DB
+          const messages = await messageStorage.getMessages(selectedChat.value.group_id);
+          const stillOptimistic = messages.some(m => 
+            m.message_id === 0 && 
+            m.message === finalMessage &&
+            m.sender === 0 &&
+            Math.abs(m.date2 - date2) < 30
+          );
+          
+          if (stillOptimistic) {
+            console.warn(`[useChatInput] Optimistic message not replaced after 30s, cleaning up`);
+            await messageStorage.deleteMessage(selectedChat.value.group_id, 0);
           }
-          optimisticMessages.value.delete(tempId);
-          optimisticMessageTempIds.value.delete(tempId);
         }
       }, 30000); // 30 second timeout
     }
@@ -524,7 +502,7 @@ export const useChatInput = createGlobalState(() => {
       account_id: accountId,
       date2: date2,
       db_id: parseInt(dbId),
-      extra1: `__tempId:${tempId}__`,
+      extra1: `__tempId:${tempId}__group:${selectedChat.value.group_id}__`,
       forward: 0,
       forward_extra_text: '',
       forward_db_id: 0,
@@ -570,12 +548,10 @@ export const useChatInput = createGlobalState(() => {
       }
     }
 
-    // Store optimistic message in database and tracking
+    // Store optimistic message in database
     if (selectedChat.value) {
       await messageStorage.addMessage(selectedChat.value.group_id, optimisticMessage);
     }
-    optimisticMessages.value.set(tempId, optimisticMessage);
-    optimisticMessageTempIds.value.set(tempId, finalMessage);
 
     // Scroll to bottom after a short delay
     await nextTick();
@@ -589,12 +565,10 @@ export const useChatInput = createGlobalState(() => {
     const success = sendAlbums(selectedChat.value, selectedAlbums.value, quotedMessage || undefined);
     if (!success) {
       console.error('[useChatInput] Failed to send albums');
-      // Remove optimistic message from database on failure
+      // Remove optimistic message from DB on failure
       if (selectedChat.value) {
-        await messageStorage.deleteMessage(selectedChat.value.group_id, 0); // Delete optimistic message
+        await messageStorage.deleteMessage(selectedChat.value.group_id, 0);
       }
-      optimisticMessages.value.delete(tempId);
-      optimisticMessageTempIds.value.delete(tempId);
     }
 
     // Clear selected albums and close modal

@@ -228,6 +228,29 @@ class MessageStorage {
     }
 
     /**
+     * Delete all optimistic messages (message_id === 0) for a group
+     * Since all optimistic messages share the same key, we can delete them all at once
+     */
+    async deleteAllOptimisticMessages(groupId: number): Promise<void> {
+        // Get all optimistic messages (message_id === 0) for this group
+        const groupMessages = await db.messages
+            .where('group_id')
+            .equals(groupId)
+            .toArray();
+        
+        const optimisticMessages = groupMessages.filter(m => m.message_id === 0);
+        
+        if (optimisticMessages.length > 0) {
+            // Since all optimistic messages have message_id === 0, they share the same key
+            // We can delete them all by deleting the key once, but to be safe, we'll delete each one
+            // (in case there are multiple entries with different content but same message_id)
+            const key = getMessageKey(groupId, 0);
+            await db.messages.delete(key);
+            console.log(`[MessageStorage] Deleted ${optimisticMessages.length} optimistic messages for group ${groupId}`);
+        }
+    }
+
+    /**
      * Get the last message for a specific chat/group efficiently
      * Uses Dexie index to get only the last message without loading all messages
      * @param groupId The group ID

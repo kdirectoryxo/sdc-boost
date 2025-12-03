@@ -15,13 +15,12 @@ export const useChatMessages = createGlobalState(() => {
   const { selectedChat, chatList } = useChatState();
   const { searchQuery, updateFilteredChats } = useChatFilters();
   
-  // Optimistic message handling (declared first so it can be used in liveQuery)
-  const optimisticMessageTempIds = ref<Map<string, string>>(new Map()); // Track optimistic messages: tempId -> message content
-  const optimisticMessages = ref<Map<string, MessengerMessage>>(new Map()); // Track optimistic messages by tempId
+  // No Map needed - optimistic messages are stored directly in DB
   
   // Reactive messages from database, merged with optimistic messages
   const selectedChatGroupId = computed(() => selectedChat.value?.group_id);
   const messages = useLiveQuery(async () => {
+    console.log('[useChatMessages] Fetching messages for group:', selectedChatGroupId.value);
     const groupId = selectedChatGroupId.value;
     if (!groupId) {
       return [];
@@ -38,45 +37,11 @@ export const useChatMessages = createGlobalState(() => {
       })
       .sort((a, b) => a.date2 - b.date2); // Sort by timestamp ascending (oldest first);
     
-    // Merge optimistic messages (those with message_id === 0 and tempId)
-    const optimisticMsgs = Array.from(optimisticMessages.value.values());
-    const allMessages = [...dbMessages, ...optimisticMsgs];
-    
-    // Remove duplicates: if an optimistic message matches a real one, keep the real one
-    const seen = new Set<number>();
-    const result: MessengerMessage[] = [];
-    
-    // First add all real messages (message_id > 0)
-    for (const msg of allMessages) {
-      if (msg.message_id > 0) {
-        if (!seen.has(msg.message_id)) {
-          seen.add(msg.message_id);
-          result.push(msg);
-        }
-      }
-    }
-    
-    // Then add optimistic messages (message_id === 0) that don't have a matching real message
-    for (const msg of allMessages) {
-      if (msg.message_id === 0) {
-        const tempId = msg.extra1?.match(/__tempId:(.+?)__/)?.[1];
-        if (tempId && optimisticMessages.value.has(tempId)) {
-          // Check if there's already a real message with same content and timestamp
-          const hasMatchingReal = dbMessages.some(real => 
-            real.message === msg.message &&
-            real.sender === msg.sender &&
-            Math.abs(real.date2 - msg.date2) < 30
-          );
-          if (!hasMatchingReal) {
-            result.push(msg);
-          }
-        }
-      }
-    }
-    
-    // Sort by date2
-    return result.sort((a, b) => a.date2 - b.date2);
-  }, [selectedChatGroupId, optimisticMessages]);
+    // Optimistic messages are already in dbMessages (with message_id === 0)
+    // They'll be cleaned up automatically when refreshLatestPage is called
+    // Just return all messages sorted by date2
+    return dbMessages.sort((a, b) => a.date2 - b.date2);
+  }, [selectedChatGroupId]);
 
   const isLoadingMessages = ref(false);
   const isSyncing = ref(false); // Track if we're syncing all pages for first-time load
@@ -430,19 +395,15 @@ export const useChatMessages = createGlobalState(() => {
     const isOptimistic = message.message_id === 0 && tempIdMatch;
     
     if (isOptimistic) {
-      // For optimistic messages, just remove from UI and clean up tracking
+      // For optimistic messages, just remove from Map and clean up tracking
       const tempId = tempIdMatch[1];
       
-      // Remove optimistic message from database
+      // Optimistic messages are in DB - delete from DB
       if (selectedChat.value) {
-        await messageStorage.deleteMessage(selectedChat.value.group_id, 0); // Delete optimistic message
+        await messageStorage.deleteMessage(selectedChat.value.group_id, 0);
       }
       
-      // Clean up optimistic tracking
-      optimisticMessages.value.delete(tempId);
-      optimisticMessageTempIds.value.delete(tempId);
-      
-      console.log(`[useChatMessages] Removed optimistic message ${tempId} from database`);
+      console.log(`[useChatMessages] Removed optimistic message ${tempId} from DB`);
       return;
     }
     
@@ -582,7 +543,7 @@ export const useChatMessages = createGlobalState(() => {
     onSuccess?.();
   }
 
-  return {
+    return {
     messages: computed(() => messages.value || []),
     isLoadingMessages,
     isSyncing,
@@ -594,8 +555,6 @@ export const useChatMessages = createGlobalState(() => {
     messageSearchQueryComputed,
     isSearchActive,
     filteredMessages,
-    optimisticMessageTempIds,
-    optimisticMessages,
     handleLoadMessages,
     handleDeleteMessage,
     handleCopyMessage,

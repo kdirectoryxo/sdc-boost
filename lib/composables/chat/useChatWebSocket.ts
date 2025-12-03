@@ -10,7 +10,7 @@ import { useChatFolders } from './useChatFolders';
 
 export const useChatWebSocket = createGlobalState(() => {
   const { selectedChat, chatList } = useChatState();
-  const { messages, optimisticMessages, optimisticMessageTempIds } = useChatMessages();
+  const { messages } = useChatMessages();
   const { refreshFolderCounts } = useChatFolders();
   
   const isWebSocketConnected = ref(false);
@@ -78,56 +78,8 @@ export const useChatWebSocket = createGlobalState(() => {
       const customEvent = event as CustomEvent;
       const { chat, groupId, message } = customEvent.detail;
       
-      // Check if this message has a tempId that matches an optimistic message
-      const tempId = (message as any)?.tempId;
-      let matchedTempId: string | null = null;
-      
-      if (tempId && optimisticMessages.value.has(tempId)) {
-        // This is a confirmation of an optimistic message via tempId
-        matchedTempId = tempId;
-        const optimisticMsg = optimisticMessages.value.get(tempId);
-        if (optimisticMsg && chat) {
-          // Remove optimistic message from database - the real one will come from refreshLatestPage
-          const { messageStorage } = await import('@/lib/message-storage');
-          await messageStorage.deleteMessage(chat.group_id, 0); // Delete optimistic message
-        }
-        
-        // Clean up tracking
-        optimisticMessages.value.delete(tempId);
-        optimisticMessageTempIds.value.delete(tempId);
-      } else if (message && (message as any).message && (message as any).db_id) {
-        // No tempId, but try to match by content and timestamp
-        // This handles cases where the server doesn't echo back the tempId
-        const messageText = (message as any).message;
-        const messageDate2 = (message as any).date2 || Math.floor(new Date((message as any).time || (message as any).datetime).getTime() / 1000);
-        const messageDbId = (message as any).db_id;
-        
-        // Get current user's db_id to check if this is our own message
-        const { getCurrentDBId } = await import('@/lib/sdc-api/utils');
-        const currentDbId = getCurrentDBId();
-        
-        // Only try to match if this is our own message (sender === 0 or db_id matches)
-        if (currentDbId && parseInt(currentDbId) === messageDbId) {
-          // Try to find matching optimistic message
-          for (const [optTempId, optMsg] of optimisticMessages.value.entries()) {
-            if (optMsg.message === messageText && Math.abs(optMsg.date2 - messageDate2) < 30) {
-              matchedTempId = optTempId;
-              console.log(`[useChatWebSocket] Matched optimistic message ${optTempId} by content and timestamp`);
-              
-              // Remove optimistic message from database
-              if (chat) {
-                const { messageStorage } = await import('@/lib/message-storage');
-                await messageStorage.deleteMessage(chat.group_id, 0); // Delete optimistic message
-              }
-              
-              // Clean up tracking
-              optimisticMessages.value.delete(optTempId);
-              optimisticMessageTempIds.value.delete(optTempId);
-              break;
-            }
-          }
-        }
-      }
+      // Real message will come from refreshLatestPage
+      // Optimistic messages are cleaned up automatically in refreshLatestPage
       
       if (chat) {
         // Update chat in list if it exists
@@ -159,35 +111,8 @@ export const useChatWebSocket = createGlobalState(() => {
       // If this message is for the currently selected chat, refresh page 0 in background
       if (selectedChat.value && String(selectedChat.value.group_id) === String(groupId)) {
         // Refresh latest page (page 0) in background to get any updates
-        // Messages will update reactively from database
+        // refreshLatestPage will automatically clean up optimistic messages from DB
         refreshLatestPage(selectedChat.value).catch(console.error);
-        
-        // Try to match optimistic messages with real messages after a short delay
-        setTimeout(async () => {
-          const { messageStorage } = await import('@/lib/message-storage');
-          const updatedMessages = await messageStorage.getMessages(chat.group_id);
-          
-          // Remove matched optimistic messages from database and tracking
-          for (const [tempId, optimisticMsg] of optimisticMessages.value.entries()) {
-            const matchingRealMessage = updatedMessages.find(real => {
-              // Match by: same message content, same sender (0 = current user), and timestamp within 30 seconds
-              return real.message === optimisticMsg.message &&
-                     real.sender === 0 && // Only match own messages
-                     Math.abs(real.date2 - optimisticMsg.date2) < 30; // Allow 30 second window
-            });
-            
-            if (matchingRealMessage && chat) {
-              console.log(`[useChatWebSocket] Matched optimistic message ${tempId} with real message ${matchingRealMessage.message_id}`);
-              // Remove optimistic message from database
-              await messageStorage.deleteMessage(chat.group_id, 0); // Delete optimistic message
-              // Add real message to database if not already there
-              await messageStorage.addMessage(chat.group_id, matchingRealMessage);
-              // Clean up tracking
-              optimisticMessages.value.delete(tempId);
-              optimisticMessageTempIds.value.delete(tempId);
-            }
-          }
-        }, 1000); // Wait 1 second for refreshLatestPage to complete
       }
     };
 

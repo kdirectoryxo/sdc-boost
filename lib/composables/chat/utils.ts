@@ -32,6 +32,92 @@ export function parseImageMessage(message: string): { imageIds: string[]; text: 
 }
 
 /**
+ * Parse message to extract video filename and text
+ * Format: [8|{video_filename}-|-{text}] or [8|{video_filename}-|-]
+ * The closing bracket is optional - some messages don't have it
+ * Returns { videoFilename: string, text: string }
+ */
+export function parseVideoMessage(message: string): { videoFilename: string; text: string } {
+  // Match format: [8|{video_filename}-|-{text}] or [8|{video_filename}-|- (without closing bracket)
+  // Match everything after -|- to end of string (or closing bracket)
+  const match = message.match(/^\[8\|([^-]+)-\|-(.*)$/);
+  if (match) {
+    const videoFilename = match[1].trim();
+    // Get text part - remove trailing closing bracket if present
+    let text = match[2] || '';
+    if (text.endsWith(']')) {
+      text = text.slice(0, -1);
+    }
+    return {
+      videoFilename,
+      text: text.trim()
+    };
+  }
+  return {
+    videoFilename: '',
+    text: message
+  };
+}
+
+/**
+ * Parse url_videos field to extract video URLs
+ * Format: [8|{url1}-|-{url2}-|-...] or [8|{url1}-|-{url2}-|-...-|-]
+ * Returns array of video URLs
+ */
+export function parseVideoUrls(urlVideos: string): string[] {
+  if (!urlVideos || !urlVideos.trim()) {
+    return [];
+  }
+  
+  // Match format: [8|{urls separated by -|-}]
+  const match = urlVideos.match(/^\[8\|(.+)$/);
+  if (match) {
+    let content = match[1];
+    // Remove trailing closing bracket if present
+    if (content.endsWith(']')) {
+      content = content.slice(0, -1);
+    }
+    // Remove trailing -|- if present (but keep the content before it)
+    if (content.endsWith('-|-')) {
+      content = content.slice(0, -3);
+    }
+    
+    // Split by -|- to get individual URLs
+    // Don't trim URLs as Policy signatures are tied to exact URL format
+    // Filter out empty strings and non-video URLs
+    const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v'];
+    
+    const urls = content
+      .split('-|-')
+      .filter(url => {
+        // Filter out empty strings
+        if (!url || url.length === 0) {
+          return false;
+        }
+        // Basic validation: should start with http:// or https://
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          return false;
+        }
+        
+        // Extract the path part (before query string) to check for video extensions
+        const urlPath = url.split('?')[0];
+        // Check if the URL path contains a video file extension
+        const hasVideoExtension = videoExtensions.some(ext => 
+          urlPath.toLowerCase().endsWith(ext) || urlPath.toLowerCase().includes(ext + '?')
+        );
+        
+        // Only include URLs that have video file extensions
+        // This filters out cases where text is incorrectly formatted as a URL
+        return hasVideoExtension;
+      });
+    
+    return urls;
+  }
+  
+  return [];
+}
+
+/**
  * Parse gallery message to extract gallery ID and name(s)
  * Format: [7|{"id":"...","name":"..."}] or [7|{"id":"...","name":"..."}-|-{"id":"...","name":"..."}]
  * Returns { galleryId: string, galleryName: string, albums?: Array<{id: string, name: string}> } or null if not a gallery message

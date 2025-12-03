@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import Dropdown from '@/components/ui/Dropdown.vue';
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
-import { parseImageMessage, parseGalleryMessage, getImageUrl, getImageDbId, highlightText, formatMessageDate, isOwnMessage } from '@/lib/composables/chat/utils';
+import { parseImageMessage, parseVideoMessage, parseVideoUrls, parseGalleryMessage, getImageUrl, getImageDbId, highlightText, formatMessageDate, isOwnMessage } from '@/lib/composables/chat/utils';
 
 interface Props {
   message: MessengerMessage;
@@ -27,6 +27,8 @@ const emit = defineEmits<{
 }>();
 
 const parsedMessage = computed(() => parseImageMessage(props.message.message));
+const parsedVideoMessage = computed(() => parseVideoMessage(props.message.message));
+const videoUrls = computed(() => parseVideoUrls(props.message.url_videos));
 const galleryMessage = computed(() => parseGalleryMessage(props.message.message));
 const imageDbId = computed(() => getImageDbId(props.message));
 
@@ -72,6 +74,21 @@ function handleScrollToQuoted() {
 
 function handleOpenLightbox(imageIndex: number, event?: Event) {
   emit('open-lightbox', props.message, imageIndex, event);
+}
+
+function handleVideoError(event: Event, videoUrl: string, index: number) {
+  const videoElement = event.target as HTMLVideoElement;
+  console.error('[ChatMessageItem] Video load error:', videoUrl, event);
+  
+  // Hide the video element and show an error message
+  const container = videoElement.parentElement;
+  if (container) {
+    videoElement.style.display = 'none';
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'p-4 text-center text-[#999] text-sm';
+    errorDiv.textContent = 'Video unavailable';
+    container.appendChild(errorDiv);
+  }
 }
 
 const messageId = computed(() => {
@@ -182,6 +199,34 @@ const messageId = computed(() => {
               v-if="parsedMessage.text"
               class="whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere"
               v-html="highlightText(parsedMessage.text, messageSearchQuery || '')"
+            ></p>
+          </div>
+        </template>
+        <!-- Video Message -->
+        <template v-else-if="videoUrls.length > 0">
+          <div class="space-y-2">
+            <div class="grid gap-2" :class="videoUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
+              <div
+                v-for="(videoUrl, idx) in videoUrls"
+                :key="idx"
+                class="relative bg-[#0f0f0f] rounded-lg overflow-hidden w-full"
+              >
+                <video
+                  :src="videoUrl"
+                  controls
+                  crossorigin="use-credentials"
+                  preload="metadata"
+                  class="w-full h-auto max-h-[400px] rounded"
+                  @error="(e) => handleVideoError(e, videoUrl, idx)"
+                >
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            </div>
+            <p 
+              v-if="parsedVideoMessage.text"
+              class="whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere"
+              v-html="highlightText(parsedVideoMessage.text, messageSearchQuery || '')"
             ></p>
           </div>
         </template>
