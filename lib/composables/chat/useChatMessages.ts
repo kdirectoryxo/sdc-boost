@@ -484,7 +484,8 @@ export const useChatMessages = createGlobalState(() => {
     const qAccountId = quotingMessage.q_account_id;
     
     // Find the original quoted message by matching content and account
-    const currentMessages = messages.value || [];
+    // Use filteredMessages to match the actual rendered order
+    const currentMessages = filteredMessages.value || [];
     const quotedMessage = currentMessages.find(msg => {
       // Match by message content and account_id
       const matchesContent = msg.message === qMessage || 
@@ -497,14 +498,51 @@ export const useChatMessages = createGlobalState(() => {
       return matchesContent && matchesAccount && matchesDbId;
     });
     
-    if (quotedMessage && messagesContainer.value) {
-      // Find the message element by ID (using same pattern as v-for key)
-      const messageIndex = currentMessages.indexOf(quotedMessage);
-      const messageId = quotedMessage.message_id > 0 
-        ? `message-${quotedMessage.message_id}`
-        : `message-opt_${quotedMessage.extra1 || messageIndex}_${quotedMessage.date2}`;
+    if (!quotedMessage || !messagesContainer.value) {
+      console.log('[useChatMessages] Could not find quoted message to scroll to');
+      return;
+    }
+    
+    // Wait for next tick to ensure DOM is updated
+    nextTick().then(() => {
+      if (!messagesContainer.value) {
+        console.log('[useChatMessages] messagesContainer is null');
+        return;
+      }
       
-      const messageElement = document.getElementById(messageId);
+      const container = messagesContainer.value;
+      let messageElement: HTMLElement | null = null;
+      
+      // Try to find by ID first (most reliable)
+      const quotedIndex = currentMessages.indexOf(quotedMessage);
+      if (quotedIndex >= 0) {
+        // Match the exact ID format used in ChatMessageItem.vue
+        const messageId = quotedMessage.message_id > 0 
+          ? `message-${quotedMessage.message_id}`
+          : `message-opt_${quotedIndex}_${quotedMessage.date2}`;
+        messageElement = document.getElementById(messageId);
+      }
+      
+      // If not found by ID, try data-message-id for real messages
+      if (!messageElement && quotedMessage.message_id > 0) {
+        messageElement = container.querySelector(
+          `[data-message-id="${quotedMessage.message_id}"]`
+        ) as HTMLElement;
+      }
+      
+      // If still not found, find by index in DOM (elements should be in same order as filteredMessages)
+      if (!messageElement && quotedIndex >= 0) {
+        // Get all message elements (those with id starting with "message-")
+        const allMessageElements = Array.from(
+          container.querySelectorAll('[id^="message-"]')
+        ) as HTMLElement[];
+        
+        // Filter to only those that are direct children or within the messages list
+        // The messages are rendered in order, so the index should match
+        if (allMessageElements[quotedIndex]) {
+          messageElement = allMessageElements[quotedIndex];
+        }
+      }
       
       if (messageElement) {
         // Scroll to the message with smooth behavior
@@ -516,14 +554,17 @@ export const useChatMessages = createGlobalState(() => {
         // Highlight the message briefly with a ring effect
         messageElement.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-[#1a1a1a]', 'transition-all');
         setTimeout(() => {
-          messageElement.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-[#1a1a1a]', 'transition-all');
+          messageElement?.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'ring-offset-[#1a1a1a]', 'transition-all');
         }, 2000);
       } else {
-        console.log('[useChatMessages] Could not find message element with ID:', messageId);
+        console.log('[useChatMessages] Could not find message element for quoted message:', {
+          message_id: quotedMessage.message_id,
+          account_id: quotedMessage.account_id,
+          date2: quotedMessage.date2,
+          message_preview: quotedMessage.message.substring(0, 50)
+        });
       }
-    } else {
-      console.log('[useChatMessages] Could not find quoted message to scroll to');
-    }
+    });
   }
   
   // Watch for search query changes to auto-scroll to first result
