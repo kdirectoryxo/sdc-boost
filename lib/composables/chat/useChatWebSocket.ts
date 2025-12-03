@@ -1,4 +1,5 @@
-import { ref, onUnmounted } from 'vue';
+import { ref } from 'vue';
+import { createGlobalState } from '@vueuse/core';
 import { websocketManager } from '@/lib/websocket-manager';
 import { typingStateManager } from '@/lib/websocket-handlers';
 import { countersManager } from '@/lib/counters-manager';
@@ -7,7 +8,7 @@ import { useChatState } from './useChatState';
 import { useChatMessages } from './useChatMessages';
 import { useChatFolders } from './useChatFolders';
 
-export function useChatWebSocket() {
+export const useChatWebSocket = createGlobalState(() => {
   const { selectedChat, chatList } = useChatState();
   const { messages, optimisticMessages, optimisticMessageTempIds } = useChatMessages();
   const { refreshFolderCounts } = useChatFolders();
@@ -24,7 +25,16 @@ export function useChatWebSocket() {
   /**
    * Set up WebSocket event listeners
    */
-  function setupEventListeners() {
+  async function setupEventListeners() {
+    // Ensure WebSocket is connected (connect() is safe to call multiple times)
+    if (!websocketManager.connected) {
+      try {
+        await websocketManager.connect();
+      } catch (error) {
+        console.error('[useChatWebSocket] Failed to connect WebSocket:', error);
+      }
+    }
+    
     // Update WebSocket connection status
     const updateConnectionStatus = () => {
       isWebSocketConnected.value = websocketManager.connected;
@@ -283,10 +293,6 @@ export function useChatWebSocket() {
     }
   }
   
-  onUnmounted(() => {
-    cleanupEventListeners();
-  });
-  
   return {
     isWebSocketConnected,
     typingStates,
@@ -294,5 +300,5 @@ export function useChatWebSocket() {
     setupEventListeners,
     cleanupEventListeners,
   };
-}
+});
 

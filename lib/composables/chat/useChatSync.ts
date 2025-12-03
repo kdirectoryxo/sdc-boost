@@ -1,4 +1,5 @@
 import { ref, watch } from 'vue';
+import { createGlobalState } from '@vueuse/core';
 import { syncAllChats, syncInboxChats, syncFolderChats, syncArchivesChats } from '@/lib/sdc-api';
 import { chatStorage } from '@/lib/chat-storage';
 import { countersManager } from '@/lib/counters-manager';
@@ -8,7 +9,7 @@ import { useChatState } from './useChatState';
 import { useChatFolders } from './useChatFolders';
 import { useChatFilters } from './useChatFilters';
 
-export function useChatSync() {
+export const useChatSync = createGlobalState(() => {
   const { chatList, selectedFolderId, showArchives } = useChatState();
   const { refreshFolderCounts } = useChatFolders();
   const { updateFilteredChats } = useChatFilters();
@@ -331,5 +332,5 @@ export function useChatSync() {
     fetchAllChats,
     syncMessagesForCurrentFolder,
   };
-}
+});
 

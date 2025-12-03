@@ -1,4 +1,5 @@
 import { ref, computed, nextTick } from 'vue';
+import { createGlobalState } from '@vueuse/core';
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
 import { sendMessage, sendSeenEvent, sendQuotedMessage, sendMessageWithImage } from '@/lib/chat-service';
 import { refreshLatestPage } from '@/lib/message-service';
@@ -10,7 +11,7 @@ import { useChatState } from './useChatState';
 import { useChatMessages } from './useChatMessages';
 import { getChatKey } from './utils';
 
-export function useChatInput() {
+export const useChatInput = createGlobalState(() => {
   const { selectedChat, chatList } = useChatState();
   const { 
     messages, 
@@ -466,5 +467,5 @@ export function useChatInput() {
     removeUploadedMedia,
     clearUploadedMedia,
   };
-}
+});
 

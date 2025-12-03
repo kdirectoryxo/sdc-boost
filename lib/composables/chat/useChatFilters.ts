@@ -1,9 +1,10 @@
 import { ref, computed, watch } from 'vue';
+import { createGlobalState } from '@vueuse/core';
 import { chatStorage } from '@/lib/chat-storage';
 import { messageStorage } from '@/lib/message-storage';
 import { useChatState } from './useChatState';
 
-export function useChatFilters() {
+export const useChatFilters = createGlobalState(() => {
   const { chatList, selectedFolderId, showArchives } = useChatState();
   
   const searchQuery = ref('');
@@ -225,5 +226,5 @@ export function useChatFilters() {
     clearAllFilters,
     clearChatSearch,
   };
-}
+});
 

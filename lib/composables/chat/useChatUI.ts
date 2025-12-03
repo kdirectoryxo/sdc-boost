@@ -1,9 +1,10 @@
 import { ref } from 'vue';
+import { createGlobalState } from '@vueuse/core';
 import type { MessengerMessage } from '@/lib/sdc-api-types';
 import { parseImageMessage, getImageUrl } from './utils';
 import { useChatMessages } from './useChatMessages';
 
-export function useChatUI() {
+export const useChatUI = createGlobalState(() => {
   const { messages } = useChatMessages();
   
   const openDropdownMessageId = ref<number | null>(null); // Track which message's dropdown is open
@@ -95,5 +96,5 @@ export function useChatUI() {
     openLightbox,
     handleClickOutside,
   };
-}
+});
 

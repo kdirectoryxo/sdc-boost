@@ -1,11 +1,12 @@
 import { ref, computed } from 'vue';
+import { createGlobalState } from '@vueuse/core';
 import { getMessengerFolders } from '@/lib/sdc-api';
 import type { MessengerFolder } from '@/lib/sdc-api-types';
 import { folderStorage } from '@/lib/folder-storage';
 import { chatStorage } from '@/lib/chat-storage';
 import { useChatState } from './useChatState';
 
-export function useChatFolders() {
+export const useChatFolders = createGlobalState(() => {
   const { folders, selectedFolderId, showArchives } = useChatState();
   
   // Folder unread counts - calculated from IndexedDB
@@ -152,5 +153,5 @@ export function useChatFolders() {
     handleSelectFolder,
     handleSelectArchives,
   };
-}
+});
 
