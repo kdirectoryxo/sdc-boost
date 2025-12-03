@@ -15,6 +15,9 @@ import { messageStorage } from '@/lib/message-storage';
 import { getCurrentAccountId, getCurrentDBId } from '@/lib/sdc-api/utils';
 import { countersManager } from '@/lib/counters-manager';
 import { uploadFiles } from '@/lib/upload-service';
+import VueEasyLightbox from 'vue-easy-lightbox';
+import 'vue-easy-lightbox/dist/external-css/vue-easy-lightbox.css';
+
 
 interface Props {
   modelValue: boolean;
@@ -55,6 +58,11 @@ const isUploadDropdownOpen = ref<boolean>(false);
 const uploadDropdownRef = ref<HTMLElement | null>(null);
 const uploadedMedia = ref<Array<{ file: File; preview: string; type: 'image' | 'video' }>>([]);
 const isUploading = ref<boolean>(false);
+
+// Lightbox state
+const lightboxVisible = ref<boolean>(false);
+const lightboxIndex = ref<number>(0);
+const lightboxImages = ref<string[]>([]);
 
 // Folder unread counts - calculated from IndexedDB
 const folderUnreadCounts = ref<Map<number, number>>(new Map()); // Map of folderId -> unread count
@@ -1530,6 +1538,70 @@ function clearUploadedMedia(): void {
 }
 
 /**
+ * Collect all images from all messages for lightbox
+ */
+function getAllImagesFromMessages(): string[] {
+  const allImages: string[] = [];
+  
+  messages.value.forEach(message => {
+    const parsed = parseImageMessage(message.message);
+    if (parsed.imageIds.length > 0) {
+      parsed.imageIds.forEach((imageId) => {
+        allImages.push(getImageUrl(imageId, message.db_id));
+      });
+    }
+  });
+  
+  return allImages;
+}
+
+/**
+ * Open lightbox for a specific image
+ */
+function openLightbox(message: MessengerMessage, imageIndex: number, event?: Event): void {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  
+  const parsed = parseImageMessage(message.message);
+  
+  if (parsed.imageIds.length === 0) {
+    console.warn('[ChatDialog] No image IDs found in message');
+    return;
+  }
+  
+  // Collect all images from all messages
+  const allImages = getAllImagesFromMessages();
+  
+  if (allImages.length === 0) {
+    console.warn('[ChatDialog] No images found in messages');
+    return;
+  }
+  
+  // Find the index of the clicked image in the all images array
+  let currentIndex = 0;
+  for (let i = 0; i < messages.value.length; i++) {
+    const msg = messages.value[i];
+    if (msg === message) {
+      // Found the message, add the image index within this message
+      currentIndex += imageIndex;
+      break;
+    } else {
+      // Count images in messages before this one
+      const msgParsed = parseImageMessage(msg.message);
+      currentIndex += msgParsed.imageIds.length;
+    }
+  }
+  
+  console.log('[ChatDialog] Opening lightbox:', { currentIndex, totalImages: allImages.length, imageUrl: allImages[currentIndex] });
+  
+  lightboxImages.value = allImages;
+  lightboxIndex.value = currentIndex;
+  lightboxVisible.value = true;
+}
+
+/**
  * Update URL with current chat selection
  */
 function updateChatInURL(chat: MessengerChatItem | null) {
@@ -2102,6 +2174,25 @@ function handleClickOutside(event: MouseEvent): void {
 }
 
 onMounted(async () => {
+  // Inject lightbox z-index override styles dynamically
+  // This ensures they load after vue-easy-lightbox CSS
+  const styleId = 'sdc-lightbox-z-index-override';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      body .vel-modal {
+        z-index: 10000000 !important;
+        pointer-events: auto !important;
+      }
+      body .vel-modal-mask {
+        pointer-events: auto !important;
+        z-index: 10000000 !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   // Set up popstate listener for URL changes
   window.addEventListener('popstate', updateURLSearchParams);
   
@@ -2601,8 +2692,9 @@ onUnmounted(() => {
                               :key="idx"
                               :src="getImageUrl(imageId, message.db_id)"
                               :alt="`Image ${idx + 1}`"
-                              class="max-w-full max-h-[400px] rounded object-cover"
+                              class="max-w-full max-h-[400px] rounded object-cover cursor-pointer hover:opacity-90 transition-opacity"
                               @error="(e) => { (e.target as HTMLImageElement).style.display = 'none'; }"
+                              @click.stop="openLightbox(message, idx, $event)"
                             />
                           </div>
                           <p 
@@ -2910,6 +3002,18 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
+  
+  <!-- Lightbox Component -->
+  <VueEasyLightbox
+    v-if="lightboxImages.length > 0"
+    :visible="lightboxVisible"
+    :imgs="lightboxImages"
+    :index="lightboxIndex"
+    teleport="body"
+    :mask-closable="true"
+    :scroll-disabled="true"
+    @hide="lightboxVisible = false"
+  />
 </template>
 
 
