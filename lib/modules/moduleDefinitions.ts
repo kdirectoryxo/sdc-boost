@@ -126,7 +126,7 @@ export const moduleDefinitions: ModuleDefinition[] = [
     {
         id: 'navbar-boost-button',
         name: 'Navbar Boost Button',
-        description: 'Adds a Boost button to the navbar next to Messenger to open the boost popup.',
+        description: 'Adds a Boost button to the navbar next to Messenger to open the boost dialog.',
         category: 'UI',
         configOptions: [],
     },

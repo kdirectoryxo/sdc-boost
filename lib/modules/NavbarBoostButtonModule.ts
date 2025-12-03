@@ -2,9 +2,9 @@ import { BaseModule } from './BaseModule';
 import type { ModuleConfigOption } from './types';
 import { navigationWatcher } from './utils/NavigationWatcher';
 
-/**
- * Module for adding a Boost button to the navbar that opens the boost popup
- */
+    /**
+     * Module for adding a Boost button to the navbar that opens the boost dialog
+     */
 export class NavbarBoostButtonModule extends BaseModule {
     private boostButton: HTMLElement | null = null;
     private bodyObserver: MutationObserver | null = null;
@@ -150,7 +150,7 @@ export class NavbarBoostButtonModule extends BaseModule {
         button.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            this.triggerPopup();
+            this.openDialog();
         });
 
         this.boostButton = boostButtonContainer;
@@ -167,13 +167,16 @@ export class NavbarBoostButtonModule extends BaseModule {
     }
 
     /**
-     * Trigger the browser extension popup to open
+     * Open the module control panel dialog
      */
-    private triggerPopup(): void {
-        // Send message to background script to open popup
-        browser.runtime.sendMessage({ type: 'OPEN_POPUP' }).catch((error) => {
-            console.error('Failed to open popup:', error);
-        });
+    private openDialog(): void {
+        // Call the global dialog API if available
+        const dialogAPI = (window as any).__sdcBoostModuleControlPanel;
+        if (dialogAPI && typeof dialogAPI.open === 'function') {
+            dialogAPI.open();
+        } else {
+            console.error('[NavbarBoostButton] Module control panel dialog API not available');
+        }
     }
 
     /**
