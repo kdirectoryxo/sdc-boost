@@ -85,8 +85,8 @@ export async function fetchAllMessages(
                 // Store messages immediately after each page
                 await messageStorage.upsertMessages(chat.group_id, pageMessages);
                 
-                // If this is page 0 (latest page), clean up optimistic messages
-                // The API response is the source of truth for latest messages
+                // If this is page 0 (latest page), delete all optimistic messages
+                // Fresh data from API replaces optimistic messages
                 if (page === 0 && pageMessages.length > 0) {
                     await messageStorage.deleteAllOptimisticMessages(chat.group_id);
                 }
@@ -179,19 +179,10 @@ export async function refreshLatestPage(
             const pageMessages = response.info.message_list || [];
             
             if (pageMessages.length > 0) {
-                // Get the lowest message_id from API response (oldest message in latest page)
-                // This represents the cutoff - any optimistic messages older than this are stale
-                const lowestMessageId = Math.min(...pageMessages.map(m => m.message_id));
-                const lowestDate2 = Math.min(...pageMessages.map(m => m.date2));
-                
-                console.log(`[MessageService] Latest page has ${pageMessages.length} messages, lowest ID: ${lowestMessageId}, oldest date2: ${lowestDate2}`);
-                
                 // Store new messages from API (this overwrites/upserts existing messages)
                 await messageStorage.upsertMessages(chat.group_id, pageMessages);
                 
-                // Delete all optimistic messages (message_id === 0) for this group
-                // The API response is the source of truth - if optimistic messages matched, they're now real messages
-                // If they didn't match, they should be removed anyway
+                // Delete all optimistic messages - fresh data from API replaces them
                 await messageStorage.deleteAllOptimisticMessages(chat.group_id);
                 
                 // Clear blocked status if chat was previously blocked (messages are now available)
@@ -270,8 +261,7 @@ export async function fetchNewMessagesOnly(
                 // Store new messages
                 await messageStorage.upsertMessages(chat.group_id, newMessages);
                 
-                // Clean up optimistic messages - the API response is the source of truth
-                // fetchNewMessagesOnly fetches page 0, so we should clean up optimistic messages
+                // Delete all optimistic messages - fresh data from API replaces them
                 await messageStorage.deleteAllOptimisticMessages(chat.group_id);
                 
                 // Clear blocked status if chat was previously blocked (messages are now available)

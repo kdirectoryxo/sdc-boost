@@ -16,7 +16,8 @@ export const useChatInput = createGlobalState(() => {
   const { selectedChat, chatList } = useChatState();
   const { 
     messages, 
-    messagesContainer
+    messagesContainer,
+    refreshMessages
   } = useChatMessages();
   
   const messageInput = ref('');
@@ -104,7 +105,9 @@ export const useChatInput = createGlobalState(() => {
     // Generate tempId for optimistic message
     const tempId = crypto.randomUUID();
     const now = new Date();
-    const date2 = Math.floor(now.getTime() / 1000);
+    // Use current timestamp + 1 to ensure optimistic message appears at the bottom (newest)
+    // This ensures it's always after existing messages even if there's a slight timing issue
+    const date2 = Math.floor(now.getTime() / 1000) + 1;
 
     // Format message: if imageIds exist, use [6|{image_id1,image_id2}-|-{text}] format, otherwise use text
     const finalMessage = imageIds.length > 0 
@@ -169,6 +172,21 @@ export const useChatInput = createGlobalState(() => {
     if (selectedChat.value) {
       await messageStorage.addMessage(selectedChat.value.group_id, optimisticMessage);
       console.log(`[useChatInput] Added optimistic message ${tempId} to DB for group ${selectedChat.value.group_id}`);
+      
+      // Verify the message was written by reading it back
+      const verifyMessages = await messageStorage.getMessages(selectedChat.value.group_id);
+      const foundOptimistic = verifyMessages.find(m => m.message_id === 0 && m.date2 === date2);
+      console.log(`[useChatInput] Verified optimistic message in DB:`, foundOptimistic ? 'FOUND' : 'NOT FOUND', `(total messages: ${verifyMessages.length})`);
+      
+      // Manually trigger refresh to ensure optimistic message appears immediately
+      // Dexie's liveQuery should detect it automatically, but this ensures it happens right away
+      await nextTick();
+      refreshMessages();
+      
+      // Also wait a bit and trigger again to ensure it's picked up
+      setTimeout(() => {
+        refreshMessages();
+      }, 50);
     }
     
     // Scroll to bottom to show new message

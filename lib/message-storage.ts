@@ -8,8 +8,13 @@ import type { MessengerMessage } from './sdc-api-types';
 
 /**
  * Get a unique key for a message
+ * For optimistic messages (message_id === 0), use date2 to make it unique
  */
-function getMessageKey(groupId: number, messageId: number): string {
+function getMessageKey(groupId: number, messageId: number, date2?: number): string {
+    if (messageId === 0 && date2 !== undefined) {
+        // Optimistic messages need unique keys - use date2 timestamp
+        return `${groupId}_0_${date2}`;
+    }
     return `${groupId}_${messageId}`;
 }
 
@@ -22,7 +27,7 @@ class MessageStorage {
             messages.map((message) => {
                 const messageWithKey: MessageEntity = {
                     ...message,
-                    id: getMessageKey(groupId, message.message_id),
+                    id: getMessageKey(groupId, message.message_id, message.date2),
                     group_id: groupId,
                 };
                 return db.messages.put(messageWithKey);
@@ -58,7 +63,7 @@ class MessageStorage {
     async addMessage(groupId: number, message: MessengerMessage): Promise<void> {
         const messageWithKey: MessageEntity = {
             ...message,
-            id: getMessageKey(groupId, message.message_id),
+            id: getMessageKey(groupId, message.message_id, message.date2),
             group_id: groupId,
         };
         
@@ -70,18 +75,40 @@ class MessageStorage {
      * Update a message (e.g., seen status)
      */
     async updateMessage(groupId: number, messageId: number, updates: Partial<MessengerMessage>): Promise<void> {
-        const key = getMessageKey(groupId, messageId);
-        const existing = await db.messages.get(key);
-        
-        if (existing) {
-            const updated: MessageEntity = {
-                ...existing,
-                ...updates,
-                id: key,
-                group_id: groupId,
-            };
-            await db.messages.put(updated);
-            console.log(`[MessageStorage] Updated message ${messageId} for group ${groupId}`);
+        // For optimistic messages, we need to find them by querying
+        if (messageId === 0) {
+            const groupMessages = await db.messages
+                .where('group_id')
+                .equals(groupId)
+                .toArray();
+            const optimisticMessages = groupMessages.filter(m => m.message_id === 0);
+            // Update all optimistic messages (usually just one)
+            await Promise.all(
+                optimisticMessages.map(msg => {
+                    const updated: MessageEntity = {
+                        ...msg,
+                        ...updates,
+                        id: msg.id, // Keep the unique key
+                        group_id: groupId,
+                    };
+                    return db.messages.put(updated);
+                })
+            );
+            console.log(`[MessageStorage] Updated ${optimisticMessages.length} optimistic message(s) for group ${groupId}`);
+        } else {
+            const key = getMessageKey(groupId, messageId);
+            const existing = await db.messages.get(key);
+            
+            if (existing) {
+                const updated: MessageEntity = {
+                    ...existing,
+                    ...updates,
+                    id: key,
+                    group_id: groupId,
+                };
+                await db.messages.put(updated);
+                console.log(`[MessageStorage] Updated message ${messageId} for group ${groupId}`);
+            }
         }
     }
 
@@ -220,16 +247,22 @@ class MessageStorage {
 
     /**
      * Delete a specific message
+     * For optimistic messages (messageId === 0), deletes all optimistic messages for the group
      */
     async deleteMessage(groupId: number, messageId: number): Promise<void> {
-        const key = getMessageKey(groupId, messageId);
-        await db.messages.delete(key);
-        console.log(`[MessageStorage] Deleted message ${messageId} for group ${groupId}`);
+        if (messageId === 0) {
+            // Delete all optimistic messages
+            await this.deleteAllOptimisticMessages(groupId);
+        } else {
+            const key = getMessageKey(groupId, messageId);
+            await db.messages.delete(key);
+            console.log(`[MessageStorage] Deleted message ${messageId} for group ${groupId}`);
+        }
     }
 
     /**
      * Delete all optimistic messages (message_id === 0) for a group
-     * Since all optimistic messages share the same key, we can delete them all at once
+     * Optimistic messages now have unique keys, so we need to delete them individually
      */
     async deleteAllOptimisticMessages(groupId: number): Promise<void> {
         // Get all optimistic messages (message_id === 0) for this group
@@ -241,11 +274,10 @@ class MessageStorage {
         const optimisticMessages = groupMessages.filter(m => m.message_id === 0);
         
         if (optimisticMessages.length > 0) {
-            // Since all optimistic messages have message_id === 0, they share the same key
-            // We can delete them all by deleting the key once, but to be safe, we'll delete each one
-            // (in case there are multiple entries with different content but same message_id)
-            const key = getMessageKey(groupId, 0);
-            await db.messages.delete(key);
+            // Delete each optimistic message by its unique key
+            await Promise.all(
+                optimisticMessages.map(msg => db.messages.delete(msg.id))
+            );
             console.log(`[MessageStorage] Deleted ${optimisticMessages.length} optimistic messages for group ${groupId}`);
         }
     }

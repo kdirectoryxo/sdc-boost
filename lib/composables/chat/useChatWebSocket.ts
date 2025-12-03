@@ -73,12 +73,10 @@ export const useChatWebSocket = createGlobalState(() => {
     }
 
     // Listen for new message events
+    // Note: WebSocket only fires for messages from other party, not our own
     const handleNewMessage = async (event: Event) => {
       const customEvent = event as CustomEvent;
-      const { chat, groupId, message } = customEvent.detail;
-      
-      // Real message will come from refreshLatestPage
-      // Optimistic messages are cleaned up automatically in refreshLatestPage
+      const { chat, groupId } = customEvent.detail;
       
       if (chat) {
         // Update chat in database - chatList will update reactively
@@ -86,13 +84,13 @@ export const useChatWebSocket = createGlobalState(() => {
         await chatStorage.updateChat(chat);
         // Folder counts are reactive - no need to manually refresh
       }
-      // Unknown chat - chat list will update reactively from database
       
       // If this message is for the currently selected chat, refresh page 0 in background
+      // refreshLatestPage will delete all optimistic messages and load fresh data
       if (selectedChat.value && String(selectedChat.value.group_id) === String(groupId)) {
-        // Refresh latest page (page 0) in background to get any updates
-        // refreshLatestPage will automatically clean up optimistic messages from DB
-        refreshLatestPage(selectedChat.value).catch(console.error);
+        setTimeout(() => {
+          refreshLatestPage(selectedChat.value!).catch(console.error);
+        }, 500);
       }
     };
 

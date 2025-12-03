@@ -19,8 +19,12 @@ export const useChatMessages = createGlobalState(() => {
   
   // Reactive messages from database, merged with optimistic messages
   const selectedChatGroupId = computed(() => selectedChat.value?.group_id);
-  const messages = useLiveQuery(async () => {
-    console.log('[useChatMessages] Fetching messages for group:', selectedChatGroupId.value);
+  // Add a trigger ref to force refresh when needed
+  const refreshTrigger = ref(0);
+  const messagesQuery = useLiveQuery(async () => {
+    // Access refreshTrigger to make it a dependency
+    const triggerValue = refreshTrigger.value; // This makes the query re-run when refreshTrigger changes
+    console.log('[useChatMessages] Fetching messages for group:', selectedChatGroupId.value, 'trigger:', triggerValue);
     const groupId = selectedChatGroupId.value;
     if (!groupId) {
       return [];
@@ -34,14 +38,39 @@ export const useChatMessages = createGlobalState(() => {
       .map((item) => {
         const { id, group_id, ...message } = item;
         return message as MessengerMessage;
-      })
-      .sort((a, b) => a.date2 - b.date2); // Sort by timestamp ascending (oldest first);
+      });
+    
+    // Log optimistic messages for debugging
+    const optimisticCount = dbMessages.filter(m => m.message_id === 0).length;
+    if (optimisticCount > 0) {
+      console.log(`[useChatMessages] Found ${optimisticCount} optimistic message(s) in query results, total: ${dbMessages.length}`);
+    }
     
     // Optimistic messages are already in dbMessages (with message_id === 0)
     // They'll be cleaned up automatically when refreshLatestPage is called
-    // Just return all messages sorted by date2
-    return dbMessages.sort((a, b) => a.date2 - b.date2);
-  }, [selectedChatGroupId]);
+    // Sort by date2 ascending (oldest first), but ensure optimistic messages (message_id === 0) 
+    // always appear at the bottom by giving them a higher sort priority
+    return [...dbMessages].sort((a, b) => {
+      // If both are optimistic or both are real, sort by date2
+      if ((a.message_id === 0) === (b.message_id === 0)) {
+        return a.date2 - b.date2;
+      }
+      // Optimistic messages (message_id === 0) should always be at the bottom
+      return a.message_id === 0 ? 1 : -1;
+    });
+  }, [selectedChatGroupId, refreshTrigger]);
+  
+  // Ensure messages is always an array (never undefined) for Vue reactivity
+  const messages = computed(() => messagesQuery.value || []);
+  
+  /**
+   * Manually refresh messages (useful for optimistic updates)
+   */
+  function refreshMessages(): void {
+    console.log('[useChatMessages] Manually triggering refresh, current trigger:', refreshTrigger.value);
+    refreshTrigger.value++;
+    console.log('[useChatMessages] New trigger value:', refreshTrigger.value);
+  }
 
   const isLoadingMessages = ref(false);
   const isSyncing = ref(false); // Track if we're syncing all pages for first-time load
@@ -75,6 +104,12 @@ export const useChatMessages = createGlobalState(() => {
     // Always return all messages - don't filter
     const query = messageSearchQueryComputed.value.toLowerCase();
     const currentMessages = messages.value || [];
+    
+    // Log when filteredMessages updates
+    const optimisticInFiltered = currentMessages.filter(m => m.message_id === 0).length;
+    if (optimisticInFiltered > 0) {
+      console.log(`[useChatMessages] filteredMessages computed: ${currentMessages.length} messages, ${optimisticInFiltered} optimistic`);
+    }
     
     if (!query) {
       messageSearchResults.value = [];
@@ -542,7 +577,7 @@ export const useChatMessages = createGlobalState(() => {
   }
 
     return {
-    messages: computed(() => messages.value || []),
+    messages,
     isLoadingMessages,
     isSyncing,
     messageError,
@@ -564,6 +599,7 @@ export const useChatMessages = createGlobalState(() => {
     clearSearch,
     handleSearchKeydown,
     scrollToCurrentResult,
+    refreshMessages,
   };
 });
 
