@@ -34,6 +34,19 @@ function handleOpenGallery() {
   emit('open-gallery', props.message);
 }
 
+function handleOpenGalleryForAlbum(albumId: string) {
+  // Create a modified message with only this album
+  const album = galleryMessage.value?.albums?.find(a => a.id === albumId);
+  if (!album) return;
+  
+  // Create a temporary message with just this album
+  const singleAlbumMessage: MessengerMessage = {
+    ...props.message,
+    message: `[7|${JSON.stringify({ id: album.id, name: album.name })}]`
+  };
+  emit('open-gallery', singleAlbumMessage);
+}
+
 function handleDropdownToggle(open: boolean) {
   emit('update:open-dropdown-message-id', open ? props.message.message_id : null);
 }
@@ -121,8 +134,25 @@ const messageId = computed(() => {
       >
         <!-- Gallery Message -->
         <template v-if="galleryMessage">
+          <div v-if="galleryMessage.albums && galleryMessage.albums.length > 1" class="grid gap-2 grid-cols-2">
+            <div
+              v-for="(album, index) in galleryMessage.albums"
+              :key="album.id"
+              @click.stop="handleOpenGalleryForAlbum(album.id)"
+              class="flex flex-col items-center justify-center cursor-pointer hover:opacity-90 transition-opacity p-3 gap-2 rounded-lg"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+              <div class="font-semibold text-xs text-center line-clamp-2 wrap-break-word">{{ album.name }}</div>
+            </div>
+          </div>
           <div
-            @click.stop="handleOpenGallery"
+            v-else
+            @click.stop="handleOpenGallery()"
             class="flex flex-col items-center justify-center cursor-pointer hover:opacity-90 transition-opacity p-4 gap-3"
           >
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">

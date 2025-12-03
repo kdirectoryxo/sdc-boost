@@ -24,6 +24,7 @@ const emit = defineEmits<{
   'trigger-photo-picker': [];
   'trigger-video-picker': [];
   'handle-message-input': [];
+  'open-album-modal': [];
 }>();
 
 function handleInput(event: Event) {
@@ -153,6 +154,18 @@ function handleKeydown(event: KeyboardEvent) {
                 <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
               </svg>
               Video's
+            </button>
+            <button
+              @click="$emit('open-album-modal'); close()"
+              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+              SDC Album
             </button>
           </div>
         </template>

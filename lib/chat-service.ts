@@ -5,7 +5,7 @@
 
 import { websocketManager } from './websocket-manager';
 import { getCurrentDBId, getCurrentAccountId } from './sdc-api/utils';
-import type { MessengerChatItem, MessengerMessage } from './sdc-api-types';
+import type { MessengerChatItem, MessengerMessage, Album } from './sdc-api-types';
 import { handleMessageUpdate } from './message-update-service';
 
 /**
@@ -313,6 +313,84 @@ export function sendMessageWithImage(
         return true;
     } catch (error) {
         console.error('[ChatService] Error sending message with image:', error);
+        return false;
+    }
+}
+
+/**
+ * Send albums via WebSocket
+ * Message format: [7|{"id":"...","name":"..."}-|-{"id":"...","name":"..."}]
+ */
+export function sendAlbums(
+    chat: MessengerChatItem,
+    albums: Album[],
+    quotedMessage?: MessengerMessage
+): boolean {
+    if (!websocketManager.connected) {
+        console.warn('[ChatService] Cannot send albums - WebSocket not connected');
+        return false;
+    }
+
+    const userInfo = getUserInfo();
+    if (!userInfo) {
+        console.warn('[ChatService] Cannot send albums - missing user info');
+        return false;
+    }
+
+    if (!albums || albums.length === 0) {
+        console.warn('[ChatService] Cannot send albums - no albums provided');
+        return false;
+    }
+
+    try {
+        // Generate tempId for pending message
+        const tempId = crypto.randomUUID();
+
+        // Format message as [7|{album1}-|-{album2}] where each album is JSON stringified
+        // Note: Multiple albums should NOT have a closing bracket, single album should
+        const albumStrings = albums.map(album => JSON.stringify({ id: album.id, name: album.name }));
+        const formattedMessage = albums.length === 1 
+          ? `[7|${albumStrings[0]}]`
+          : `[7|${albumStrings.join('-|-')}`;
+
+        websocketManager.send('message_v2', {
+            account_id: userInfo.accountId,
+            DB_ID: parseInt(userInfo.dbId),
+            message: formattedMessage,
+            GroupID: chat.group_id,
+            type: 0,
+            targetID: chat.db_id,
+            sender: 0,
+            q_message: quotedMessage ? (quotedMessage.message || '.') : '',
+            q_db_id: quotedMessage ? (quotedMessage.db_id || parseInt(userInfo.dbId)) : 0,
+            q_account_id: quotedMessage ? (quotedMessage.account_id || userInfo.accountId) : '',
+            quoteBroadcast: 0,
+            is_quote: quotedMessage ? 1 : 0,
+            qgender1: quotedMessage ? (quotedMessage.gender1 || 1) : 2,
+            qgender2: quotedMessage ? (quotedMessage.gender2 || 0) : 2,
+            message_id: 0,
+            date: new Date().toLocaleString('en-US', { 
+                month: 'short', 
+                day: '2-digit', 
+                year: 'numeric', 
+                hour: 'numeric', 
+                minute: '2-digit' 
+            }),
+            name: '',
+            owner: 0,
+            addMessage: true,
+            album_id: '0',
+            time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            tempId: tempId,
+            pending: true
+        });
+
+        // Handle counter and folder updates (fire and forget)
+        handleMessageUpdate(chat.group_type || 0, chat.group_id).catch(console.error);
+
+        return true;
+    } catch (error) {
+        console.error('[ChatService] Error sending albums:', error);
         return false;
     }
 }

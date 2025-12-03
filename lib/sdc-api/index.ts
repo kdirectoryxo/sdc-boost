@@ -47,7 +47,8 @@ export {
     syncInboxChats,
     syncFolderChats,
     syncArchivesChats,
-    getGalleryPhotos
+    getGalleryPhotos,
+    loadAlbums
 } from './messenger';
 
 // Re-export counters functions

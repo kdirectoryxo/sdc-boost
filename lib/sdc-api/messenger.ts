@@ -2,7 +2,7 @@
  * SDC API Messenger Functions
  * Functions for fetching and working with messenger/chat data
  */
-import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse, GalleryPhotosResponse } from '../sdc-api-types';
+import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse, GalleryPhotosResponse, AlbumsResponse } from '../sdc-api-types';
 import { getCurrentMuid } from './utils';
 import { chatStorage } from '../chat-storage';
 import { folderStorage } from '../folder-storage';
@@ -600,6 +600,38 @@ export async function getGalleryPhotos(
         return data as GalleryPhotosResponse;
     } catch (error) {
         console.error('[SDC API] Failed to fetch gallery photos:', error);
+        throw error;
+    }
+}
+
+/**
+ * Load albums for a user
+ * @param dbId The DB ID of the user whose albums to load
+ * @returns Albums response
+ */
+export async function loadAlbums(dbId: string): Promise<AlbumsResponse> {
+    const url = new URL('https://api.sdc.com/v1/load_albums');
+    url.searchParams.set('muid', dbId);
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Load Albums API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data as AlbumsResponse;
+    } catch (error) {
+        console.error('[SDC API] Failed to load albums:', error);
         throw error;
     }
 }

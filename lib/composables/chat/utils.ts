@@ -32,25 +32,58 @@ export function parseImageMessage(message: string): { imageIds: string[]; text: 
 }
 
 /**
- * Parse gallery message to extract gallery ID and name
- * Format: [7|{"id":"...","name":"..."}] or [7]{"id":"...","name":"..."}
- * Returns { galleryId: string, galleryName: string } or null if not a gallery message
+ * Parse gallery message to extract gallery ID and name(s)
+ * Format: [7|{"id":"...","name":"..."}] or [7|{"id":"...","name":"..."}-|-{"id":"...","name":"..."}]
+ * Returns { galleryId: string, galleryName: string, albums?: Array<{id: string, name: string}> } or null if not a gallery message
+ * For single album: returns galleryId and galleryName
+ * For multiple albums: returns first album's id/name and full albums array
  */
-export function parseGalleryMessage(message: string): { galleryId: string; galleryName: string } | null {
-  // Match format: [7|{"id":"...","name":"..."}] or [7]{"id":"...","name":"..."}
-  // The message starts with [7] or [7| followed by JSON (which may or may not have closing bracket)
+export function parseGalleryMessage(message: string): { galleryId: string; galleryName: string; albums?: Array<{id: string, name: string}> } | null {
+  // Match format: [7|{...}] or [7|{...}-|-{...}]
+  // The message starts with [7] or [7| followed by JSON objects separated by -|-
   const match = message.match(/^\[7\]?\|?(.+)$/);
   if (match) {
     try {
-      let jsonStr = match[1];
+      let content = match[1];
       // Remove trailing closing bracket if present
-      jsonStr = jsonStr.replace(/\]$/, '');
-      const galleryData = JSON.parse(jsonStr);
-      if (galleryData.id && galleryData.name) {
-        return {
-          galleryId: galleryData.id,
-          galleryName: galleryData.name
-        };
+      content = content.replace(/\]$/, '');
+      
+      // Check if there are multiple albums separated by -|-
+      if (content.includes('-|-')) {
+        // Multiple albums format: {"id":"...","name":"..."}-|-{"id":"...","name":"..."}
+        const albumStrings = content.split('-|-');
+        const albums: Array<{id: string, name: string}> = [];
+        
+        for (const albumStr of albumStrings) {
+          try {
+            const albumData = JSON.parse(albumStr.trim());
+            if (albumData.id && albumData.name) {
+              albums.push({
+                id: albumData.id,
+                name: albumData.name
+              });
+            }
+          } catch (e) {
+            console.warn('[parseGalleryMessage] Failed to parse album JSON:', e);
+          }
+        }
+        
+        if (albums.length > 0) {
+          return {
+            galleryId: albums[0].id,
+            galleryName: albums[0].name,
+            albums: albums
+          };
+        }
+      } else {
+        // Single album format: {"id":"...","name":"..."}
+        const galleryData = JSON.parse(content);
+        if (galleryData.id && galleryData.name) {
+          return {
+            galleryId: galleryData.id,
+            galleryName: galleryData.name
+          };
+        }
       }
     } catch (error) {
       console.warn('[parseGalleryMessage] Failed to parse gallery JSON:', error);

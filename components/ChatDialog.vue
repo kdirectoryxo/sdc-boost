@@ -19,6 +19,7 @@ import ChatListSidebar from '@/components/chat/ChatListSidebar.vue';
 import ChatMessagesArea from '@/components/chat/ChatMessagesArea.vue';
 import ChatMessageInput from '@/components/chat/ChatMessageInput.vue';
 import GalleryModal from '@/components/chat/GalleryModal.vue';
+import AlbumSelectionModal from '@/components/chat/AlbumSelectionModal.vue';
 
 interface Props {
   modelValue: boolean;
@@ -98,6 +99,10 @@ const {
   quotedMessage,
   isUploadDropdownOpen,
   uploadedMedia,
+  albumModalVisible,
+  openAlbumModal,
+  closeAlbumModal,
+  handleAlbumSelection,
   isUploading,
   typingManager,
   handleMessageInput: handleInputTyping,
@@ -349,6 +354,7 @@ function handleOpenGallery(message: typeof messages.value[0]) {
                 @remove-uploaded-media="removeUploadedMedia"
                 @trigger-photo-picker="triggerPhotoPicker"
                 @trigger-video-picker="triggerVideoPicker"
+                @open-album-modal="openAlbumModal"
                 @handle-message-input="selectedChat && handleInputTyping(selectedChat)"
               />
             </template>
@@ -378,5 +384,12 @@ function handleOpenGallery(message: typeof messages.value[0]) {
     :db-id="galleryDbId"
     @close="closeGalleryModal"
     @open-lightbox="openLightboxFromGallery"
+  />
+  
+  <!-- Album Selection Modal -->
+  <AlbumSelectionModal
+    :visible="albumModalVisible"
+    @close="closeAlbumModal"
+    @select="handleAlbumSelection"
   />
 </template>

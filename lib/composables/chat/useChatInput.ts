@@ -1,7 +1,7 @@
 import { ref, computed, nextTick } from 'vue';
 import { createGlobalState } from '@vueuse/core';
-import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
-import { sendMessage, sendSeenEvent, sendQuotedMessage, sendMessageWithImage } from '@/lib/chat-service';
+import type { MessengerChatItem, MessengerMessage, Album } from '@/lib/sdc-api-types';
+import { sendMessage, sendSeenEvent, sendQuotedMessage, sendMessageWithImage, sendAlbums } from '@/lib/chat-service';
 import { refreshLatestPage } from '@/lib/message-service';
 import { getCurrentAccountId, getCurrentDBId } from '@/lib/sdc-api/utils';
 import { uploadFiles } from '@/lib/upload-service';
@@ -28,6 +28,10 @@ export const useChatInput = createGlobalState(() => {
   const isUploadDropdownOpen = ref<boolean>(false);
   const uploadedMedia = ref<Array<{ file: File; preview: string; type: 'image' | 'video' }>>([]);
   const isUploading = ref<boolean>(false);
+  
+  // Album selection state
+  const albumModalVisible = ref<boolean>(false);
+  const selectedAlbums = ref<Album[]>([]);
   
   // Computed property for quoted message
   const quotedMessage = computed(() => {
@@ -448,6 +452,165 @@ export const useChatInput = createGlobalState(() => {
     uploadedMedia.value = [];
   }
   
+  /**
+   * Open album selection modal
+   */
+  function openAlbumModal(): void {
+    albumModalVisible.value = true;
+  }
+  
+  /**
+   * Close album selection modal
+   */
+  function closeAlbumModal(): void {
+    albumModalVisible.value = false;
+  }
+  
+  /**
+   * Handle album selection from modal
+   */
+  function handleAlbumSelection(albums: Album[]): void {
+    selectedAlbums.value = albums;
+    // Automatically send albums after selection
+    if (albums.length > 0 && selectedChat.value) {
+      handleSendAlbums();
+    }
+  }
+  
+  /**
+   * Send selected albums with optimistic update
+   */
+  async function handleSendAlbums(): Promise<void> {
+    if (!selectedChat.value || selectedAlbums.value.length === 0) {
+      return;
+    }
+
+    const quotedMessage = quotedMessageRef.value;
+    const accountId = getCurrentAccountId();
+    const dbId = getCurrentDBId();
+    
+    if (!accountId || !dbId) {
+      console.warn('[useChatInput] Cannot send albums - missing user info');
+      return;
+    }
+
+    // Generate tempId for optimistic message
+    const tempId = crypto.randomUUID();
+    const now = new Date();
+    const date2 = Math.floor(now.getTime() / 1000);
+
+    // Format albums message: [7|{album1}-|-{album2}]
+    // Note: Multiple albums should NOT have a closing bracket, single album should
+    const albumStrings = selectedAlbums.value.map(album => JSON.stringify({ id: album.id, name: album.name }));
+    const finalMessage = selectedAlbums.value.length === 1
+      ? `[7|${albumStrings[0]}]`
+      : `[7|${albumStrings.join('-|-')}`;
+
+    // Create optimistic message
+    const optimisticMessage: MessengerMessage = {
+      message: finalMessage,
+      url_videos: '',
+      message_id: 0,
+      share_data: null,
+      share_biz_list: [],
+      message_type: null,
+      seen: 0,
+      sender: 0,
+      gender1: 0,
+      gender2: 0,
+      date: now.toLocaleString('en-US', { 
+        month: 'short', 
+        day: '2-digit', 
+        year: 'numeric', 
+        hour: 'numeric', 
+        minute: '2-digit' 
+      }),
+      account_id: accountId,
+      date2: date2,
+      db_id: parseInt(dbId),
+      extra1: `__tempId:${tempId}__`,
+      forward: 0,
+      forward_extra_text: '',
+      forward_db_id: 0,
+      is_quote: quotedMessage ? 1 : 0,
+      q_message: quotedMessage?.message || '',
+      q_account_id: quotedMessage?.account_id || '',
+      q_db_id: quotedMessage?.db_id || 0,
+      qgender1: quotedMessage?.gender1 || 0,
+      qgender2: quotedMessage?.gender2 || 0,
+      is_lt_offer: 0,
+    };
+
+    // Optimistically update chat list
+    if (selectedChat.value) {
+      const chatIndex = chatList.value.findIndex(c => getChatKey(c) === getChatKey(selectedChat.value));
+      if (chatIndex !== -1) {
+        const updatedChat: MessengerChatItem = {
+          ...chatList.value[chatIndex],
+          last_message: selectedAlbums.value.length === 1 
+            ? selectedAlbums.value[0].name 
+            : `${selectedAlbums.value[0].name} +${selectedAlbums.value.length - 1} more`,
+          date_time: now.toISOString(),
+          date: now.toLocaleString('en-US', { 
+            month: 'short', 
+            day: '2-digit', 
+            year: 'numeric', 
+            hour: 'numeric', 
+            minute: '2-digit' 
+          }),
+        };
+        
+        // Move to top
+        chatList.value.splice(chatIndex, 1);
+        chatList.value.unshift(updatedChat);
+        
+        // Update selected chat
+        if (selectedChat.value.group_id === updatedChat.group_id) {
+          Object.assign(selectedChat.value, updatedChat);
+        }
+        
+        // Update in storage
+        chatStorage.updateChat(updatedChat).catch(console.error);
+      }
+    }
+
+    // Add optimistic message to messages array
+    messages.value = [...messages.value, optimisticMessage];
+    optimisticMessages.value.set(tempId, optimisticMessage);
+    optimisticMessageTempIds.value.set(tempId, finalMessage);
+
+    // Scroll to bottom after a short delay
+    await nextTick();
+    setTimeout(() => {
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      }
+    }, 100);
+
+    // Send via websocket
+    const success = sendAlbums(selectedChat.value, selectedAlbums.value, quotedMessage || undefined);
+    if (!success) {
+      console.error('[useChatInput] Failed to send albums');
+      // Remove optimistic message on failure
+      optimisticMessages.value.delete(tempId);
+      optimisticMessageTempIds.value.delete(tempId);
+      // Remove from messages array
+      const index = messages.value.findIndex(m => m.extra1 === `__tempId:${tempId}__`);
+      if (index !== -1) {
+        messages.value.splice(index, 1);
+      }
+    }
+
+    // Clear selected albums and close modal
+    selectedAlbums.value = [];
+    albumModalVisible.value = false;
+    
+    // Refresh messages to get real message from server
+    if (selectedChat.value) {
+      refreshLatestPage(selectedChat.value).catch(console.error);
+    }
+  }
+  
   return {
     messageInput,
     quotedMessage,
@@ -456,6 +619,8 @@ export const useChatInput = createGlobalState(() => {
     uploadedMedia,
     isUploading,
     typingManager,
+    albumModalVisible,
+    selectedAlbums,
     handleMessageInput,
     handleSendMessage,
     handleQuoteMessage,
@@ -466,6 +631,9 @@ export const useChatInput = createGlobalState(() => {
     triggerVideoPicker,
     removeUploadedMedia,
     clearUploadedMedia,
+    openAlbumModal,
+    closeAlbumModal,
+    handleAlbumSelection,
   };
 });
 

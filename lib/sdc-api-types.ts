@@ -227,6 +227,23 @@ export interface PhotoAlbum {
     counter_videos: string;
 }
 
+export interface Album {
+    id: string;
+    name: string;
+    counter_images: string;
+    counter_videos: string;
+}
+
+export interface AlbumsInfo {
+    code: number;
+    message: string;
+    albums: Album[];
+}
+
+export interface AlbumsResponse {
+    info: AlbumsInfo;
+}
+
 export interface Community {
     id: number;
     belongs: number;
