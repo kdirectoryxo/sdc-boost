@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+if [ -z "$(git diff --name-only | grep -v '^package.json$\|^package-lock.json$')" ]; then
+  git restore package.json package-lock.json 2>/dev/null || true
+fi
 git pull --rebase
 bumpp --major --no-push --yes
 VERSION=$(node -p "require('./package.json').version")

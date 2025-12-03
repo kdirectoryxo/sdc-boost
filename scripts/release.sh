@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Reset version files if they're the only changes (from previous failed runs)
+# bumpp will update them anyway
+if [ -z "$(git diff --name-only | grep -v '^package.json$\|^package-lock.json$')" ]; then
+  git restore package.json package-lock.json 2>/dev/null || true
+fi
+
 # Pull latest changes
 git pull --rebase
 
