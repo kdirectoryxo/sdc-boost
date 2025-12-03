@@ -4,7 +4,7 @@
 
 **A powerful browser extension to enhance your SDC.com experience with customizable modules and features**
 
-[![Version](https://img.shields.io/badge/version-1.1.2-blue.svg)](https://github.com/kdirectoryxo/sdc-boost)
+[![Version](https://img.shields.io/badge/version-1.1.4-blue.svg)](https://github.com/kdirectoryxo/sdc-boost)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Chrome Web Store](https://img.shields.io/badge/Chrome-Web%20Store-4285F4?logo=google-chrome&logoColor=white)](https://chrome.google.com/webstore/detail/gjlcgihpgdceeeacppojeffplhmmjffj)
 
