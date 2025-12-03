@@ -1,4 +1,4 @@
-## [1.1.3](https://github.com/kdirectoryxo/sdc-boost/compare/v1.1.2...v1.1.3) (2025-12-03)
+## [1.1.6](https://github.com/kdirectoryxo/sdc-boost/compare/v1.1.2...v1.1.6) (2025-12-03)
 
 
 ### Bug Fixes
