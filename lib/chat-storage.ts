@@ -5,6 +5,7 @@
 
 import { getDB } from './db';
 import type { MessengerChatItem } from './sdc-api-types';
+import { messageStorage } from './message-storage';
 
 const STORE_NAME = 'chats';
 
@@ -78,8 +79,10 @@ class ChatStorage {
 
     /**
      * Upsert chats (insert or update)
+     * @param chats Array of chats to upsert
+     * @param markAsArchived Optional flag to mark chats as archived
      */
-    async upsertChats(chats: MessengerChatItem[]): Promise<void> {
+    async upsertChats(chats: MessengerChatItem[], markAsArchived: boolean = false): Promise<void> {
         const db = await this.getDB();
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
@@ -89,13 +92,14 @@ class ChatStorage {
                 const chatWithId = {
                     ...chat,
                     id: this.getChatId(chat),
+                    archived: markAsArchived || (chat as any).archived || false,
                 };
                 return store.put(chatWithId);
             })
         );
 
         await tx.done;
-        console.log(`[ChatStorage] Upserted ${chats.length} chats`);
+        console.log(`[ChatStorage] Upserted ${chats.length} chats${markAsArchived ? ' (marked as archived)' : ''}`);
     }
 
     /**
@@ -219,7 +223,7 @@ class ChatStorage {
                 }
             }
             
-            // Upsert this page's chats immediately
+            // Upsert this page's chats immediately (archived flag handled by onProgress callback)
             await this.upsertChats(deduplicatedPageChats);
             totalSynced += deduplicatedPageChats.length;
 
@@ -347,6 +351,14 @@ class ChatStorage {
     }
 
     /**
+     * Get last sync time for archives
+     * @returns Last sync time as ISO date string, or null if not found
+     */
+    async getArchivesLastSyncTime(): Promise<string | null> {
+        return this.getLastSyncTime('archives');
+    }
+
+    /**
      * Search chats using IndexedDB queries
      * @param options Search options
      * @returns Array of matching chats
@@ -357,6 +369,10 @@ class ChatStorage {
         unreadOnly?: boolean;
         pinnedOnly?: boolean;
         onlineOnly?: boolean;
+        lastMessageByMe?: boolean;
+        lastMessageByOther?: boolean;
+        onlyMyMessages?: boolean;
+        showArchives?: boolean; // If true, only show archived chats. If false/undefined, exclude archived chats
     }): Promise<MessengerChatItem[]> {
         const db = await this.getDB();
         const tx = db.transaction(STORE_NAME, 'readonly');
@@ -375,10 +391,22 @@ class ChatStorage {
         }
         
         // Remove the 'id' field and convert to MessengerChatItem
+        // Also filter archived chats based on showArchives option
         let result = chats.map((item) => {
-            const { id, ...chat } = item;
-            return chat as MessengerChatItem;
-        });
+            const { id, archived, ...chat } = item;
+            const chatItem = chat as MessengerChatItem;
+            const isArchived = archived === true;
+            
+            // If showArchives is explicitly true, only include archived chats
+            if (options.showArchives === true) {
+                return isArchived ? chatItem : null;
+            }
+            // Otherwise, exclude archived chats from regular views
+            if (options.showArchives === false || options.showArchives === undefined) {
+                return !isArchived ? chatItem : null;
+            }
+            return chatItem;
+        }).filter((chat): chat is MessengerChatItem => chat !== null);
         
         // Apply text search filter and categorize matches
         if (options.query && options.query.trim()) {
@@ -423,6 +451,45 @@ class ChatStorage {
         // Apply online filter
         if (options.onlineOnly) {
             result = result.filter(chat => chat.online === 1);
+        }
+        
+        // Apply message sender filters (requires checking messages in IndexedDB efficiently)
+        if (options.lastMessageByMe || options.lastMessageByOther || options.onlyMyMessages) {
+            // Get group IDs for all chats
+            const groupIds = result.map(chat => chat.group_id);
+            
+            // Get last message info for all chats in one efficient query
+            const messageInfo = await messageStorage.getLastMessageInfoForChats(groupIds);
+            
+            // Filter chats based on message info
+            result = result.filter(chat => {
+                const info = messageInfo.get(chat.group_id);
+                
+                if (!info) {
+                    // No messages found - exclude if filtering by last message sender
+                    if (options.lastMessageByMe || options.lastMessageByOther) {
+                        return false;
+                    }
+                    // For "only my messages", empty chats don't match
+                    if (options.onlyMyMessages) {
+                        return false;
+                    }
+                    return true;
+                }
+                
+                // Apply filters
+                if (options.lastMessageByMe && info.lastMessageSender !== 0) {
+                    return false;
+                }
+                if (options.lastMessageByOther && info.lastMessageSender !== 1) {
+                    return false;
+                }
+                if (options.onlyMyMessages && !info.hasOnlyMyMessages) {
+                    return false;
+                }
+                
+                return true;
+            });
         }
         
         // Sort: pinned first, then by date_time

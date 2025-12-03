@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch, onUnmounted, nextTick } from 'vue';
-import { getMessengerFolders, syncAllChats, syncInboxChats, syncFolderChats } from '@/lib/sdc-api';
+import { getMessengerFolders, syncAllChats, syncInboxChats, syncFolderChats, syncArchivesChats } from '@/lib/sdc-api';
 import type { MessengerChatItem, MessengerFolder, MessengerMessage } from '@/lib/sdc-api-types';
 import ChatListItem from '@/components/ChatListItem.vue';
 import { websocketManager } from '@/lib/websocket-manager';
@@ -35,7 +35,8 @@ const isLoading = ref(false);
 const error = ref<string | null>(null);
 const searchQuery = ref('');
 const selectedChat = ref<MessengerChatItem | null>(null);
-const selectedFolderId = ref<number | null>(null); // null = all chats, 0 = inbox (no folder), number = specific folder
+const selectedFolderId = ref<number | null>(null); // null = all chats, 0 = inbox (no folder), number = specific folder, -1 = archives
+const showArchives = ref<boolean>(false); // true when archives view is selected
 const isRefreshing = ref(false);
 const typingStates = ref<Map<string, boolean>>(new Map()); // Map of groupId -> isTyping
 const isWebSocketConnected = ref(false);
@@ -78,6 +79,9 @@ const currentSearchIndex = ref<number>(-1); // Current highlighted result index 
 const filterUnread = ref<boolean>(false);
 const filterPinned = ref<boolean>(false);
 const filterOnline = ref<boolean>(false);
+const filterLastMessageByMe = ref<boolean>(false);
+const filterLastMessageByOther = ref<boolean>(false);
+const filterOnlyMyMessages = ref<boolean>(false);
 const isFilterDropdownOpen = ref<boolean>(false);
 const filterDropdownRef = ref<HTMLElement | null>(null);
 
@@ -93,7 +97,8 @@ const isSearchActive = computed(() => {
 
 // Computed property to check if any filters are active
 const hasActiveFilters = computed(() => {
-  return filterUnread.value || filterPinned.value || filterOnline.value;
+  return filterUnread.value || filterPinned.value || filterOnline.value || 
+         filterLastMessageByMe.value || filterLastMessageByOther.value || filterOnlyMyMessages.value;
 });
 
 // Computed property to count active filters
@@ -102,6 +107,9 @@ const activeFilterCount = computed(() => {
   if (filterUnread.value) count++;
   if (filterPinned.value) count++;
   if (filterOnline.value) count++;
+  if (filterLastMessageByMe.value) count++;
+  if (filterLastMessageByOther.value) count++;
+  if (filterOnlyMyMessages.value) count++;
   return count;
 });
 
@@ -368,6 +376,9 @@ function clearAllFilters(): void {
   filterUnread.value = false;
   filterPinned.value = false;
   filterOnline.value = false;
+  filterLastMessageByMe.value = false;
+  filterLastMessageByOther.value = false;
+  filterOnlyMyMessages.value = false;
 }
 
 /**
@@ -473,10 +484,14 @@ async function updateFilteredChats(): Promise<void> {
       // First, get chat metadata matches (exact matches will be prioritized in searchChats)
       const chatMetadataMatches = await chatStorage.searchChats({
         query: hasSearchQuery ? currentQuery : undefined,
-        folderId: selectedFolderId.value,
+        folderId: selectedFolderId.value === -1 ? null : selectedFolderId.value,
         unreadOnly: filterUnread.value,
         pinnedOnly: filterPinned.value,
         onlineOnly: filterOnline.value,
+        lastMessageByMe: filterLastMessageByMe.value,
+        lastMessageByOther: filterLastMessageByOther.value,
+        onlyMyMessages: filterOnlyMyMessages.value,
+        showArchives: showArchives.value,
       });
       
       // If we have a search query, also search in saved messages
@@ -490,10 +505,14 @@ async function updateFilteredChats(): Promise<void> {
         if (matchingGroupIds.size > 0) {
           // Get chats that match the message search, applying other filters
           const allChatsForMessages = await chatStorage.searchChats({
-            folderId: selectedFolderId.value,
+            folderId: selectedFolderId.value === -1 ? null : selectedFolderId.value,
             unreadOnly: filterUnread.value,
             pinnedOnly: filterPinned.value,
             onlineOnly: filterOnline.value,
+            lastMessageByMe: filterLastMessageByMe.value,
+            lastMessageByOther: filterLastMessageByOther.value,
+            onlyMyMessages: filterOnlyMyMessages.value,
+            showArchives: showArchives.value,
           });
           
           // Filter to only include chats with matching messages
@@ -531,7 +550,7 @@ async function updateFilteredChats(): Promise<void> {
 let searchDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // Watch for changes that require re-searching
-watch([searchQuery, selectedFolderId, filterUnread, filterPinned, filterOnline], async (newValues, oldValues) => {
+watch([searchQuery, selectedFolderId, showArchives, filterUnread, filterPinned, filterOnline, filterLastMessageByMe, filterLastMessageByOther, filterOnlyMyMessages], async (newValues, oldValues) => {
   // Clear previous timeout
   if (searchDebounceTimeout) {
     clearTimeout(searchDebounceTimeout);
@@ -626,6 +645,33 @@ async function fetchFolderChats(folderId: number): Promise<void> {
 }
 
 /**
+ * Sync archived chats from API and store in IndexedDB
+ * Updates UI progressively after each page
+ */
+async function fetchArchivesChats(): Promise<void> {
+  if (isRefreshing.value) return;
+  
+  isRefreshing.value = true;
+  error.value = null;
+
+  try {
+    // Pass callback to reload chats from storage after each page
+    await syncArchivesChats(async () => {
+      await loadChatsFromStorage();
+    });
+    // Final reload to ensure everything is up to date
+    await loadChatsFromStorage();
+    // Refresh counters to update the count immediately
+    await countersManager.refresh();
+  } catch (err) {
+    console.error('[ChatDialog] Failed to sync archived chats:', err);
+    await loadChatsFromStorage();
+  } finally {
+    isRefreshing.value = false;
+  }
+}
+
+/**
  * Sync all chats from API and store in IndexedDB
  * Syncs from messenger_latest and from each folder
  * Updates UI progressively after each page
@@ -694,16 +740,18 @@ async function syncMessagesForCurrentFolder(): Promise<void> {
     let chatsToSync: MessengerChatItem[] = [];
     
     // Determine which chats to sync based on selected folder
-    if (selectedFolderId.value === null) {
-      // All chats - get all chats from all folders and inbox
-      chatsToSync = await chatStorage.searchChats({});
+    if (showArchives.value) {
+      // Archives - get archived chats
+      chatsToSync = await chatStorage.searchChats({ showArchives: true });
+    } else if (selectedFolderId.value === null) {
+      // All chats - get all chats from all folders and inbox (excluding archives)
+      chatsToSync = await chatStorage.searchChats({ showArchives: false });
     } else if (selectedFolderId.value === 0) {
-      // Inbox - get chats with folder_id === 0 or null
-      const allChats = await chatStorage.getAllChats();
-      chatsToSync = allChats.filter(chat => (chat.folder_id || 0) === 0);
+      // Inbox - get chats with folder_id === 0 or null (excluding archives)
+      chatsToSync = await chatStorage.searchChats({ folderId: 0, showArchives: false });
     } else {
-      // Specific folder - get chats for that folder
-      chatsToSync = await chatStorage.searchChats({ folderId: selectedFolderId.value });
+      // Specific folder - get chats for that folder (excluding archives)
+      chatsToSync = await chatStorage.searchChats({ folderId: selectedFolderId.value, showArchives: false });
     }
     
     // Filter to only include chats that haven't been synced
@@ -1717,7 +1765,7 @@ let connectionCheckInterval: ReturnType<typeof setInterval> | null = null;
 let countersUnsubscribe: (() => void) | null = null;
 
 // Watch for folder selection changes to refetch in background
-watch(selectedFolderId, async (newFolderId, oldFolderId) => {
+watch([selectedFolderId, showArchives], async ([newFolderId, newShowArchives], [oldFolderId, oldShowArchives]) => {
   // Skip on initial load
   if (isInitialLoad.value) {
     return;
@@ -1729,7 +1777,11 @@ watch(selectedFolderId, async (newFolderId, oldFolderId) => {
   }
   
   // Refetch in background based on selection
-  if (newFolderId === null) {
+  if (newShowArchives) {
+    // Archives selected - refetch archived chats
+    console.log('[ChatDialog] Refetching archived chats in background...');
+    fetchArchivesChats().catch(console.error);
+  } else if (newFolderId === null) {
     // "All Chats" selected - refetch all chats
     console.log('[ChatDialog] Refetching all chats in background...');
     fetchAllChats().catch(console.error);
@@ -2329,10 +2381,10 @@ onUnmounted(() => {
           <div class="flex-1 overflow-y-auto">
             <!-- All Chats -->
             <button
-              @click="selectedFolderId = null"
+              @click="selectedFolderId = null; showArchives = false"
               :class="[
                 'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#1a1a1a] transition-colors',
-                selectedFolderId === null ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
+                selectedFolderId === null && !showArchives ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
               ]"
             >
               <div class="flex items-center gap-2">
@@ -2348,10 +2400,10 @@ onUnmounted(() => {
 
             <!-- Inbox (no folder) -->
             <button
-              @click="selectedFolderId = 0"
+              @click="selectedFolderId = 0; showArchives = false"
               :class="[
                 'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#1a1a1a] transition-colors',
-                selectedFolderId === 0 ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
+                selectedFolderId === 0 && !showArchives ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
               ]"
             >
               <div class="flex items-center gap-2">
@@ -2362,17 +2414,17 @@ onUnmounted(() => {
                 <span class="text-white text-sm">Inbox</span>
               </div>
               <span v-if="getInboxUnreadCount() > 0" class="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
-                {{ getInboxUnreadCount() > 99 ? '99+' : getInboxUnreadCount() }}
+                  {{ getInboxUnreadCount() > 99 ? '99+' : getInboxUnreadCount() }}
               </span>
             </button>
 
             <!-- Folder List -->
             <div v-for="folder in folders" :key="folder.id" class="border-t border-[#333]">
               <button
-                @click="selectedFolderId = folder.id"
+                @click="selectedFolderId = folder.id; showArchives = false"
                 :class="[
                   'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#1a1a1a] transition-colors',
-                  selectedFolderId === folder.id ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
+                  selectedFolderId === folder.id && !showArchives ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
                 ]"
               >
                 <div class="flex items-center gap-2 min-w-0 flex-1">
@@ -2386,6 +2438,26 @@ onUnmounted(() => {
                 </span>
               </button>
             </div>
+
+            <!-- Divider before Archives -->
+            <div class="border-t border-[#333] my-2"></div>
+
+            <!-- Archives -->
+            <button
+              @click="showArchives = true; selectedFolderId = -1"
+              :class="[
+                'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#1a1a1a] transition-colors',
+                showArchives ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
+              ]"
+            >
+              <div class="flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999]">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                  <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                <span class="text-white text-sm">Archives</span>
+              </div>
+            </button>
           </div>
         </div>
 
@@ -2460,6 +2532,38 @@ onUnmounted(() => {
                       />
                       <span class="text-white text-sm">Online only</span>
                     </label>
+                    
+                    <!-- Last Message Filters -->
+                    <div class="border-t border-[#333] mt-2 pt-2">
+                      <div class="px-3 py-1 text-xs text-[#666] uppercase tracking-wide mb-1">Last Message</div>
+                      
+                      <label class="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          v-model="filterLastMessageByMe"
+                          class="w-4 h-4 rounded border-[#444] bg-[#0f0f0f] text-blue-500 focus:ring-blue-500 focus:ring-2"
+                        />
+                        <span class="text-white text-sm">I sent last</span>
+                      </label>
+                      
+                      <label class="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          v-model="filterLastMessageByOther"
+                          class="w-4 h-4 rounded border-[#444] bg-[#0f0f0f] text-blue-500 focus:ring-blue-500 focus:ring-2"
+                        />
+                        <span class="text-white text-sm">Other sent last</span>
+                      </label>
+                      
+                      <label class="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          v-model="filterOnlyMyMessages"
+                          class="w-4 h-4 rounded border-[#444] bg-[#0f0f0f] text-blue-500 focus:ring-blue-500 focus:ring-2"
+                        />
+                        <span class="text-white text-sm">Only my messages</span>
+                      </label>
+                    </div>
                     
                     <!-- Clear Filters Button -->
                     <div v-if="hasActiveFilters" class="border-t border-[#333] mt-2 pt-2">

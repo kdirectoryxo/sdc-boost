@@ -201,6 +201,15 @@ export async function syncAllChats(onPageSynced?: () => void | Promise<void>): P
         }
     }
 
+    // Sync archives - uses incremental sync
+    try {
+        const archivesCount = await syncArchivesChats(onPageSynced);
+        totalSynced += archivesCount;
+    } catch (err) {
+        console.error('[Messenger API] Failed to sync archives:', err);
+        // Continue even if archives sync fails
+    }
+
     console.log(`[Messenger API] Synced ${totalSynced} total chats`);
     return totalSynced;
 }
@@ -364,6 +373,103 @@ export async function getMessengerChatDetails(
         console.error('[SDC API] Failed to fetch chat details:', error);
         throw error;
     }
+}
+
+/**
+ * Get messenger_archives data (archived chat list)
+ * @param page Page number (default: 0)
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Messenger chat list data for archives
+ */
+export async function getMessengerArchives(
+    page: number = 0,
+    muid?: string | null
+): Promise<MessengerLatestResponse> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot fetch messenger archives.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_archives');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('page', page.toString());
+    url.searchParams.set('search_member', ''); // Empty for now, client-side filtering
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Messenger Archives API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data as MessengerLatestResponse;
+    } catch (error) {
+        console.error('[SDC API] Failed to fetch messenger archives:', error);
+        throw error;
+    }
+}
+
+/**
+ * Sync archived chats from messenger_archives endpoint
+ * Uses incremental sync: first time fetches all pages, subsequent times only fetches new chats
+ * Upserts chats incrementally after each page for fast updates
+ * @param onPageSynced Optional callback called after each page is synced (for UI updates)
+ * @returns Total number of chats synced
+ */
+export async function syncArchivesChats(onPageSynced?: () => void | Promise<void>): Promise<number> {
+    console.log('[Messenger API] Syncing archived chats...');
+    
+    // Get last sync time for incremental sync
+    const lastSyncTime = await chatStorage.getArchivesLastSyncTime();
+    
+    if (lastSyncTime) {
+        console.log(`[Messenger API] Incremental sync for archives: last sync was at ${lastSyncTime}`);
+    } else {
+        console.log('[Messenger API] First-time sync for archives: fetching all pages');
+    }
+    
+    // Sync archives with incremental sync support
+    // Mark chats as archived when storing
+    const result = await chatStorage.syncChatsFromEndpoint(
+        (page) => getMessengerArchives(page),
+        async (chats, total) => {
+            console.log(`[Messenger API] Synced ${chats.length} archived chats (total: ${total})`);
+            // Mark chats as archived and upsert
+            await chatStorage.upsertChats(chats, true); // true = markAsArchived
+            // Trigger UI update after each page
+            if (onPageSynced) {
+                await onPageSynced();
+            }
+        },
+        lastSyncTime
+    );
+    
+    // Update last sync time
+    if (!lastSyncTime) {
+        const syncTimeToSave = result.mostRecentDateTime || new Date().toISOString();
+        await chatStorage.setLastSyncTime('archives', syncTimeToSave);
+        console.log(`[Messenger API] Set archives last sync time to ${syncTimeToSave}`);
+    } else if (result.mostRecentDateTime) {
+        const mostRecentTimestamp = new Date(result.mostRecentDateTime).getTime();
+        const lastSyncTimestamp = new Date(lastSyncTime).getTime();
+        if (mostRecentTimestamp >= lastSyncTimestamp) {
+            await chatStorage.setLastSyncTime('archives', result.mostRecentDateTime);
+            console.log(`[Messenger API] Updated archives last sync time to ${result.mostRecentDateTime}`);
+        }
+    }
+    
+    console.log(`[Messenger API] Synced ${result.totalSynced} archived chats`);
+    return result.totalSynced;
 }
 
 /**

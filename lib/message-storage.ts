@@ -243,6 +243,133 @@ class MessageStorage {
     }
 
     /**
+     * Get the last message for a specific chat/group efficiently
+     * Uses IndexedDB index to get only the last message without loading all messages
+     * @param groupId The group ID
+     * @returns The last message or null if no messages exist
+     */
+    async getLastMessage(groupId: number): Promise<MessengerMessage | null> {
+        const db = await this.getDB();
+        
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+            return null;
+        }
+
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const groupIndex = store.index('group_id');
+        
+        // Get all messages for this group_id
+        const groupMessages = await groupIndex.getAll(groupId);
+        
+        if (groupMessages.length === 0) {
+            return null;
+        }
+        
+        // Find the message with the highest date2 (most recent)
+        let lastMessage = groupMessages[0];
+        for (const msg of groupMessages) {
+            if (msg.date2 > lastMessage.date2) {
+                lastMessage = msg;
+            }
+        }
+        
+        // Remove internal fields
+        const { id, group_id, ...message } = lastMessage;
+        return message as MessengerMessage;
+    }
+
+    /**
+     * Check if a chat has only messages from the current user (sender === 0)
+     * Uses IndexedDB queries efficiently without loading all messages
+     * @param groupId The group ID
+     * @returns true if all messages are from sender 0, false otherwise
+     */
+    async hasOnlyMyMessages(groupId: number): Promise<boolean> {
+        const db = await this.getDB();
+        
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+            return false;
+        }
+
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const groupIndex = store.index('group_id');
+        
+        // Get all messages for this group_id
+        const groupMessages = await groupIndex.getAll(groupId);
+        
+        if (groupMessages.length === 0) {
+            return false; // No messages means it's not "only my messages"
+        }
+        
+        // Check if any message has sender !== 0
+        const hasOtherSender = groupMessages.some((msg: any) => msg.sender !== 0);
+        return !hasOtherSender;
+    }
+
+    /**
+     * Get last message sender info for multiple chats efficiently
+     * Uses IndexedDB queries to get only necessary data without loading all messages
+     * @param groupIds Array of group IDs to check
+     * @returns Map of groupId -> { lastMessageSender: 0 | 1 | null, hasOnlyMyMessages: boolean }
+     */
+    async getLastMessageInfoForChats(groupIds: number[]): Promise<Map<number, { lastMessageSender: 0 | 1 | null; hasOnlyMyMessages: boolean }>> {
+        const db = await this.getDB();
+        const result = new Map<number, { lastMessageSender: 0 | 1 | null; hasOnlyMyMessages: boolean }>();
+        
+        if (!db.objectStoreNames.contains(STORE_NAME) || groupIds.length === 0) {
+            // Initialize all with null
+            groupIds.forEach(id => result.set(id, { lastMessageSender: null, hasOnlyMyMessages: false }));
+            return result;
+        }
+
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const groupIndex = store.index('group_id');
+        
+        // Process each group efficiently
+        await Promise.all(
+            groupIds.map(async (groupId) => {
+                try {
+                    // Get messages for this group using index
+                    const messages = await groupIndex.getAll(groupId);
+                    
+                    if (messages.length === 0) {
+                        result.set(groupId, { lastMessageSender: null, hasOnlyMyMessages: false });
+                        return;
+                    }
+                    
+                    // Find last message (highest date2) - only need to track the last one
+                    let lastMessage = messages[0];
+                    let hasOtherSender = messages[0].sender !== 0;
+                    
+                    // Single pass through messages to find last and check for other senders
+                    for (let i = 1; i < messages.length; i++) {
+                        const msg = messages[i];
+                        if (msg.date2 > lastMessage.date2) {
+                            lastMessage = msg;
+                        }
+                        if (msg.sender !== 0) {
+                            hasOtherSender = true;
+                        }
+                    }
+                    
+                    result.set(groupId, {
+                        lastMessageSender: lastMessage.sender as 0 | 1,
+                        hasOnlyMyMessages: !hasOtherSender
+                    });
+                } catch (error) {
+                    console.error(`[MessageStorage] Error getting message info for group ${groupId}:`, error);
+                    result.set(groupId, { lastMessageSender: null, hasOnlyMyMessages: false });
+                }
+            })
+        );
+        
+        return result;
+    }
+
+    /**
      * Search messages across all chats and return group IDs that have matching messages
      * Uses IndexedDB queries for efficient searching
      * @param query Search query string

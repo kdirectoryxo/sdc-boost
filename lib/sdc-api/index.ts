@@ -43,7 +43,8 @@ export {
     deleteMessage,
     syncAllChats,
     syncInboxChats,
-    syncFolderChats
+    syncFolderChats,
+    syncArchivesChats
 } from './messenger';
 
 // Re-export counters functions
