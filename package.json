@@ -21,6 +21,7 @@
     "release:major": "git pull --rebase && bumpp --major --no-push && conventional-changelog -p angular -i CHANGELOG.md -s -r 0 && git add CHANGELOG.md && git commit --amend --no-edit && git push --follow-tags"
   },
   "dependencies": {
+    "@vueuse/core": "^14.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "idb": "^8.0.3",
