@@ -5,7 +5,7 @@ if [ -z "$(git diff --name-only | grep -v '^package.json$\|^package-lock.json$')
   git restore package.json package-lock.json 2>/dev/null || true
 fi
 git pull --rebase
-bumpp --major --no-push --yes
+bunx bumpp --major --no-push --yes
 VERSION=$(node -p "require('./package.json').version")
 bunx conventional-changelog -p angular -i CHANGELOG.md -s -r 0
 git add CHANGELOG.md package.json

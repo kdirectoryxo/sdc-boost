@@ -11,7 +11,7 @@ fi
 git pull --rebase
 
 # Run bumpp (non-interactive)
-bumpp --no-push --yes
+bunx bumpp --no-push --yes
 
 # Get the new version
 VERSION=$(node -p "require('./package.json').version")
