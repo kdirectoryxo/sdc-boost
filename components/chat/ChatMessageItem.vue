@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import Dropdown from '@/components/ui/Dropdown.vue';
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
-import { parseImageMessage, getImageUrl, highlightText, formatMessageDate, isOwnMessage } from '@/lib/composables/chat/utils';
+import { parseImageMessage, parseGalleryMessage, getImageUrl, getImageDbId, highlightText, formatMessageDate, isOwnMessage } from '@/lib/composables/chat/utils';
 
 interface Props {
   message: MessengerMessage;
@@ -23,9 +23,16 @@ const emit = defineEmits<{
   'delete-message': [message: MessengerMessage];
   'scroll-to-quoted': [message: MessengerMessage];
   'open-lightbox': [message: MessengerMessage, imageIndex: number, event?: Event];
+  'open-gallery': [message: MessengerMessage];
 }>();
 
 const parsedMessage = computed(() => parseImageMessage(props.message.message));
+const galleryMessage = computed(() => parseGalleryMessage(props.message.message));
+const imageDbId = computed(() => getImageDbId(props.message));
+
+function handleOpenGallery() {
+  emit('open-gallery', props.message);
+}
 
 function handleDropdownToggle(open: boolean) {
   emit('update:open-dropdown-message-id', open ? props.message.message_id : null);
@@ -112,14 +119,29 @@ const messageId = computed(() => {
             : 'bg-[#2a2a2a] text-white'
         ]"
       >
+        <!-- Gallery Message -->
+        <template v-if="galleryMessage">
+          <div
+            @click.stop="handleOpenGallery"
+            class="flex flex-col items-center justify-center cursor-pointer hover:opacity-90 transition-opacity p-4 gap-3"
+          >
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <div class="font-semibold text-sm text-center">{{ galleryMessage.galleryName }}</div>
+          </div>
+        </template>
         <!-- Image Message -->
-        <template v-if="parsedMessage.imageIds.length > 0">
+        <template v-else-if="parsedMessage.imageIds.length > 0">
           <div class="space-y-2">
             <div class="grid gap-2" :class="parsedMessage.imageIds.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
               <img
                 v-for="(imageId, idx) in parsedMessage.imageIds"
                 :key="idx"
-                :src="getImageUrl(imageId, message.db_id)"
+                :src="getImageUrl(imageId, imageDbId || undefined)"
                 :alt="`Image ${idx + 1}`"
                 class="max-w-full max-h-[400px] rounded object-cover cursor-pointer hover:opacity-90 transition-opacity"
                 @error="(e) => { (e.target as HTMLImageElement).style.display = 'none'; }"

@@ -1,27 +1,79 @@
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
+import { getCurrentDBId } from '@/lib/sdc-api/utils';
 
 /**
  * Parse message to extract image IDs and text
  * Format: [6|{image_id1,image_id2}-|-{text}] or [6|{image_id}-|-{text}]
+ * The closing bracket is optional - some messages don't have it
  * Returns { imageIds: string[], text: string }
  */
 export function parseImageMessage(message: string): { imageIds: string[]; text: string } {
-  // Match format: [6|{image_id(s)}-|-{text}]
-  // Use non-greedy match to avoid capturing the closing bracket
-  const match = message.match(/^\[6\|([^-]+)-\|-(.*?)\]$/);
+  // Match format: [6|{image_id(s)}-|-{text}] or [6|{image_id(s)}-|- (without closing bracket)
+  // Match everything after -|- to end of string (or closing bracket)
+  const match = message.match(/^\[6\|([^-]+)-\|-(.*)$/);
   if (match) {
     const imageIdString = match[1];
     // Split by comma to get multiple image IDs
     const imageIds = imageIdString.split(',').map(id => id.trim()).filter(id => id.length > 0);
+    // Get text part - remove trailing closing bracket if present
+    let text = match[2] || '';
+    if (text.endsWith(']')) {
+      text = text.slice(0, -1);
+    }
     return {
       imageIds,
-      text: match[2] || ''
+      text: text.trim()
     };
   }
   return {
     imageIds: [],
     text: message
   };
+}
+
+/**
+ * Parse gallery message to extract gallery ID and name
+ * Format: [7|{"id":"...","name":"..."}] or [7]{"id":"...","name":"..."}
+ * Returns { galleryId: string, galleryName: string } or null if not a gallery message
+ */
+export function parseGalleryMessage(message: string): { galleryId: string; galleryName: string } | null {
+  // Match format: [7|{"id":"...","name":"..."}] or [7]{"id":"...","name":"..."}
+  // The message starts with [7] or [7| followed by JSON (which may or may not have closing bracket)
+  const match = message.match(/^\[7\]?\|?(.+)$/);
+  if (match) {
+    try {
+      let jsonStr = match[1];
+      // Remove trailing closing bracket if present
+      jsonStr = jsonStr.replace(/\]$/, '');
+      const galleryData = JSON.parse(jsonStr);
+      if (galleryData.id && galleryData.name) {
+        return {
+          galleryId: galleryData.id,
+          galleryName: galleryData.name
+        };
+      }
+    } catch (error) {
+      console.warn('[parseGalleryMessage] Failed to parse gallery JSON:', error);
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Get the correct DB ID for image URLs based on message sender
+ * For own messages (sender: 0), use current user's db_id
+ * For other messages (sender: 1), use message.db_id (other party's db_id)
+ */
+export function getImageDbId(message: MessengerMessage): number | null {
+  if (isOwnMessage(message)) {
+    // For own messages, use current user's db_id
+    const currentDbId = getCurrentDBId();
+    return currentDbId ? parseInt(currentDbId) : null;
+  } else {
+    // For other messages, use message.db_id (other party's db_id)
+    return message.db_id || null;
+  }
 }
 
 /**

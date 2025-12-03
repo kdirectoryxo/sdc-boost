@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
+import { parseGalleryMessage } from '@/lib/composables/chat/utils';
 
 interface Props {
   chat: MessengerChatItem;
@@ -37,9 +38,17 @@ const displayMessage = computed(() => {
     return props.chat.subject || '';
   }
   
-  // Check if it's an image message
-  if (props.chat.last_message && props.chat.last_message.startsWith('[') && props.chat.last_message.includes('|')) {
-    return '📷 Image';
+  // Check if it's a gallery message
+  if (props.chat.last_message) {
+    const galleryData = parseGalleryMessage(props.chat.last_message);
+    if (galleryData) {
+      return `🖼️ ${galleryData.galleryName}`;
+    }
+    
+    // Check if it's an image message (type 6)
+    if (props.chat.last_message.startsWith('[6|') && props.chat.last_message.includes('|')) {
+      return '📷 Image';
+    }
   }
   
   return props.chat.last_message || '';

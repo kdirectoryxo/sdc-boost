@@ -1,7 +1,7 @@
 import { ref } from 'vue';
 import { createGlobalState } from '@vueuse/core';
 import type { MessengerMessage } from '@/lib/sdc-api-types';
-import { parseImageMessage, getImageUrl } from './utils';
+import { parseImageMessage, parseGalleryMessage, getImageUrl, getImageDbId } from './utils';
 import { useChatMessages } from './useChatMessages';
 
 export const useChatUI = createGlobalState(() => {
@@ -15,6 +15,13 @@ export const useChatUI = createGlobalState(() => {
   const lightboxIndex = ref<number>(0);
   const lightboxImages = ref<string[]>([]);
   
+  // Gallery modal state
+  const galleryModalVisible = ref<boolean>(false);
+  const galleryName = ref<string>('');
+  const galleryId = ref<string>('');
+  const galleryDbId = ref<number>(0);
+  const galleryPhotos = ref<string[]>([]);
+  
   /**
    * Collect all images from all messages for lightbox
    */
@@ -24,8 +31,9 @@ export const useChatUI = createGlobalState(() => {
     messages.value.forEach(message => {
       const parsed = parseImageMessage(message.message);
       if (parsed.imageIds.length > 0) {
+        const dbId = getImageDbId(message);
         parsed.imageIds.forEach((imageId) => {
-          allImages.push(getImageUrl(imageId, message.db_id));
+          allImages.push(getImageUrl(imageId, dbId || undefined));
         });
       }
     });
@@ -35,11 +43,29 @@ export const useChatUI = createGlobalState(() => {
   
   /**
    * Open lightbox for a specific image
+   * @param message The message containing the image (or null if using custom images)
+   * @param imageIndex The index of the image within the message (or within custom images array)
+   * @param event Optional event to prevent default behavior
+   * @param images Optional array of image URLs to use instead of collecting from messages
    */
-  function openLightbox(message: MessengerMessage, imageIndex: number, event?: Event): void {
+  function openLightbox(message: MessengerMessage | null, imageIndex: number, event?: Event, images?: string[]): void {
     if (event) {
       event.stopPropagation();
       event.preventDefault();
+    }
+    
+    // If custom images provided (e.g., from gallery), use those
+    if (images && images.length > 0) {
+      lightboxImages.value = images;
+      lightboxIndex.value = imageIndex;
+      lightboxVisible.value = true;
+      return;
+    }
+    
+    // Otherwise, use message-based logic
+    if (!message) {
+      console.warn('[useChatUI] No message provided and no custom images');
+      return;
     }
     
     const parsed = parseImageMessage(message.message);
@@ -80,6 +106,41 @@ export const useChatUI = createGlobalState(() => {
   }
   
   /**
+   * Open gallery modal for a gallery message
+   */
+  function openGalleryModal(message: MessengerMessage): void {
+    const galleryData = parseGalleryMessage(message.message);
+    if (!galleryData) {
+      console.warn('[useChatUI] Not a gallery message');
+      return;
+    }
+    
+    galleryName.value = galleryData.galleryName;
+    galleryId.value = galleryData.galleryId;
+    galleryDbId.value = message.db_id;
+    galleryModalVisible.value = true;
+  }
+  
+  /**
+   * Close gallery modal
+   */
+  function closeGalleryModal(): void {
+    galleryModalVisible.value = false;
+    galleryName.value = '';
+    galleryId.value = '';
+    galleryDbId.value = 0;
+    galleryPhotos.value = [];
+  }
+  
+  /**
+   * Open lightbox from gallery modal
+   */
+  function openLightboxFromGallery(photos: string[], imageIndex: number): void {
+    galleryPhotos.value = photos;
+    openLightbox(null, imageIndex, undefined, photos);
+  }
+  
+  /**
    * Handle click outside to close message dropdowns
    */
   function handleClickOutside(event: MouseEvent): void {
@@ -95,6 +156,14 @@ export const useChatUI = createGlobalState(() => {
     lightboxImages,
     openLightbox,
     handleClickOutside,
+    galleryModalVisible,
+    galleryName,
+    galleryId,
+    galleryDbId,
+    galleryPhotos,
+    openGalleryModal,
+    closeGalleryModal,
+    openLightboxFromGallery,
   };
 });
 

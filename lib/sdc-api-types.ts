@@ -437,3 +437,27 @@ export interface MessengerChatDetailsResponse {
     info: MessengerChatDetailsInfo;
 }
 
+/**
+ * Gallery Photo Types
+ */
+export interface GalleryPhoto {
+    id: string;
+    photoname: string;
+    filename: string;
+    thumbnail: string | null;
+    order: string;
+    approved: boolean;
+    timed: string;
+    type: string;
+}
+
+export interface GalleryPhotosInfo {
+    code: number;
+    data?: GalleryPhoto[];
+    message?: string; // Error message (e.g., "Invalid password")
+}
+
+export interface GalleryPhotosResponse {
+    info: GalleryPhotosInfo;
+}
+

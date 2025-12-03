@@ -209,3 +209,56 @@ export async function setFilterByActive(filter: boolean): Promise<void> {
     }
 }
 
+/**
+ * Storage item for gallery passwords
+ * Key format: `${galleryId}_${dbId}`
+ */
+export const galleryPasswords = storage.defineItem<Record<string, string>>(
+    'local:sdc-boost-gallery-passwords',
+    {
+        fallback: {},
+    }
+);
+
+/**
+ * Get stored password for a gallery
+ */
+export async function getGalleryPassword(galleryId: string, dbId: string): Promise<string | null> {
+    try {
+        const passwords = await galleryPasswords.getValue();
+        const key = `${galleryId}_${dbId}`;
+        return passwords[key] || null;
+    } catch (error) {
+        console.error('SDC Boost: Error getting gallery password', error);
+        return null;
+    }
+}
+
+/**
+ * Set password for a gallery
+ */
+export async function setGalleryPassword(galleryId: string, dbId: string, password: string): Promise<void> {
+    try {
+        const passwords = await galleryPasswords.getValue();
+        const key = `${galleryId}_${dbId}`;
+        passwords[key] = password;
+        await galleryPasswords.setValue(passwords);
+    } catch (error) {
+        console.error('SDC Boost: Error setting gallery password', error);
+    }
+}
+
+/**
+ * Clear password for a gallery
+ */
+export async function clearGalleryPassword(galleryId: string, dbId: string): Promise<void> {
+    try {
+        const passwords = await galleryPasswords.getValue();
+        const key = `${galleryId}_${dbId}`;
+        delete passwords[key];
+        await galleryPasswords.setValue(passwords);
+    } catch (error) {
+        console.error('SDC Boost: Error clearing gallery password', error);
+    }
+}
+

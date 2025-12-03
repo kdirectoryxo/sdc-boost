@@ -18,6 +18,7 @@ import ChatFoldersSidebar from '@/components/chat/ChatFoldersSidebar.vue';
 import ChatListSidebar from '@/components/chat/ChatListSidebar.vue';
 import ChatMessagesArea from '@/components/chat/ChatMessagesArea.vue';
 import ChatMessageInput from '@/components/chat/ChatMessageInput.vue';
+import GalleryModal from '@/components/chat/GalleryModal.vue';
 
 interface Props {
   modelValue: boolean;
@@ -115,6 +116,13 @@ const {
   lightboxIndex,
   lightboxImages,
   openLightbox,
+  galleryModalVisible,
+  galleryName,
+  galleryId,
+  galleryDbId,
+  openGalleryModal,
+  closeGalleryModal,
+  openLightboxFromGallery,
 } = useChatUI();
 
 const {
@@ -173,6 +181,10 @@ async function handleSendMessageWrapper() {
   } catch (err) {
     error.value = 'Failed to send message';
   }
+}
+
+function handleOpenGallery(message: typeof messages.value[0]) {
+  openGalleryModal(message);
 }
 </script>
 
@@ -265,6 +277,7 @@ async function handleSendMessageWrapper() {
             @delete-message="handleDeleteMessageWrapper"
             @scroll-to-quoted="scrollToQuotedMessage"
             @open-lightbox="openLightbox"
+            @open-gallery="handleOpenGallery"
           >
             <template #message-search>
               <div class="flex items-center gap-2 shrink-0">
@@ -355,5 +368,15 @@ async function handleSendMessageWrapper() {
     :mask-closable="true"
     :scroll-disabled="true"
     @hide="lightboxVisible = false"
+  />
+  
+  <!-- Gallery Modal -->
+  <GalleryModal
+    :visible="galleryModalVisible"
+    :gallery-name="galleryName"
+    :gallery-id="galleryId"
+    :db-id="galleryDbId"
+    @close="closeGalleryModal"
+    @open-lightbox="openLightboxFromGallery"
   />
 </template>

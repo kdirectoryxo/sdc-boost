@@ -28,6 +28,7 @@ const emit = defineEmits<{
   'delete-message': [message: MessengerMessage];
   'scroll-to-quoted': [message: MessengerMessage];
   'open-lightbox': [message: MessengerMessage, imageIndex: number, event?: Event];
+  'open-gallery': [message: MessengerMessage];
 }>();
 
 const messagesContainer = ref<HTMLElement | null>(null);
@@ -148,6 +149,7 @@ function handleContainerClick() {
           @delete-message="(message: MessengerMessage) => emit('delete-message', message)"
           @scroll-to-quoted="(message: MessengerMessage) => emit('scroll-to-quoted', message)"
           @open-lightbox="(message: MessengerMessage, imageIndex: number, event?: Event) => emit('open-lightbox', message, imageIndex, event)"
+          @open-gallery="(message: MessengerMessage) => emit('open-gallery', message)"
         />
       </div>
 

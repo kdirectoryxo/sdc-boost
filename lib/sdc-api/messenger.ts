@@ -2,7 +2,7 @@
  * SDC API Messenger Functions
  * Functions for fetching and working with messenger/chat data
  */
-import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse } from '../sdc-api-types';
+import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse, GalleryPhotosResponse } from '../sdc-api-types';
 import { getCurrentMuid } from './utils';
 import { chatStorage } from '../chat-storage';
 import { folderStorage } from '../folder-storage';
@@ -539,6 +539,67 @@ export async function deleteMessage(
         return data;
     } catch (error) {
         console.error('[SDC API] Failed to delete message:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get gallery photos for a specific gallery ID
+ * @param galleryId The gallery ID from the message
+ * @param dbId The DB ID of the user who owns the gallery
+ * @param password Optional password for password-protected galleries
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Gallery photos response
+ */
+export async function getGalleryPhotos(
+    galleryId: string,
+    dbId: string,
+    password?: string,
+    muid?: string | null
+): Promise<GalleryPhotosResponse> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot fetch gallery photos.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/photo_album_pics');
+    url.searchParams.set('muid', dbId); // Use dbId as muid parameter
+
+    // Create form data
+    const formData = new FormData();
+    formData.append('id', galleryId);
+    formData.append('pass', password || '');
+    formData.append('step', '1');
+    formData.append('client_token', '0');
+    formData.append('dbid', dbId);
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
+            },
+            credentials: 'include', // Include cookies for authentication
+            body: formData,
+        });
+
+        const data = await response.json();
+        
+        // Check if response indicates password required (403 with Invalid password message)
+        if (response.status === 403 || (data.info && data.info.code === 403 && data.info.message === 'Invalid password')) {
+            return data as GalleryPhotosResponse; // Return the error response so caller can handle it
+        }
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Gallery Photos API request failed: ${response.status} - ${errorText}`);
+        }
+
+        return data as GalleryPhotosResponse;
+    } catch (error) {
+        console.error('[SDC API] Failed to fetch gallery photos:', error);
         throw error;
     }
 }

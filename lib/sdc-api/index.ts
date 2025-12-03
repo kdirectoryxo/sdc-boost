@@ -21,7 +21,9 @@ export type {
     MessengerTemplate,
     MessengerChatDetailsResponse,
     MessengerChatDetailsInfo,
-    MessengerMessage
+    MessengerMessage,
+    GalleryPhoto,
+    GalleryPhotosResponse
 } from '../sdc-api-types';
 
 // Re-export utility functions
@@ -44,7 +46,8 @@ export {
     syncAllChats,
     syncInboxChats,
     syncFolderChats,
-    syncArchivesChats
+    syncArchivesChats,
+    getGalleryPhotos
 } from './messenger';
 
 // Re-export counters functions
