@@ -1,11 +1,7 @@
 <script lang="ts" setup>
-import { onMounted, onUnmounted, watch, nextTick, ref } from 'vue';
+import { ref, watch, toRef } from 'vue';
 import VueEasyLightbox from 'vue-easy-lightbox';
 import 'vue-easy-lightbox/dist/external-css/vue-easy-lightbox.css';
-import { sendSeenEvent } from '@/lib/chat-service';
-import { countersManager } from '@/lib/counters-manager';
-import { chatStorage } from '@/lib/chat-storage';
-import { getChatKey } from '@/lib/composables/chat/utils';
 import { useChatState } from '@/lib/composables/chat/useChatState';
 import { useChatFolders } from '@/lib/composables/chat/useChatFolders';
 import { useChatFilters } from '@/lib/composables/chat/useChatFilters';
@@ -14,6 +10,9 @@ import { useChatInput } from '@/lib/composables/chat/useChatInput';
 import { useChatUI } from '@/lib/composables/chat/useChatUI';
 import { useChatWebSocket } from '@/lib/composables/chat/useChatWebSocket';
 import { useChatSync } from '@/lib/composables/chat/useChatSync';
+import { useChatSelection } from '@/lib/composables/chat/useChatSelection';
+import { useChatDialogLifecycle } from '@/lib/composables/chat/useChatDialogLifecycle';
+import { openProfileInNewTab } from '@/lib/composables/chat/utils';
 import ChatDialogHeader from '@/components/chat/ChatDialogHeader.vue';
 import ChatFoldersSidebar from '@/components/chat/ChatFoldersSidebar.vue';
 import ChatListSidebar from '@/components/chat/ChatListSidebar.vue';
@@ -32,29 +31,19 @@ const emit = defineEmits<{
 
 // Use composables
 const {
-  chatList,
   folders,
   selectedChat,
   selectedFolderId,
   showArchives,
-  urlSearchParams,
-  updateURLSearchParams,
-  updateChatInURL,
-  getChatIdFromURL,
-  findChatByGroupId,
 } = useChatState();
 
 const {
-  folderUnreadCounts,
-  inboxUnreadCount,
-  totalUnreadCount,
-  fetchFolders,
-  loadFoldersFromStorage,
-  refreshFolderCounts,
   getFolderName,
   getFolderUnreadCount,
   getInboxUnreadCount,
   getTotalUnreadCount,
+  handleSelectFolder,
+  handleSelectArchives,
 } = useChatFolders();
 
 const {
@@ -68,10 +57,8 @@ const {
   filterBlocked,
   isFilterDropdownOpen,
   filteredChats,
-  isLoadingFilteredChats,
   hasActiveFilters,
   activeFilterCount,
-  updateFilteredChats,
   clearAllFilters,
   clearChatSearch,
 } = useChatFilters();
@@ -87,12 +74,10 @@ const {
   messageSearchQuery,
   messageSearchResults,
   currentSearchIndex,
-  messageSearchQueryComputed,
   isSearchActive,
   filteredMessages,
-  handleLoadMessages,
-  handleDeleteMessage,
-  handleCopyMessage,
+  handleDeleteMessageWithError,
+  handleCopyMessageWithClose,
   scrollToQuotedMessage,
   navigateToNextResult,
   navigateToPreviousResult,
@@ -135,251 +120,46 @@ const {
 const {
   isWebSocketConnected,
   typingStates,
-  messengerCounter,
-  setupEventListeners,
-  cleanupEventListeners,
 } = useChatWebSocket();
 
 const {
   isLoading,
   error,
-  isRefreshing,
   isSyncingMessages,
-  isInitialLoad,
-  loadChatsFromStorage,
-  fetchAllChats,
   syncMessagesForCurrentFolder,
 } = useChatSync();
 
-/**
- * Open user profile in new tab
- */
-function openProfileInNewTab(userId: number): void {
-  const profileUrl = `https://www.sdc.com/react/#/profile?idUser=${userId}`;
-  window.open(profileUrl, '_blank', 'noopener,noreferrer');
-}
+const { handleChatClick } = useChatSelection();
 
-/**
- * Handle chat click
- */
-async function handleChatClick(chat: typeof selectedChat.value): Promise<void> {
-  if (!chat) return;
-  
-  messages.value = [];
-  messageError.value = null;
-  isLoadingMessages.value = false;
-  isSyncing.value = false;
-  typingManager.reset();
-  
-  // If there's a chat search query, use it to highlight messages
-  const currentSearchQuery = searchQuery.value.trim();
-  if (currentSearchQuery) {
-    messageSearchQuery.value = currentSearchQuery;
-    console.log(`[ChatDialog] Setting message search query to: "${currentSearchQuery}"`);
-  } else {
-    clearSearch();
+// Initialize dialog lifecycle (handles mounting, URL watching, etc.)
+useChatDialogLifecycle(
+  toRef(props, 'modelValue'),
+  () => {
+    typingManager.stopTyping();
+    emit('update:modelValue', false);
+    emit('close');
   }
-  
-  // Optimistically set unread counter to 0 when opening a chat
-  let chatToUse = chat;
-  if (chat.unread_counter && chat.unread_counter > 0) {
-    const updatedChat = {
-      ...chat,
-      unread_counter: 0
-    };
-    
-    const chatIndex = chatList.value.findIndex(c => getChatKey(c) === getChatKey(chat));
-    if (chatIndex !== -1) {
-      chatList.value[chatIndex] = updatedChat;
-    }
-    
-    chatToUse = updatedChat;
-    
-    await chatStorage.updateChat(updatedChat);
-    await refreshFolderCounts();
-    
-    console.log(`[ChatDialog] Optimistically set unread counter for chat ${chat.group_id} from ${chat.unread_counter} to 0`);
-  }
-  
-  selectedChat.value = chatToUse;
-  updateChatInURL(chatToUse);
-  
-  await handleLoadMessages(chatToUse);
-  
-  await nextTick();
-  if (messagesContainer.value) {
-    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-  }
-  
-  sendSeenEvent(chatToUse);
-  
-  setTimeout(async () => {
-    await countersManager.refresh();
-    console.log('[ChatDialog] Refreshed counters after opening chat');
-  }, 2000);
-}
+);
 
 function handleClose() {
   typingManager.stopTyping();
-  updateChatInURL(null);
   emit('update:modelValue', false);
   emit('close');
 }
 
-// Watch for URL changes to update selected chat
-watch(urlSearchParams, async () => {
-  if (props.modelValue && chatList.value.length > 0) {
-    const chatIdFromURL = getChatIdFromURL();
-    const currentChatId = selectedChat.value ? String(selectedChat.value.group_id) : null;
-    
-    if (chatIdFromURL !== currentChatId) {
-      if (chatIdFromURL) {
-        const chat = findChatByGroupId(chatIdFromURL);
-        if (chat) {
-          await nextTick();
-          await handleChatClick(chat);
-        }
-      } else if (selectedChat.value) {
-        selectedChat.value = null;
-        messages.value = [];
-      }
-    }
-  }
-}, { immediate: false });
-
-// Watch for modelValue changes to fetch data when dialog opens
-watch(() => props.modelValue, async (newValue) => {
-  if (newValue) {
-    isInitialLoad.value = true;
-    
-    const chatIdFromURL = getChatIdFromURL();
-    
-    await loadChatsFromStorage();
-    await loadFoldersFromStorage();
-    await updateFilteredChats();
-    await fetchFolders();
-    await fetchAllChats();
-    
-    isInitialLoad.value = false;
-    
-    setupEventListeners();
-    
-    if (chatIdFromURL) {
-      const chat = findChatByGroupId(chatIdFromURL);
-      if (chat) {
-        await nextTick();
-        
-        let chatToUse = chat;
-        if (chat.unread_counter && chat.unread_counter > 0) {
-          const updatedChat = {
-            ...chat,
-            unread_counter: 0
-          };
-          
-          const chatIndex = chatList.value.findIndex(c => getChatKey(c) === getChatKey(chat));
-          if (chatIndex !== -1) {
-            chatList.value[chatIndex] = updatedChat;
-          }
-          
-          chatToUse = updatedChat;
-          
-          await chatStorage.updateChat(updatedChat);
-          await countersManager.recalculateMessengerCounter();
-          await refreshFolderCounts();
-          
-          console.log(`[ChatDialog] Optimistically set unread counter for chat ${chat.group_id} from ${chat.unread_counter} to 0`);
-        }
-        
-        selectedChat.value = chatToUse;
-        messages.value = [];
-        isLoadingMessages.value = false;
-        isSyncing.value = false;
-        typingManager.reset();
-        clearSearch();
-        await handleLoadMessages(chatToUse);
-        await nextTick();
-        if (messagesContainer.value) {
-          messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-        }
-        sendSeenEvent(chatToUse);
-        updateChatInURL(chatToUse);
-        
-        setTimeout(async () => {
-          await countersManager.refresh();
-          console.log('[ChatDialog] Refreshed counters after opening chat');
-        }, 2000);
-      }
-    }
-  } else {
-    cleanupEventListeners();
-    isInitialLoad.value = true;
-  }
-}, { immediate: true });
-
-onMounted(async () => {
-  // Inject lightbox z-index override styles dynamically
-  const styleId = 'sdc-lightbox-z-index-override';
-  if (!document.getElementById(styleId)) {
-    const style = document.createElement('style');
-    style.id = styleId;
-    style.textContent = `
-      body .vel-modal {
-        z-index: 10000000 !important;
-        pointer-events: auto !important;
-      }
-      body .vel-modal-mask {
-        pointer-events: auto !important;
-        z-index: 10000000 !important;
-      }
-      body .v-popper__popper {
-        z-index: 10000000 !important;
-      }
-      body .v-popper__inner {
-        z-index: 10000000 !important;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  window.addEventListener('popstate', updateURLSearchParams);
-  
-  if (props.modelValue) {
-    isInitialLoad.value = true;
-    
-    await loadChatsFromStorage();
-    await loadFoldersFromStorage();
-    await fetchFolders();
-    await fetchAllChats();
-    
-    isInitialLoad.value = false;
-    
-    setupEventListeners();
-  }
-  
-  document.addEventListener('click', () => {
-    // Click outside handler is handled by Dropdown component
-  });
-});
-
-onUnmounted(() => {
-  cleanupEventListeners();
-  document.removeEventListener('click', () => {});
-  window.removeEventListener('popstate', updateURLSearchParams);
-});
-
-// Handle message operations
+// Handle message operations with error handling and dropdown closing
 async function handleDeleteMessageWrapper(message: typeof messages.value[0]) {
-  try {
-    await handleDeleteMessage(message);
+  await handleDeleteMessageWithError(message, () => {
     openDropdownMessageId.value = null;
-  } catch (err) {
+  }).catch(() => {
     error.value = 'Failed to delete message';
-  }
+  });
 }
 
 function handleCopyMessageWrapper(message: typeof messages.value[0]) {
-  handleCopyMessage(message);
-  openDropdownMessageId.value = null;
+  handleCopyMessageWithClose(message, () => {
+    openDropdownMessageId.value = null;
+  });
 }
 
 function handleQuoteMessageWrapper(message: typeof messages.value[0]) {
@@ -393,16 +173,6 @@ async function handleSendMessageWrapper() {
   } catch (err) {
     error.value = 'Failed to send message';
   }
-}
-
-function handleSelectFolder(folderId: number | null) {
-  selectedFolderId.value = folderId;
-  showArchives.value = false;
-}
-
-function handleSelectArchives() {
-  showArchives.value = true;
-  selectedFolderId.value = -1;
 }
 </script>
 

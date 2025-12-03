@@ -1,4 +1,5 @@
 import { ref, computed, watch, nextTick } from 'vue';
+import { createGlobalState } from '@vueuse/core';
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
 import { loadMessages, refreshLatestPage } from '@/lib/message-service';
 import { deleteMessage } from '@/lib/sdc-api';
@@ -8,7 +9,7 @@ import { useChatState } from './useChatState';
 import { useChatFilters } from './useChatFilters';
 import { highlightText } from './utils';
 
-export function useChatMessages() {
+export const useChatMessages = createGlobalState(() => {
   const { selectedChat, chatList } = useChatState();
   const { searchQuery, updateFilteredChats } = useChatFilters();
   
@@ -480,6 +481,28 @@ export function useChatMessages() {
     }
   });
   
+  /**
+   * Wrapper for delete message with error handling
+   */
+  async function handleDeleteMessageWithError(message: MessengerMessage, onSuccess?: () => void): Promise<void> {
+    try {
+      await handleDeleteMessage(message);
+      onSuccess?.();
+    } catch (err) {
+      console.error('[useChatMessages] Failed to delete message:', err);
+      // Error handling is done in handleDeleteMessage, but we can add additional handling here if needed
+      throw err;
+    }
+  }
+
+  /**
+   * Wrapper for copy message (already handles errors internally)
+   */
+  function handleCopyMessageWithClose(message: MessengerMessage, onSuccess?: () => void): void {
+    handleCopyMessage(message);
+    onSuccess?.();
+  }
+
   return {
     messages,
     isLoadingMessages,
@@ -497,6 +520,8 @@ export function useChatMessages() {
     handleLoadMessages,
     handleDeleteMessage,
     handleCopyMessage,
+    handleDeleteMessageWithError,
+    handleCopyMessageWithClose,
     scrollToQuotedMessage,
     navigateToNextResult,
     navigateToPreviousResult,
@@ -504,5 +529,5 @@ export function useChatMessages() {
     handleSearchKeydown,
     scrollToCurrentResult,
   };
-}
+});
 

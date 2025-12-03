@@ -6,7 +6,7 @@ import { chatStorage } from '@/lib/chat-storage';
 import { useChatState } from './useChatState';
 
 export function useChatFolders() {
-  const { folders } = useChatState();
+  const { folders, selectedFolderId, showArchives } = useChatState();
   
   // Folder unread counts - calculated from IndexedDB
   const folderUnreadCounts = ref<Map<number, number>>(new Map()); // Map of folderId -> unread count
@@ -120,6 +120,22 @@ export function useChatFolders() {
   function getTotalUnreadCount(): number {
     return totalUnreadCount.value;
   }
+
+  /**
+   * Handle folder selection
+   */
+  function handleSelectFolder(folderId: number | null) {
+    selectedFolderId.value = folderId;
+    showArchives.value = false;
+  }
+
+  /**
+   * Handle archives selection
+   */
+  function handleSelectArchives() {
+    showArchives.value = true;
+    selectedFolderId.value = -1;
+  }
   
   return {
     folders,
@@ -133,6 +149,8 @@ export function useChatFolders() {
     getFolderUnreadCount,
     getInboxUnreadCount,
     getTotalUnreadCount,
+    handleSelectFolder,
+    handleSelectArchives,
   };
 }
 

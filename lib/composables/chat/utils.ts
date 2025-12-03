@@ -126,3 +126,11 @@ export function sortChats(chats: MessengerChatItem[]): MessengerChatItem[] {
   });
 }
 
+/**
+ * Open user profile in new tab
+ */
+export function openProfileInNewTab(userId: number): void {
+  const profileUrl = `https://www.sdc.com/react/#/profile?idUser=${userId}`;
+  window.open(profileUrl, '_blank', 'noopener,noreferrer');
+}
+
