@@ -25,7 +25,9 @@ export type {
     GalleryPhoto,
     GalleryPhotosResponse,
     PinChatResponse,
-    PinChatInfo
+    PinChatInfo,
+    MarkUnreadResponse,
+    MarkUnreadInfo
 } from '../sdc-api-types';
 
 // Re-export utility functions
@@ -51,7 +53,8 @@ export {
     syncArchivesChats,
     getGalleryPhotos,
     loadAlbums,
-    pinChat
+    pinChat,
+    markChatUnread
 } from './messenger';
 
 // Re-export counters functions

@@ -2,7 +2,7 @@
  * SDC API Messenger Functions
  * Functions for fetching and working with messenger/chat data
  */
-import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse, GalleryPhotosResponse, AlbumsResponse, PinChatResponse } from '../sdc-api-types';
+import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse, GalleryPhotosResponse, AlbumsResponse, PinChatResponse, MarkUnreadResponse } from '../sdc-api-types';
 import { getCurrentMuid } from './utils';
 import { chatStorage } from '../chat-storage';
 import { folderStorage } from '../folder-storage';
@@ -721,6 +721,58 @@ export async function pinChat(
         return data;
     } catch (error) {
         console.error('[SDC API] Failed to pin/unpin chat:', error);
+        throw error;
+    }
+}
+
+/**
+ * Mark a chat as read or unread
+ * @param groupId The group ID of the chat to mark
+ * @param action Action: 1 to mark as unread, 0 to mark as read
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Response indicating success
+ */
+export async function markChatUnread(
+    groupId: number,
+    action: 0 | 1,
+    muid?: string | null
+): Promise<MarkUnreadResponse> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot mark chat as read/unread.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_mark_unread');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('group_id', groupId.toString());
+    url.searchParams.set('action', action.toString());
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8,ar;q=0.7,nl;q=0.6',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Mark Unread API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json() as MarkUnreadResponse;
+        
+        // Check if the operation was successful
+        if (!data.info.updated || data.info.code !== 200) {
+            throw new Error(data.info.message || 'Failed to mark chat as read/unread');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('[SDC API] Failed to mark chat as read/unread:', error);
         throw error;
     }
 }

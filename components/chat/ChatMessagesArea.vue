@@ -34,7 +34,7 @@ const emit = defineEmits<{
 }>();
 
 const messagesContainer = ref<HTMLElement | null>(null);
-const { togglePinChat } = useChatPin();
+const { togglePinChat, toggleMarkUnread } = useChatPin();
 const openHeaderDropdown = ref<boolean>(false);
 
 defineExpose({
@@ -52,6 +52,14 @@ function handleContainerClick() {
 function handleTogglePin() {
   if (props.selectedChat) {
     togglePinChat(props.selectedChat);
+    openHeaderDropdown.value = false;
+  }
+}
+
+function handleToggleMarkUnread() {
+  if (props.selectedChat) {
+    const isUnread = props.selectedChat.unread_counter > 0;
+    toggleMarkUnread(props.selectedChat, !isUnread);
     openHeaderDropdown.value = false;
   }
 }
@@ -113,7 +121,7 @@ function handleHeaderDropdownToggle(open: boolean) {
             @update:model-value="handleHeaderDropdownToggle"
             placement="bottom"
             alignment="end"
-            width="w-32"
+            width="w-48"
             offset="mt-1"
             :z-index="50"
           >
@@ -131,7 +139,7 @@ function handleHeaderDropdownToggle(open: boolean) {
             </template>
             <template #content="{ close }">
               <div
-                class="w-32 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
+                class="w-48 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
                 @click.stop
               >
                 <button
@@ -144,6 +152,15 @@ function handleHeaderDropdownToggle(open: boolean) {
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                   </svg>
                   {{ selectedChat?.pin_chat === 1 ? 'Unpin chat' : 'Pin chat' }}
+                </button>
+                <button
+                  @click.stop="handleToggleMarkUnread(); close()"
+                  class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                  </svg>
+                  {{ selectedChat?.unread_counter > 0 ? 'Mark as read' : 'Mark as unread' }}
                 </button>
               </div>
             </template>

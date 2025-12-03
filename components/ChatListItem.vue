@@ -21,7 +21,7 @@ const emit = defineEmits<{
   click: [chat: MessengerChatItem];
 }>();
 
-const { togglePinChat } = useChatPin();
+const { togglePinChat, toggleMarkUnread } = useChatPin();
 const openDropdownId = ref<number | null>(null);
 
 const nameColor = computed(() => {
@@ -90,6 +90,12 @@ function handleTogglePin() {
   openDropdownId.value = null;
 }
 
+function handleToggleMarkUnread() {
+  const isUnread = props.chat.unread_counter > 0;
+  toggleMarkUnread(props.chat, !isUnread);
+  openDropdownId.value = null;
+}
+
 function handleDropdownToggle(open: boolean) {
   openDropdownId.value = open ? props.chat.group_id : null;
 }
@@ -98,8 +104,9 @@ function handleDropdownToggle(open: boolean) {
 <template>
   <div
     :class="[
-      'px-4 py-3 cursor-pointer transition-colors hover:bg-[#1a1a1a] group',
-      selected ? 'bg-[#1a1a1a]' : ''
+      'px-4 py-3 cursor-pointer transition-colors hover:bg-[#1a1a1a] group relative',
+      selected ? 'bg-[#1a1a1a]' : '',
+      openDropdownId === chat.group_id ? 'z-50' : 'z-auto'
     ]"
     @click="handleClick"
   >
@@ -161,15 +168,15 @@ function handleDropdownToggle(open: boolean) {
             </svg>
 
             <!-- Dropdown Menu -->
-            <div @click.stop class="w-4 h-4 flex items-center justify-center">
+            <div @click.stop class="w-4 h-4 flex items-center justify-center relative" :class="{ 'z-[51]': openDropdownId === chat.group_id }">
               <Dropdown
                 :model-value="openDropdownId === chat.group_id"
                 @update:model-value="handleDropdownToggle"
                 placement="bottom"
                 alignment="end"
-                width="w-32"
+                width="w-48"
                 offset="mt-1"
-                :z-index="9999999"
+                :z-index="51"
               >
                 <template #trigger="{ isOpen, toggle }">
                   <button
@@ -185,7 +192,7 @@ function handleDropdownToggle(open: boolean) {
                 </template>
                 <template #content="{ close }">
                   <div
-                    class="w-32 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
+                    class="w-48 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
                     @click.stop
                   >
                     <button
@@ -198,6 +205,15 @@ function handleDropdownToggle(open: boolean) {
                         <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                       </svg>
                       {{ chat.pin_chat === 1 ? 'Unpin chat' : 'Pin chat' }}
+                    </button>
+                    <button
+                      @click.stop="handleToggleMarkUnread(); close()"
+                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                      </svg>
+                      {{ chat.unread_counter > 0 ? 'Mark as read' : 'Mark as unread' }}
                     </button>
                   </div>
                 </template>
