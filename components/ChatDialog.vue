@@ -21,6 +21,8 @@ import ChatMessageInput from '@/components/chat/ChatMessageInput.vue';
 import GalleryModal from '@/components/chat/GalleryModal.vue';
 import AlbumSelectionModal from '@/components/chat/AlbumSelectionModal.vue';
 import TagDialog from '@/components/chat/TagDialog.vue';
+import VideoLightbox from '@/components/chat/VideoLightbox.vue';
+import type { GalleryPhoto } from '@/lib/sdc-api-types';
 
 interface Props {
   modelValue: boolean;
@@ -130,6 +132,11 @@ const {
   closeGalleryModal,
   openLightboxFromGallery,
 } = useChatUI();
+
+// Video lightbox state
+const videoLightboxVisible = ref(false);
+const videoLightboxVideos = ref<GalleryPhoto[]>([]);
+const videoLightboxIndex = ref(0);
 
 const {
   isWebSocketConnected,
@@ -403,6 +410,15 @@ function handleTagSave() {
     :db-id="galleryDbId"
     @close="closeGalleryModal"
     @open-lightbox="openLightboxFromGallery"
+    @open-video-lightbox="(videos, index) => { videoLightboxVideos = videos; videoLightboxIndex = index; videoLightboxVisible = true; }"
+  />
+  
+  <!-- Video Lightbox -->
+  <VideoLightbox
+    :visible="videoLightboxVisible"
+    :videos="videoLightboxVideos"
+    :initial-index="videoLightboxIndex"
+    @close="videoLightboxVisible = false"
   />
   
   <!-- Album Selection Modal -->

@@ -16,6 +16,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   'close': [];
   'open-lightbox': [photos: string[], imageIndex: number];
+  'open-video-lightbox': [videos: GalleryPhoto[], videoIndex: number];
 }>();
 
 const photos = ref<GalleryPhoto[]>([]);
@@ -25,6 +26,7 @@ const showPasswordInput = ref(false);
 const password = ref('');
 const passwordError = ref<string | null>(null);
 const isPasswordProtected = ref(false);
+
 
 async function fetchPhotos(providedPassword?: string, isRetry: boolean = false) {
   if (!props.galleryId || !props.dbId) return;
@@ -116,8 +118,36 @@ function handleClose() {
 }
 
 function handleImageClick(index: number) {
-  const imageUrls = photos.value.map(photo => photo.filename);
-  emit('open-lightbox', imageUrls, index);
+  const photo = photos.value[index];
+  
+  // If it's a video, don't open lightbox
+  if (photo.type === 'vt') {
+    return;
+  }
+  
+  // Filter out videos and get only photos for lightbox
+  const photoItems = photos.value.filter(p => p.type !== 'vt');
+  const imageUrls = photoItems.map(p => p.filename);
+  
+  // Find the index in the filtered array
+  const photoIndex = photoItems.findIndex(p => p.id === photo.id);
+  
+  if (photoIndex >= 0) {
+    emit('open-lightbox', imageUrls, photoIndex);
+  }
+}
+
+function handleVideoClick(index: number) {
+  const video = photos.value[index];
+  if (!video || video.type !== 'vt') return;
+  
+  // Get all videos
+  const videoItems = photos.value.filter(p => p.type === 'vt');
+  const videoIndex = videoItems.findIndex(p => p.id === video.id);
+  
+  if (videoIndex >= 0) {
+    emit('open-video-lightbox', videoItems, videoIndex);
+  }
 }
 
 watch(() => props.visible, async (newValue) => {
@@ -222,19 +252,59 @@ onMounted(() => {
 
         <!-- Gallery Grid -->
         <div v-else-if="photos.length > 0" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <!-- Photo Items -->
           <div
             v-for="(photo, index) in photos"
             :key="photo.id"
-            @click="handleImageClick(index)"
+            @click="photo.type === 'vt' ? handleVideoClick(index) : handleImageClick(index)"
             class="relative aspect-square bg-[#0f0f0f] rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity group"
           >
-            <img
-              :src="photo.filename"
-              :alt="photo.photoname"
-              class="w-full h-full object-cover"
-              @error="(e) => { (e.target as HTMLImageElement).style.display = 'none'; }"
-            />
-            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
+            <!-- Video Thumbnail -->
+            <template v-if="photo.type === 'vt'">
+              <img
+                v-if="photo.thumbnail"
+                :src="photo.thumbnail"
+                :alt="photo.photoname || 'Video thumbnail'"
+                class="w-full h-full object-contain"
+                @error="(e) => { (e.target as HTMLImageElement).style.display = 'none'; }"
+              />
+              <div v-else class="w-full h-full flex items-center justify-center bg-[#0f0f0f]">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#666]">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+              </div>
+              
+              <!-- Play Icon Overlay -->
+              <div class="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+                <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm group-hover:bg-white/30 transition-colors">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                  </svg>
+                </div>
+              </div>
+              
+              <!-- Fullscreen Button -->
+              <button
+                @click.stop="handleVideoClick(index)"
+                class="absolute top-2 right-2 p-2 bg-black/60 hover:bg-black/80 rounded-lg backdrop-blur-sm transition-colors opacity-0 group-hover:opacity-100"
+                title="Open video lightbox"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                </svg>
+              </button>
+            </template>
+            
+            <!-- Photo Items -->
+            <template v-else>
+              <img
+                :src="photo.filename"
+                :alt="photo.photoname"
+                class="w-full h-full object-cover"
+                @error="(e) => { (e.target as HTMLImageElement).style.display = 'none'; }"
+              />
+              <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
+            </template>
           </div>
         </div>
 
