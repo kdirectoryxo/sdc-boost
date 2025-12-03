@@ -12,11 +12,18 @@ export const useChatState = createGlobalState(() => {
   const chatList = useLiveQuery(async () => {
     const chats = await db.chats.toArray();
     const allMetadata = await db.chat_metadata.toArray();
-    const metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean }>();
+    const metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean; tags?: import('@/lib/db').ChatTag[] }>();
     allMetadata.forEach((m) => {
+      // Serialize tags to ensure they're plain objects (avoid IndexedDB cloning issues)
+      const serializedTags = m.tags ? m.tags.map(tag => ({
+        text: String(tag.text),
+        color: String(tag.color),
+      })) : undefined;
+      
       metadataMap.set(m.group_id, { 
         isBlocked: m.isBlocked, 
-        isArchived: m.isArchived 
+        isArchived: m.isArchived,
+        tags: serializedTags
       });
     });
     
@@ -28,7 +35,8 @@ export const useChatState = createGlobalState(() => {
         ...chat,
         ...(metadata?.isBlocked ? { isBlocked: true } : {}),
         ...(metadata?.isArchived ? { isArchived: true } : {}),
-      } as MessengerChatItem;
+        ...(metadata?.tags ? { tags: metadata.tags } : {}),
+      } as MessengerChatItem & { tags?: import('@/lib/db').ChatTag[] };
     });
   }, []);
 

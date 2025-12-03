@@ -20,6 +20,7 @@ import ChatMessagesArea from '@/components/chat/ChatMessagesArea.vue';
 import ChatMessageInput from '@/components/chat/ChatMessageInput.vue';
 import GalleryModal from '@/components/chat/GalleryModal.vue';
 import AlbumSelectionModal from '@/components/chat/AlbumSelectionModal.vue';
+import TagDialog from '@/components/chat/TagDialog.vue';
 
 interface Props {
   modelValue: boolean;
@@ -191,6 +192,21 @@ async function handleSendMessageWrapper() {
 function handleOpenGallery(message: typeof messages.value[0]) {
   openGalleryModal(message);
 }
+
+// Tag dialog state
+const isTagDialogOpen = ref(false);
+const tagDialogChat = ref<MessengerChatItem | null>(null);
+
+function handleOpenTags(chat?: MessengerChatItem) {
+  tagDialogChat.value = chat || selectedChat.value;
+  isTagDialogOpen.value = true;
+}
+
+function handleTagSave() {
+  // Tags are saved in TagDialog, just close the dialog
+  // The chat list will automatically update via reactive queries
+  isTagDialogOpen.value = false;
+}
 </script>
 
 <template>
@@ -208,6 +224,7 @@ function handleOpenGallery(message: typeof messages.value[0]) {
       <ChatDialogHeader
         :is-web-socket-connected="isWebSocketConnected"
         :is-syncing-messages="isSyncingMessages"
+        :selected-chat="selectedChat"
         @close="handleClose"
         @sync-messages="syncMessagesForCurrentFolder"
       />
@@ -255,6 +272,7 @@ function handleOpenGallery(message: typeof messages.value[0]) {
           @update:filter-blocked="filterBlocked = $event"
           @update:is-filter-dropdown-open="isFilterDropdownOpen = $event"
           @chat-click="handleChatClick"
+          @chat-open-tags="handleOpenTags"
           @clear-filters="clearAllFilters"
           @clear-search="clearChatSearch"
         />
@@ -283,6 +301,7 @@ function handleOpenGallery(message: typeof messages.value[0]) {
             @scroll-to-quoted="scrollToQuotedMessage"
             @open-lightbox="openLightbox"
             @open-gallery="handleOpenGallery"
+            @open-tags="handleOpenTags()"
           >
             <template #message-search>
               <div class="flex items-center gap-2 shrink-0">
@@ -391,5 +410,13 @@ function handleOpenGallery(message: typeof messages.value[0]) {
     :visible="albumModalVisible"
     @close="closeAlbumModal"
     @select="handleAlbumSelection"
+  />
+  
+  <!-- Tag Dialog -->
+  <TagDialog
+    :model-value="isTagDialogOpen"
+    :chat="tagDialogChat"
+    @update:model-value="isTagDialogOpen = $event"
+    @save="handleTagSave"
   />
 </template>

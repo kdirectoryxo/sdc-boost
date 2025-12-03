@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
 import Dropdown from '@/components/ui/Dropdown.vue';
+import TagBadge from '@/components/ui/TagBadge.vue';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { parseGalleryMessage } from '@/lib/composables/chat/utils';
 import { useChatPin } from '@/lib/composables/chat/useChatPin';
@@ -19,6 +20,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   click: [chat: MessengerChatItem];
+  'open-tags': [chat: MessengerChatItem];
 }>();
 
 const { togglePinChat, toggleMarkUnread } = useChatPin();
@@ -99,6 +101,16 @@ function handleToggleMarkUnread() {
 function handleDropdownToggle(open: boolean) {
   openDropdownId.value = open ? props.chat.group_id : null;
 }
+
+function handleOpenTags(close: () => void) {
+  emit('open-tags', props.chat);
+  close();
+}
+
+// Get tags from chat (tags are merged from metadata)
+const chatTags = computed(() => {
+  return (props.chat as any).tags || [];
+});
 </script>
 
 <template>
@@ -135,6 +147,18 @@ function handleDropdownToggle(open: boolean) {
             <span v-if="folderName" class="px-1.5 py-0.5 bg-[#333] text-[#999] text-xs rounded shrink-0">
               {{ folderName }}
             </span>
+            <!-- Tags -->
+            <div v-if="chatTags.length > 0" class="flex items-center gap-1 shrink-0">
+              <TagBadge
+                v-for="(tag, index) in chatTags.slice(0, 2)"
+                :key="index"
+                :text="tag.text"
+                :color="tag.color"
+              />
+              <span v-if="chatTags.length > 2" class="text-xs text-[#666]">
+                +{{ chatTags.length - 2 }}
+              </span>
+            </div>
           </div>
           <span :class="['text-xs shrink-0 ml-2', chat.unread_counter > 0 ? 'text-red-500' : 'text-[#666]']">
             {{ chat.time_elapsed }}
@@ -168,7 +192,7 @@ function handleDropdownToggle(open: boolean) {
             </svg>
 
             <!-- Dropdown Menu -->
-            <div @click.stop class="w-4 h-4 flex items-center justify-center relative" :class="{ 'z-[51]': openDropdownId === chat.group_id }">
+            <div @click.stop class="w-4 h-4 flex items-center justify-center relative" :class="{ 'z-51': openDropdownId === chat.group_id }">
               <Dropdown
                 :model-value="openDropdownId === chat.group_id"
                 @update:model-value="handleDropdownToggle"
@@ -214,6 +238,16 @@ function handleDropdownToggle(open: boolean) {
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                       </svg>
                       {{ chat.unread_counter > 0 ? 'Mark as read' : 'Mark as unread' }}
+                    </button>
+                    <button
+                      @click.stop="handleOpenTags(close)"
+                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                      </svg>
+                      Tags
                     </button>
                   </div>
                 </template>

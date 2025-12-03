@@ -37,6 +37,7 @@ const emit = defineEmits<{
   'update:filterBlocked': [value: boolean];
   'update:isFilterDropdownOpen': [value: boolean];
   'chat-click': [chat: MessengerChatItem];
+  'chat-open-tags': [chat: MessengerChatItem];
   'clear-filters': [];
   'clear-search': [];
 }>();
@@ -282,6 +283,7 @@ function handleClearFilters() {
           :folder-name="getFolderName(chat.folder_id)"
           :is-typing="typingStates.get(String(chat.group_id)) || false"
           @click="emit('chat-click', chat)"
+          @open-tags="emit('chat-open-tags', $event)"
         />
       </div>
     </div>

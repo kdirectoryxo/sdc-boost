@@ -18,12 +18,18 @@ export interface MessageEntity extends MessengerMessage {
 	group_id: number;
 }
 
+export interface ChatTag {
+	text: string;
+	color: string;
+}
+
 export interface ChatMetadata {
 	group_id: number;
 	messages_fetched: boolean;
 	last_fetched_at?: number;
 	isBlocked?: boolean;
 	isArchived?: boolean;
+	tags?: ChatTag[];
 }
 
 export interface SyncMetadata {
@@ -51,8 +57,17 @@ class SDCBoostDatabase extends Dexie {
 			sync_metadata: 'key',
 		});
 
-		// Future migrations can be added here:
-		// this.version(2).stores({ ... }).upgrade(tx => { ... });
+		// Version 2: Add tags support to chat_metadata
+		this.version(2).stores({
+			chats: 'id, group_id, db_id, date_time, pin_chat, account_id, folder_id',
+			folders: 'id, name, new_messages',
+			messages: 'id, group_id, message_id, date2',
+			chat_metadata: 'group_id',
+			sync_metadata: 'key',
+		}).upgrade(tx => {
+			// Migration: tags field will be added automatically when metadata is updated
+			// No data migration needed as tags is optional
+		});
 	}
 }
 

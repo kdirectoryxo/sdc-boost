@@ -3,7 +3,7 @@
  * Handles storing and retrieving chat list items
  */
 
-import { db, type ChatEntity, type ChatMetadata, type SyncMetadata } from './db';
+import { db, type ChatEntity, type ChatMetadata, type ChatTag, type SyncMetadata } from './db';
 import type { MessengerChatItem } from './sdc-api-types';
 import { messageStorage } from './message-storage';
 
@@ -79,11 +79,11 @@ class ChatStorage {
             chats.map(async (chat) => {
                 const chatId = this.getChatId(chat);
                 
-                // Remove archived from chat item (it's stored in metadata now)
-                const { archived, ...chatWithoutArchived } = chat as any;
+                // Remove archived, isBlocked, and tags from chat item (they're stored in metadata)
+                const { archived, isBlocked, tags, ...chatWithoutMetadata } = chat as any;
                 
                 const chatWithId: ChatEntity = {
-                    ...chatWithoutArchived,
+                    ...chatWithoutMetadata,
                     id: chatId,
                 };
                 await db.chats.put(chatWithId);
@@ -95,13 +95,19 @@ class ChatStorage {
             await Promise.all(
                 chats.map(async (chat) => {
                     const existing = await db.chat_metadata.get(chat.group_id);
-                    await db.chat_metadata.put({
+                    // Serialize tags to ensure they're plain objects
+                    const serializedTags = existing?.tags 
+                        ? existing.tags.map(tag => ({ text: String(tag.text), color: String(tag.color) }))
+                        : undefined;
+                    const metadata: ChatMetadata = {
                         group_id: chat.group_id,
                         messages_fetched: existing?.messages_fetched || false,
                         last_fetched_at: existing?.last_fetched_at,
                         isBlocked: existing?.isBlocked,
                         isArchived: true,
-                    });
+                        ...(serializedTags && serializedTags.length > 0 ? { tags: serializedTags } : {}),
+                    };
+                    await db.chat_metadata.put(metadata);
                 })
             );
         }
@@ -116,13 +122,14 @@ class ChatStorage {
     async getAllChats(): Promise<MessengerChatItem[]> {
         const chats = await db.chats.toArray();
         
-        // Get all metadata to merge isBlocked and isArchived status
+        // Get all metadata to merge isBlocked, isArchived, and tags
         const allMetadata = await db.chat_metadata.toArray();
-        const metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean }>();
+        const metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean; tags?: ChatTag[] }>();
         allMetadata.forEach((m) => {
             metadataMap.set(m.group_id, { 
                 isBlocked: m.isBlocked, 
-                isArchived: m.isArchived 
+                isArchived: m.isArchived,
+                tags: m.tags
             });
         });
         
@@ -134,7 +141,8 @@ class ChatStorage {
                 ...chat,
                 ...(metadata?.isBlocked ? { isBlocked: true } : {}),
                 ...(metadata?.isArchived ? { isArchived: true } : {}),
-            } as MessengerChatItem;
+                ...(metadata?.tags ? { tags: metadata.tags } : {}),
+            } as MessengerChatItem & { tags?: ChatTag[] };
         });
         
         console.log(`[ChatStorage] Retrieved ${result.length} chats from IndexedDB`);
@@ -173,13 +181,13 @@ class ChatStorage {
 
     /**
      * Update a single chat
-     * Note: isBlocked and isArchived are stored in chat_metadata, not on the chat item
+     * Note: isBlocked, isArchived, and tags are stored in chat_metadata, not on the chat item
      */
     async updateChat(chat: MessengerChatItem): Promise<void> {
         const chatId = this.getChatId(chat);
         
-        // Remove isBlocked and archived from chat item if present (they're stored in metadata)
-        const { isBlocked, archived, ...chatWithoutMetadata } = chat as any;
+        // Remove isBlocked, archived, and tags from chat item if present (they're stored in metadata)
+        const { isBlocked, archived, tags, ...chatWithoutMetadata } = chat as any;
         
         const chatWithId: ChatEntity = {
             ...chatWithoutMetadata,
@@ -411,13 +419,20 @@ class ChatStorage {
             chats = await db.chats.toArray();
         }
         
-        // Get metadata for all chats to merge isBlocked and isArchived status
+        // Get metadata for all chats to merge isBlocked, isArchived, and tags
         const allMetadata = await db.chat_metadata.toArray();
-        const metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean }>();
+        const metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean; tags?: ChatTag[] }>();
         allMetadata.forEach((m) => {
+            // Serialize tags to ensure they're plain objects (avoid IndexedDB cloning issues)
+            const serializedTags = m.tags ? m.tags.map(tag => ({
+                text: String(tag.text),
+                color: String(tag.color),
+            })) : undefined;
+            
             metadataMap.set(m.group_id, { 
                 isBlocked: m.isBlocked,
-                isArchived: m.isArchived 
+                isArchived: m.isArchived,
+                tags: serializedTags
             });
         });
         
@@ -430,11 +445,12 @@ class ChatStorage {
             const isArchived = metadata?.isArchived === true;
             const isBlocked = metadata?.isBlocked === true;
             
-            // Merge isBlocked and isArchived from metadata
+            // Merge isBlocked, isArchived, and tags from metadata
             const chatWithMetadata = {
                 ...chatItem,
                 ...(isBlocked ? { isBlocked: true } : {}),
                 ...(isArchived ? { isArchived: true } : {}),
+                ...(metadata?.tags ? { tags: metadata.tags } : {}),
             };
             
             // Filter by blocked status if blockedOnly is true

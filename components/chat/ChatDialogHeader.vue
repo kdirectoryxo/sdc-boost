@@ -1,7 +1,12 @@
 <script lang="ts" setup>
+import { computed } from 'vue';
+import TagBadge from '@/components/ui/TagBadge.vue';
+import type { MessengerChatItem } from '@/lib/sdc-api-types';
+
 interface Props {
   isWebSocketConnected: boolean;
   isSyncingMessages: boolean;
+  selectedChat?: MessengerChatItem | null;
 }
 
 const props = defineProps<Props>();
@@ -10,6 +15,12 @@ const emit = defineEmits<{
   close: [];
   syncMessages: [];
 }>();
+
+// Get tags from selected chat (tags are merged from metadata)
+const chatTags = computed(() => {
+  if (!props.selectedChat) return [];
+  return (props.selectedChat as any).tags || [];
+});
 
 function handleClose() {
   emit('close');
@@ -22,10 +33,10 @@ function handleSyncMessages() {
 
 <template>
   <div class="flex items-center justify-between px-6 py-4 border-b border-[#333] shrink-0">
-    <div class="flex items-center gap-3">
-      <h2 class="text-xl font-semibold text-white">Chats</h2>
+    <div class="flex items-center gap-3 flex-1 min-w-0">
+      <h2 class="text-xl font-semibold text-white shrink-0">Chats</h2>
       <!-- WebSocket Connection Status -->
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 shrink-0">
         <div
           :class="[
             'w-2 h-2 rounded-full',
@@ -36,6 +47,15 @@ function handleSyncMessages() {
         <span class="text-xs text-[#666]">
           {{ isWebSocketConnected ? 'Live' : 'Offline' }}
         </span>
+      </div>
+      <!-- Tags -->
+      <div v-if="chatTags.length > 0" class="flex items-center gap-1 shrink-0 ml-2">
+        <TagBadge
+          v-for="(tag, index) in chatTags"
+          :key="index"
+          :text="tag.text"
+          :color="tag.color"
+        />
       </div>
     </div>
     <div class="flex items-center gap-2">

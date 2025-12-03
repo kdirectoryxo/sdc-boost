@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
 import Dropdown from '@/components/ui/Dropdown.vue';
+import TagBadge from '@/components/ui/TagBadge.vue';
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
 import ChatMessageItem from '@/components/chat/ChatMessageItem.vue';
 import { useChatPin } from '@/lib/composables/chat/useChatPin';
@@ -31,6 +32,7 @@ const emit = defineEmits<{
   'scroll-to-quoted': [message: MessengerMessage];
   'open-lightbox': [message: MessengerMessage, imageIndex: number, event?: Event];
   'open-gallery': [message: MessengerMessage];
+  'open-tags': [];
 }>();
 
 const messagesContainer = ref<HTMLElement | null>(null);
@@ -67,6 +69,12 @@ function handleToggleMarkUnread() {
 function handleHeaderDropdownToggle(open: boolean) {
   openHeaderDropdown.value = open;
 }
+
+// Get tags from selected chat (tags are merged from metadata)
+const chatTags = computed(() => {
+  if (!props.selectedChat) return [];
+  return (props.selectedChat as any).tags || [];
+});
 </script>
 
 <template>
@@ -99,13 +107,24 @@ function handleHeaderDropdownToggle(open: boolean) {
         title="Click to view profile in new tab"
       />
       <div class="flex-1 min-w-0">
-        <h3
-          @click="emit('open-profile', selectedChat.db_id)"
-          class="text-white font-semibold truncate cursor-pointer hover:text-blue-400 transition-colors"
-          title="Click to view profile in new tab"
-        >
-          {{ selectedChat.account_id }}
-        </h3>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h3
+            @click="emit('open-profile', selectedChat.db_id)"
+            class="text-white font-semibold truncate cursor-pointer hover:text-blue-400 transition-colors"
+            title="Click to view profile in new tab"
+          >
+            {{ selectedChat.account_id }}
+          </h3>
+          <!-- Tags -->
+          <div v-if="chatTags.length > 0" class="flex items-center gap-1 shrink-0">
+            <TagBadge
+              v-for="(tag, index) in chatTags"
+              :key="index"
+              :text="tag.text"
+              :color="tag.color"
+            />
+          </div>
+        </div>
         <p v-if="selectedChat.online === 1 && !isBroadcast" class="text-xs text-green-500">Online</p>
         <p v-else-if="!isBroadcast" class="text-xs text-[#999]">Offline</p>
         <p v-else class="text-xs text-yellow-400">📢 Broadcast</p>
@@ -161,6 +180,16 @@ function handleHeaderDropdownToggle(open: boolean) {
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                   </svg>
                   {{ selectedChat?.unread_counter > 0 ? 'Mark as read' : 'Mark as unread' }}
+                </button>
+                <button
+                  @click.stop="$emit('open-tags'); close()"
+                  class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                  </svg>
+                  Tags
                 </button>
               </div>
             </template>

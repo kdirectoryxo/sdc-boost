@@ -3,8 +3,22 @@
  * Handles storing and retrieving messages for a specific chat
  */
 
-import { db, type MessageEntity, type ChatMetadata } from './db';
+import { db, type MessageEntity, type ChatMetadata, type ChatTag } from './db';
 import type { MessengerMessage } from './sdc-api-types';
+
+/**
+ * Helper function to serialize tags to ensure they're plain objects
+ * This prevents IndexedDB cloning errors
+ */
+function serializeTags(tags: ChatTag[] | undefined): ChatTag[] | undefined {
+	if (!tags || !Array.isArray(tags)) {
+		return undefined;
+	}
+	return tags.map(tag => ({
+		text: String(tag.text),
+		color: String(tag.color),
+	}));
+}
 
 /**
  * Get a unique key for a message
@@ -152,15 +166,18 @@ class MessageStorage {
      */
     async markChatFetched(groupId: number): Promise<void> {
         try {
-            // Get existing metadata to preserve isBlocked and isArchived flags
+            // Get existing metadata to preserve isBlocked, isArchived, and tags
             const existing = await db.chat_metadata.get(groupId);
-            await db.chat_metadata.put({
+            const serializedTags = serializeTags(existing?.tags);
+            const metadata: ChatMetadata = {
                 group_id: groupId,
                 messages_fetched: true,
                 last_fetched_at: Date.now(),
                 ...(existing?.isBlocked ? { isBlocked: existing.isBlocked } : {}),
                 ...(existing?.isArchived ? { isArchived: existing.isArchived } : {}),
-            });
+                ...(serializedTags && serializedTags.length > 0 ? { tags: serializedTags } : {}),
+            };
+            await db.chat_metadata.put(metadata);
             console.log(`[MessageStorage] Marked chat ${groupId} as fetched`);
         } catch (error) {
             console.error(`[MessageStorage] Error marking chat ${groupId} as fetched:`, error);
@@ -174,13 +191,16 @@ class MessageStorage {
         try {
             // Get existing metadata to preserve other fields
             const existing = await db.chat_metadata.get(groupId);
-            await db.chat_metadata.put({
+            const serializedTags = serializeTags(existing?.tags);
+            const metadata: ChatMetadata = {
                 group_id: groupId,
                 messages_fetched: existing?.messages_fetched || false,
                 last_fetched_at: existing?.last_fetched_at,
                 isBlocked: isBlocked,
                 ...(existing?.isArchived ? { isArchived: existing.isArchived } : {}),
-            });
+                ...(serializedTags && serializedTags.length > 0 ? { tags: serializedTags } : {}),
+            };
+            await db.chat_metadata.put(metadata);
             console.log(`[MessageStorage] Set chat ${groupId} blocked status to ${isBlocked}`);
         } catch (error) {
             console.error(`[MessageStorage] Error setting blocked status for chat ${groupId}:`, error);
@@ -207,13 +227,16 @@ class MessageStorage {
         try {
             // Get existing metadata to preserve other fields
             const existing = await db.chat_metadata.get(groupId);
-            await db.chat_metadata.put({
+            const serializedTags = serializeTags(existing?.tags);
+            const metadata: ChatMetadata = {
                 group_id: groupId,
                 messages_fetched: existing?.messages_fetched || false,
                 last_fetched_at: existing?.last_fetched_at,
                 ...(existing?.isBlocked ? { isBlocked: existing.isBlocked } : {}),
                 isArchived: isArchived,
-            });
+                ...(serializedTags && serializedTags.length > 0 ? { tags: serializedTags } : {}),
+            };
+            await db.chat_metadata.put(metadata);
             console.log(`[MessageStorage] Set chat ${groupId} archived status to ${isArchived}`);
         } catch (error) {
             console.error(`[MessageStorage] Error setting archived status for chat ${groupId}:`, error);
