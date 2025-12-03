@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch, onUnmounted, nextTick } from 'vue';
 import { getMessengerFolders, syncAllChats, syncInboxChats, syncFolderChats, syncArchivesChats } from '@/lib/sdc-api';
 import type { MessengerChatItem, MessengerFolder, MessengerMessage } from '@/lib/sdc-api-types';
 import ChatListItem from '@/components/ChatListItem.vue';
+import Dropdown from '@/components/ui/Dropdown.vue';
 import { websocketManager } from '@/lib/websocket-manager';
 import { chatStorage } from '@/lib/chat-storage';
 import { folderStorage } from '@/lib/folder-storage';
@@ -57,7 +58,6 @@ const messengerCounter = ref<number>(0); // Track messenger counter from counter
 
 // Upload state
 const isUploadDropdownOpen = ref<boolean>(false);
-const uploadDropdownRef = ref<HTMLElement | null>(null);
 const uploadedMedia = ref<Array<{ file: File; preview: string; type: 'image' | 'video' }>>([]);
 const isUploading = ref<boolean>(false);
 
@@ -85,7 +85,6 @@ const filterLastMessageByOther = ref<boolean>(false);
 const filterOnlyMyMessages = ref<boolean>(false);
 const filterBlocked = ref<boolean>(false);
 const isFilterDropdownOpen = ref<boolean>(false);
-const filterDropdownRef = ref<HTMLElement | null>(null);
 
 // Computed property for quoted message
 const quotedMessage = computed(() => {
@@ -2265,20 +2264,6 @@ function cleanupEventListeners() {
   }
 }
 
-// Handle click outside to close filter dropdown and upload dropdown
-function handleClickOutside(event: MouseEvent): void {
-  const target = event.target as Node;
-  
-  // Close filter dropdown if clicking outside
-  if (filterDropdownRef.value && !filterDropdownRef.value.contains(target)) {
-    isFilterDropdownOpen.value = false;
-  }
-  
-  // Close upload dropdown if clicking outside
-  if (uploadDropdownRef.value && !uploadDropdownRef.value.contains(target)) {
-    isUploadDropdownOpen.value = false;
-  }
-}
 
 onMounted(async () => {
   // Inject lightbox z-index override styles dynamically
@@ -2318,16 +2303,11 @@ onMounted(async () => {
     isInitialLoad.value = false;
     
     setupEventListeners();
-    
-    // Add click outside handler for filter dropdown
-    document.addEventListener('click', handleClickOutside);
   }
 });
 
 onUnmounted(() => {
   cleanupEventListeners();
-  // Remove click outside handler
-  document.removeEventListener('click', handleClickOutside);
   // Remove popstate listener
   window.removeEventListener('popstate', updateURLSearchParams);
 });
@@ -2528,48 +2508,50 @@ onUnmounted(() => {
                 class="flex-1 px-4 py-2 bg-[#1a1a1a] border border-[#333] rounded-lg text-white placeholder-[#666] focus:outline-none focus:border-blue-500 transition-colors"
               />
               <!-- Filter Button -->
-              <div class="relative" ref="filterDropdownRef">
-                <button
-                  @click.stop="isFilterDropdownOpen = !isFilterDropdownOpen"
-                  :class="[
-                    'p-2 rounded-lg border transition-colors relative',
-                    hasActiveFilters
-                      ? 'bg-blue-500/20 border-blue-500 text-blue-400'
-                      : 'bg-[#1a1a1a] border-[#333] text-[#999] hover:border-[#444] hover:text-white'
-                  ]"
-                  title="Filter chats"
-                >
-                  <!-- Filter icon -->
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                  </svg>
-                  <!-- Cross icon for quick clear (shown when filters are active, positioned top-right) -->
+              <Dropdown
+                v-model="isFilterDropdownOpen"
+                placement="bottom"
+                alignment="end"
+                width="w-56"
+                offset="mt-2"
+              >
+                <template #trigger="{ isOpen, toggle }">
                   <button
-                    v-if="hasActiveFilters"
-                    @click.stop="clearAllFilters(); isFilterDropdownOpen = false"
-                    class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center z-30 transition-colors"
-                    title="Clear all filters"
+                    @click.stop="toggle"
+                    :class="[
+                      'p-2 rounded-lg border transition-colors relative',
+                      hasActiveFilters
+                        ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                        : 'bg-[#1a1a1a] border-[#333] text-[#999] hover:border-[#444] hover:text-white'
+                    ]"
+                    title="Filter chats"
                   >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    <!-- Filter icon -->
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
                     </svg>
+                    <!-- Cross icon for quick clear (shown when filters are active, positioned top-right) -->
+                    <button
+                      v-if="hasActiveFilters"
+                      @click.stop="clearAllFilters(); isFilterDropdownOpen = false"
+                      class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center z-30 transition-colors"
+                      title="Clear all filters"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                    <!-- Active filter badge -->
+                    <span
+                      v-if="activeFilterCount > 0"
+                      class="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center z-20"
+                    >
+                      {{ activeFilterCount }}
+                    </span>
                   </button>
-                  <!-- Active filter badge -->
-                  <span
-                    v-if="activeFilterCount > 0"
-                    class="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center z-20"
-                  >
-                    {{ activeFilterCount }}
-                  </span>
-                </button>
-                
-                <!-- Filter Dropdown -->
-                <div
-                  v-if="isFilterDropdownOpen"
-                  class="absolute right-0 top-full mt-2 w-56 bg-[#1a1a1a] border border-[#333] rounded-lg shadow-lg z-50 overflow-hidden"
-                  @click.stop
-                >
+                </template>
+                <template #content="{ close }">
                   <div class="p-2">
                     <!-- Unread Filter -->
                     <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
@@ -2688,8 +2670,8 @@ onUnmounted(() => {
                       </button>
                     </div>
                   </div>
-                </div>
-              </div>
+                </template>
+              </Dropdown>
             </div>
           </div>
 
@@ -2974,29 +2956,97 @@ onUnmounted(() => {
                     
                     <!-- Dropdown Button for own messages (positioned absolutely to the left of message bubble) -->
                     <div v-if="isOwnMessage(message)" class="absolute -left-8 top-0">
-                      <button
-                        :ref="el => { if (el) dropdownButtonRefs.set(message.message_id, el as HTMLElement); }"
-                        @click.stop="openDropdownMessageId = openDropdownMessageId === message.message_id ? null : message.message_id"
-                        :class="[
-                          'p-1.5 rounded hover:bg-[#2a2a2a] transition-opacity',
-                          openDropdownMessageId === message.message_id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                        ]"
+                      <Dropdown
+                        :model-value="openDropdownMessageId === message.message_id"
+                        @update:model-value="(val) => openDropdownMessageId = val ? message.message_id : null"
+                        placement="bottom"
+                        alignment="right-full"
+                        width="w-32"
+                        offset="mr-2 mt-1"
+                        :z-index="1000003"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
-                          <circle cx="12" cy="12" r="1"></circle>
-                          <circle cx="12" cy="5" r="1"></circle>
-                          <circle cx="12" cy="19" r="1"></circle>
-                        </svg>
-                      </button>
-                      
-                      <!-- Custom Dropdown Menu -->
-                      <div
-                        v-if="openDropdownMessageId === message.message_id"
-                        class="absolute z-[1000003] top-full right-full mr-2 mt-1 w-32 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
-                        @click.stop
-                      >
+                        <template #trigger="{ isOpen, toggle }">
+                          <button
+                            :ref="el => { if (el) dropdownButtonRefs.set(message.message_id, el as HTMLElement); }"
+                            @click.stop="toggle"
+                            :class="[
+                              'p-1.5 rounded hover:bg-[#2a2a2a] transition-opacity',
+                              isOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                            ]"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+                              <circle cx="12" cy="12" r="1"></circle>
+                              <circle cx="12" cy="5" r="1"></circle>
+                              <circle cx="12" cy="19" r="1"></circle>
+                            </svg>
+                          </button>
+                        </template>
+                        <template #content="{ close }">
+                          <button
+                            @click.stop="handleCopyMessage(message); close()"
+                            class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                            Copy
+                          </button>
+                          <button
+                            @click.stop="handleQuoteMessage(message); close()"
+                            class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
+                              <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
+                            </svg>
+                            Citaat
+                          </button>
+                          <button
+                            @click.stop="handleDeleteMessage(message); close()"
+                            class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                            Delete
+                          </button>
+                        </template>
+                      </Dropdown>
+                    </div>
+                  </div>
+                  
+                  <!-- Dropdown Button for other messages (placed last in DOM, appears on right) -->
+                  <div v-if="!isOwnMessage(message)" class="relative shrink-0 self-start mt-1">
+                    <Dropdown
+                      :model-value="openDropdownMessageId === message.message_id"
+                      @update:model-value="(val) => openDropdownMessageId = val ? message.message_id : null"
+                      placement="bottom"
+                      alignment="start"
+                      width="w-32"
+                      offset="mt-1"
+                      :z-index="1000003"
+                    >
+                      <template #trigger="{ isOpen, toggle }">
                         <button
-                          @click.stop="handleCopyMessage(message)"
+                          :ref="el => { if (el) dropdownButtonRefs.set(message.message_id, el as HTMLElement); }"
+                          @click.stop="toggle"
+                          :class="[
+                            'p-1.5 rounded hover:bg-[#2a2a2a] transition-opacity',
+                            isOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          ]"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+                            <circle cx="12" cy="12" r="1"></circle>
+                            <circle cx="12" cy="5" r="1"></circle>
+                            <circle cx="12" cy="19" r="1"></circle>
+                          </svg>
+                        </button>
+                      </template>
+                      <template #content="{ close }">
+                        <button
+                          @click.stop="handleCopyMessage(message); close()"
                           class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3006,7 +3056,7 @@ onUnmounted(() => {
                           Copy
                         </button>
                         <button
-                          @click.stop="handleQuoteMessage(message)"
+                          @click.stop="handleQuoteMessage(message); close()"
                           class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3015,64 +3065,8 @@ onUnmounted(() => {
                           </svg>
                           Citaat
                         </button>
-                        <button
-                          @click.stop="handleDeleteMessage(message)"
-                          class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                          </svg>
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- Dropdown Button for other messages (placed last in DOM, appears on right) -->
-                  <div v-if="!isOwnMessage(message)" class="relative shrink-0 self-start mt-1">
-                    <button
-                      :ref="el => { if (el) dropdownButtonRefs.set(message.message_id, el as HTMLElement); }"
-                      @click.stop="openDropdownMessageId = openDropdownMessageId === message.message_id ? null : message.message_id"
-                      :class="[
-                        'p-1.5 rounded hover:bg-[#2a2a2a] transition-opacity',
-                        openDropdownMessageId === message.message_id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                      ]"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
-                        <circle cx="12" cy="12" r="1"></circle>
-                        <circle cx="12" cy="5" r="1"></circle>
-                        <circle cx="12" cy="19" r="1"></circle>
-                      </svg>
-                    </button>
-                    
-                    <!-- Custom Dropdown Menu -->
-                    <div
-                      v-if="openDropdownMessageId === message.message_id"
-                      class="absolute z-[1000003] top-full left-0 mt-1 w-32 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
-                      @click.stop
-                    >
-                      <button
-                        @click.stop="handleCopyMessage(message)"
-                        class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                        Copy
-                      </button>
-                      <button
-                        @click.stop="handleQuoteMessage(message)"
-                        class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
-                          <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
-                        </svg>
-                        Citaat
-                      </button>
-                    </div>
+                      </template>
+                    </Dropdown>
                   </div>
                 </div>
               </div>
@@ -3183,28 +3177,29 @@ onUnmounted(() => {
                   :disabled="!selectedChat || !isWebSocketConnected || isUploading"
                   class="flex-1 px-4 py-2 bg-[#0f0f0f] border border-[#333] rounded-lg text-white placeholder-[#666] focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <div class="relative">
-                  <button
-                    @click.stop="isUploadDropdownOpen = !isUploadDropdownOpen"
-                    :disabled="!selectedChat || !isWebSocketConnected || isUploading"
-                    class="p-2 bg-[#1a1a1a] text-white rounded-lg hover:bg-[#2a2a2a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-[#333]"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="12" y1="5" x2="12" y2="19"></line>
-                      <line x1="5" y1="12" x2="19" y2="12"></line>
-                    </svg>
-                  </button>
-                  
-                  <!-- Upload Dropdown -->
-                  <div
-                    v-if="isUploadDropdownOpen"
-                    ref="uploadDropdownRef"
-                    class="absolute right-0 bottom-full mb-2 w-48 bg-[#1a1a1a] border border-[#333] rounded-lg shadow-lg z-50 overflow-hidden"
-                    @click.stop
-                  >
+                <Dropdown
+                  v-model="isUploadDropdownOpen"
+                  placement="top"
+                  alignment="end"
+                  width="w-48"
+                  offset="mb-2"
+                >
+                  <template #trigger="{ toggle }">
+                    <button
+                      @click.stop="toggle"
+                      :disabled="!selectedChat || !isWebSocketConnected || isUploading"
+                      class="p-2 bg-[#1a1a1a] text-white rounded-lg hover:bg-[#2a2a2a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-[#333]"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    </button>
+                  </template>
+                  <template #content="{ close }">
                     <div class="py-1">
                       <button
-                        @click="triggerPhotoPicker"
+                        @click="triggerPhotoPicker; close()"
                         class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3215,7 +3210,7 @@ onUnmounted(() => {
                         Photo's
                       </button>
                       <button
-                        @click="triggerVideoPicker"
+                        @click="triggerVideoPicker; close()"
                         class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3225,8 +3220,8 @@ onUnmounted(() => {
                         Video's
                       </button>
                     </div>
-                  </div>
-                </div>
+                  </template>
+                </Dropdown>
                 <button
                   @click="handleSendMessage"
                   :disabled="!selectedChat || (!messageInput.trim() && uploadedMedia.length === 0) || !isWebSocketConnected || isUploading"
