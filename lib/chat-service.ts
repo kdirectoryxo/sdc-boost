@@ -374,11 +374,11 @@ export function sendAlbums(
         // Generate tempId for pending message
         const tempId = crypto.randomUUID();
 
-        // Format message as [7|{album1}-|-{album2}] where each album is JSON stringified
-        // Note: Multiple albums should NOT have a closing bracket, single album should
+        // Format message as [7|{album1}-|-{album2} where each album is JSON stringified
+        // Note: No closing bracket should be added (matches official site behavior)
         const albumStrings = albums.map(album => JSON.stringify({ id: album.id, name: album.name }));
         const formattedMessage = albums.length === 1 
-          ? `[7|${albumStrings[0]}]`
+          ? `[7|${albumStrings[0]}`
           : `[7|${albumStrings.join('-|-')}`;
 
         websocketManager.send('message_v2', {
