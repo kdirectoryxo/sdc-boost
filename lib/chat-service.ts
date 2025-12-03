@@ -247,3 +247,73 @@ export function sendQuotedMessage(chat: MessengerChatItem, messageText: string, 
     }
 }
 
+/**
+ * Send message with image via WebSocket
+ * Message format: [6|{image_id}-|-{text}]
+ */
+export function sendMessageWithImage(
+    chat: MessengerChatItem,
+    messageText: string,
+    imageId: string,
+    quotedMessage?: MessengerMessage
+): boolean {
+    if (!websocketManager.connected) {
+        console.warn('[ChatService] Cannot send message with image - WebSocket not connected');
+        return false;
+    }
+
+    const userInfo = getUserInfo();
+    if (!userInfo) {
+        console.warn('[ChatService] Cannot send message with image - missing user info');
+        return false;
+    }
+
+    try {
+        // Generate tempId for pending message
+        const tempId = crypto.randomUUID();
+
+        // Format message as [6|{image_id}-|-{text}]
+        const formattedMessage = `[6|${imageId}-|-${messageText || ''}]`;
+
+        websocketManager.send('message_v2', {
+            account_id: userInfo.accountId,
+            DB_ID: parseInt(userInfo.dbId),
+            message: formattedMessage,
+            GroupID: chat.group_id,
+            type: 0,
+            targetID: chat.db_id,
+            sender: 0,
+            q_message: quotedMessage ? (quotedMessage.message || '.') : '',
+            q_db_id: quotedMessage ? (quotedMessage.db_id || parseInt(userInfo.dbId)) : 0,
+            q_account_id: quotedMessage ? (quotedMessage.account_id || userInfo.accountId) : '',
+            quoteBroadcast: 0,
+            is_quote: quotedMessage ? 1 : 0,
+            qgender1: quotedMessage ? (quotedMessage.gender1 || 1) : 2,
+            qgender2: quotedMessage ? (quotedMessage.gender2 || 0) : 2,
+            message_id: 0,
+            date: new Date().toLocaleString('en-US', { 
+                month: 'short', 
+                day: '2-digit', 
+                year: 'numeric', 
+                hour: 'numeric', 
+                minute: '2-digit' 
+            }),
+            name: '',
+            owner: 0,
+            addMessage: true,
+            album_id: '0',
+            time: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            tempId: tempId,
+            pending: true
+        });
+
+        // Handle counter and folder updates (fire and forget)
+        handleMessageUpdate(chat.group_type || 0, chat.group_id).catch(console.error);
+
+        return true;
+    } catch (error) {
+        console.error('[ChatService] Error sending message with image:', error);
+        return false;
+    }
+}
+

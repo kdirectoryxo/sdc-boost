@@ -7,13 +7,14 @@ import { websocketManager } from '@/lib/websocket-manager';
 import { chatStorage } from '@/lib/chat-storage';
 import { folderStorage } from '@/lib/folder-storage';
 import { typingStateManager } from '@/lib/websocket-handlers';
-import { sendMessage, sendSeenEvent, sendQuotedMessage } from '@/lib/chat-service';
+import { sendMessage, sendSeenEvent, sendQuotedMessage, sendMessageWithImage } from '@/lib/chat-service';
 import { loadMessages, refreshLatestPage, fetchAllMessages } from '@/lib/message-service';
 import { TypingManager } from '@/lib/typing-manager';
 import { deleteMessage } from '@/lib/sdc-api';
 import { messageStorage } from '@/lib/message-storage';
 import { getCurrentAccountId, getCurrentDBId } from '@/lib/sdc-api/utils';
 import { countersManager } from '@/lib/counters-manager';
+import { uploadFiles } from '@/lib/upload-service';
 
 interface Props {
   modelValue: boolean;
@@ -48,6 +49,12 @@ const dropdownButtonRefs = ref<Map<number, HTMLElement>>(new Map()); // Store re
 const optimisticMessageTempIds = ref<Map<string, string>>(new Map()); // Track optimistic messages: tempId -> message content
 const optimisticMessages = ref<Map<string, MessengerMessage>>(new Map()); // Track optimistic messages by tempId
 const messengerCounter = ref<number>(0); // Track messenger counter from counters manager
+
+// Upload state
+const isUploadDropdownOpen = ref<boolean>(false);
+const uploadDropdownRef = ref<HTMLElement | null>(null);
+const uploadedMedia = ref<Array<{ file: File; preview: string; type: 'image' | 'video' }>>([]);
+const isUploading = ref<boolean>(false);
 
 // Folder unread counts - calculated from IndexedDB
 const folderUnreadCounts = ref<Map<number, number>>(new Map()); // Map of folderId -> unread count
@@ -121,6 +128,44 @@ const filteredMessages = computed(() => {
   // Return all messages (not filtered)
   return messages.value;
 });
+
+/**
+ * Parse message to extract image IDs and text
+ * Format: [6|{image_id1,image_id2}-|-{text}] or [6|{image_id}-|-{text}]
+ * Returns { imageIds: string[], text: string }
+ */
+function parseImageMessage(message: string): { imageIds: string[]; text: string } {
+  // Match format: [6|{image_id(s)}-|-{text}]
+  // Use non-greedy match to avoid capturing the closing bracket
+  const match = message.match(/^\[6\|([^-]+)-\|-(.*?)\]$/);
+  if (match) {
+    const imageIdString = match[1];
+    // Split by comma to get multiple image IDs
+    const imageIds = imageIdString.split(',').map(id => id.trim()).filter(id => id.length > 0);
+    return {
+      imageIds,
+      text: match[2] || ''
+    };
+  }
+  return {
+    imageIds: [],
+    text: message
+  };
+}
+
+/**
+ * Get image URL from image ID and user DB ID
+ * Format: https://pictures.sdc.com/photos/{db_id}/thumbnail/{image_id}
+ */
+function getImageUrl(imageId: string, dbId?: number): string {
+  // SDC image URL format includes user's db_id and thumbnail path
+  // Format: https://pictures.sdc.com/photos/{db_id}/thumbnail/{image_id}
+  if (dbId) {
+    return `https://pictures.sdc.com/photos/${dbId}/thumbnail/${imageId}`;
+  }
+  // Fallback if dbId not provided
+  return `https://pictures.sdc.com/photos/${imageId}`;
+}
 
 /**
  * Highlight matching text in message content
@@ -966,7 +1011,12 @@ function handleMessageInput(chat: MessengerChatItem): void {
  * Handle message send with optimistic update
  */
 async function handleSendMessage(): Promise<void> {
-  if (!selectedChat.value || !messageInput.value.trim()) {
+  if (!selectedChat.value) {
+    return;
+  }
+
+  // Allow sending if there's text OR uploaded media
+  if (!messageInput.value.trim() && uploadedMedia.value.length === 0) {
     return;
   }
 
@@ -980,14 +1030,53 @@ async function handleSendMessage(): Promise<void> {
     return;
   }
 
+  // If there's uploaded media, upload it first
+  let imageIds: string[] = [];
+  if (uploadedMedia.value.length > 0) {
+    isUploading.value = true;
+    try {
+      const targetId = String(selectedChat.value.db_id);
+      const groupId = String(selectedChat.value.group_id);
+      
+      // Get all files
+      const files = uploadedMedia.value.map(m => m.file);
+      imageIds = await uploadFiles(files, targetId, groupId);
+    } catch (error: any) {
+      console.error('[ChatDialog] Failed to upload media:', error);
+      isUploading.value = false;
+      const toast = (window as any).__sdcBoostToast;
+      if (toast) {
+        // Show the API error message if available, otherwise show generic error
+        const errorMessage = error?.message || 'Failed to upload media. Please try again.';
+        
+        // Translate common Dutch error messages
+        let translatedMessage = errorMessage;
+        if (errorMessage.includes('Je moet berichten met de gebruiker hebben uitgewisseld')) {
+          translatedMessage = 'You must have exchanged messages with this user before you can send an image or video.';
+        }
+        
+        toast.error(translatedMessage);
+      }
+      // Clear uploaded media on error so user can try again
+      uploadedMedia.value = [];
+      return;
+    }
+    isUploading.value = false;
+  }
+
   // Generate tempId for optimistic message
   const tempId = crypto.randomUUID();
   const now = new Date();
   const date2 = Math.floor(now.getTime() / 1000);
 
+  // Format message: if imageIds exist, use [6|{image_id1,image_id2}-|-{text}] format, otherwise use text
+  const finalMessage = imageIds.length > 0 
+    ? `[6|${imageIds.join(',')}-|-${messageText || ''}]` 
+    : messageText;
+
   // Create optimistic message with tempId stored in extra1 (we'll use it for tracking)
   const optimisticMessage: MessengerMessage = {
-    message: messageText,
+    message: finalMessage,
     url_videos: '',
     message_id: 0, // Will be replaced when real message arrives
     share_data: null,
@@ -1026,7 +1115,7 @@ async function handleSendMessage(): Promise<void> {
     if (chatIndex !== -1) {
       const updatedChat: MessengerChatItem = {
         ...selectedChat.value,
-        last_message: messageText,
+        last_message: finalMessage,
         date_time: now.toISOString(),
         date: optimisticMessage.date,
         unread_counter: 0, // Reset unread counter for own messages
@@ -1044,7 +1133,7 @@ async function handleSendMessage(): Promise<void> {
   // Add optimistic message to UI immediately
   messages.value = [...messages.value, optimisticMessage];
   optimisticMessages.value.set(tempId, optimisticMessage);
-  optimisticMessageTempIds.value.set(tempId, messageText);
+  optimisticMessageTempIds.value.set(tempId, finalMessage);
   
   // Scroll to bottom to show new message
   await nextTick();
@@ -1052,16 +1141,21 @@ async function handleSendMessage(): Promise<void> {
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
   }
 
-  // Clear input and quoted message
+  // Clear input, quoted message, and uploaded media
   messageInput.value = '';
   quotedMessageRef.value = null;
+  uploadedMedia.value = [];
   
   // Stop typing indicator
   typingManager.stopTyping();
 
   // Send message via WebSocket (pass tempId so it can be tracked)
   let success = false;
-  if (quotedMessage) {
+  if (imageIds.length > 0) {
+    // Send message with images (comma-separated)
+    const imageIdString = imageIds.join(',');
+    success = sendMessageWithImage(selectedChat.value, messageText, imageIdString, quotedMessage || undefined);
+  } else if (quotedMessage) {
     success = sendQuotedMessage(selectedChat.value, messageText, quotedMessage);
   } else {
     success = sendMessage(selectedChat.value, messageText);
@@ -1283,6 +1377,156 @@ function scrollToQuotedMessage(quotingMessage: MessengerMessage): void {
  */
 function cancelQuote(): void {
   quotedMessageRef.value = null;
+}
+
+/**
+ * Handle file selection for images
+ */
+function handleImageSelect(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  const files = input.files;
+  if (files && files.length > 0) {
+    // Filter only image files
+    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length === 0) {
+      if (input) {
+        input.value = '';
+      }
+      return;
+    }
+    
+    const newMedia: Array<{ file: File; preview: string; type: 'image' | 'video' }> = [];
+    let loadedCount = 0;
+    const totalFiles = imageFiles.length;
+    
+    imageFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        newMedia.push({
+          file,
+          preview: e.target?.result as string,
+          type: 'image'
+        });
+        loadedCount++;
+        // When all files are loaded, update the state
+        if (loadedCount === totalFiles) {
+          uploadedMedia.value = [...uploadedMedia.value, ...newMedia];
+          isUploadDropdownOpen.value = false;
+        }
+      };
+      reader.onerror = () => {
+        console.error('[ChatDialog] Failed to read file:', file.name);
+        loadedCount++;
+        if (loadedCount === totalFiles) {
+          // Still update with successfully loaded files
+          uploadedMedia.value = [...uploadedMedia.value, ...newMedia];
+          isUploadDropdownOpen.value = false;
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  // Reset input so same file can be selected again
+  if (input) {
+    input.value = '';
+  }
+}
+
+/**
+ * Handle file selection for videos
+ */
+function handleVideoSelect(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  const files = input.files;
+  if (files && files.length > 0) {
+    // Filter only video files
+    const videoFiles = Array.from(files).filter(file => file.type.startsWith('video/'));
+    
+    if (videoFiles.length === 0) {
+      if (input) {
+        input.value = '';
+      }
+      return;
+    }
+    
+    const newMedia: Array<{ file: File; preview: string; type: 'image' | 'video' }> = [];
+    let loadedCount = 0;
+    const totalFiles = videoFiles.length;
+    
+    videoFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        newMedia.push({
+          file,
+          preview: e.target?.result as string,
+          type: 'video'
+        });
+        loadedCount++;
+        // When all files are loaded, update the state
+        if (loadedCount === totalFiles) {
+          uploadedMedia.value = [...uploadedMedia.value, ...newMedia];
+          isUploadDropdownOpen.value = false;
+        }
+      };
+      reader.onerror = () => {
+        console.error('[ChatDialog] Failed to read file:', file.name);
+        loadedCount++;
+        if (loadedCount === totalFiles) {
+          // Still update with successfully loaded files
+          uploadedMedia.value = [...uploadedMedia.value, ...newMedia];
+          isUploadDropdownOpen.value = false;
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  // Reset input so same file can be selected again
+  if (input) {
+    input.value = '';
+  }
+}
+
+/**
+ * Trigger photo file picker (supports multiple selection)
+ * This will open the native file picker which on iOS/macOS shows options like:
+ * "Foto's bibliotheek", "Maak foto", "Kies bestanden"
+ */
+function triggerPhotoPicker(): void {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.multiple = true; // Allow multiple selection
+  input.capture = 'environment'; // This enables camera option on mobile
+  input.onchange = handleImageSelect;
+  input.click();
+}
+
+/**
+ * Trigger video file picker (supports multiple selection)
+ */
+function triggerVideoPicker(): void {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'video/*';
+  input.multiple = true; // Allow multiple selection
+  input.capture = 'environment'; // This enables camera option on mobile
+  input.onchange = handleVideoSelect;
+  input.click();
+}
+
+/**
+ * Remove uploaded media at index
+ */
+function removeUploadedMedia(index: number): void {
+  uploadedMedia.value.splice(index, 1);
+}
+
+/**
+ * Clear all uploaded media
+ */
+function clearUploadedMedia(): void {
+  uploadedMedia.value = [];
 }
 
 /**
@@ -1842,10 +2086,18 @@ function cleanupEventListeners() {
   }
 }
 
-// Handle click outside to close filter dropdown
+// Handle click outside to close filter dropdown and upload dropdown
 function handleClickOutside(event: MouseEvent): void {
-  if (filterDropdownRef.value && !filterDropdownRef.value.contains(event.target as Node)) {
+  const target = event.target as Node;
+  
+  // Close filter dropdown if clicking outside
+  if (filterDropdownRef.value && !filterDropdownRef.value.contains(target)) {
     isFilterDropdownOpen.value = false;
+  }
+  
+  // Close upload dropdown if clicking outside
+  if (uploadDropdownRef.value && !uploadDropdownRef.value.contains(target)) {
+    isUploadDropdownOpen.value = false;
   }
 }
 
@@ -2340,7 +2592,29 @@ onUnmounted(() => {
                           : 'bg-[#2a2a2a] text-white'
                       ]"
                     >
+                      <!-- Image Message -->
+                      <template v-if="parseImageMessage(message.message).imageIds.length > 0">
+                        <div class="space-y-2">
+                          <div class="grid gap-2" :class="parseImageMessage(message.message).imageIds.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
+                            <img
+                              v-for="(imageId, idx) in parseImageMessage(message.message).imageIds"
+                              :key="idx"
+                              :src="getImageUrl(imageId, message.db_id)"
+                              :alt="`Image ${idx + 1}`"
+                              class="max-w-full max-h-[400px] rounded object-cover"
+                              @error="(e) => { (e.target as HTMLImageElement).style.display = 'none'; }"
+                            />
+                          </div>
+                          <p 
+                            v-if="parseImageMessage(message.message).text"
+                            class="whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere"
+                            v-html="highlightText(parseImageMessage(message.message).text)"
+                          ></p>
+                        </div>
+                      </template>
+                      <!-- Regular Message -->
                       <p 
+                        v-else
                         class="whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere"
                         v-html="highlightText(message.message)"
                       ></p>
@@ -2522,6 +2796,50 @@ onUnmounted(() => {
                   </svg>
                 </button>
               </div>
+              <!-- Uploaded Media Preview -->
+              <div v-if="uploadedMedia.length > 0" class="mb-2 px-3 py-2 bg-[#0f0f0f] border border-[#333] rounded-lg">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="text-xs text-[#999]">{{ uploadedMedia.length }} {{ uploadedMedia.length === 1 ? 'file' : 'files' }} ready to send</div>
+                  <button
+                    @click="clearUploadedMedia"
+                    class="p-1 hover:bg-[#2a2a2a] rounded transition-colors shrink-0"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999]">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+                <div class="grid gap-2" :class="uploadedMedia.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
+                  <div
+                    v-for="(media, index) in uploadedMedia"
+                    :key="index"
+                    class="relative group"
+                  >
+                    <img
+                      v-if="media.type === 'image'"
+                      :src="media.preview"
+                      alt="Preview"
+                      class="w-full max-h-[200px] rounded object-cover"
+                    />
+                    <video
+                      v-else
+                      :src="media.preview"
+                      class="w-full max-h-[200px] rounded object-cover"
+                      controls
+                    />
+                    <button
+                      @click="removeUploadedMedia(index)"
+                      class="absolute top-1 right-1 p-1 bg-[#1a1a1a] hover:bg-[#2a2a2a] rounded transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
               <div class="flex items-center gap-2">
                 <input
                   v-model="messageInput"
@@ -2530,15 +2848,60 @@ onUnmounted(() => {
                   @click="openDropdownMessageId = null"
                   type="text"
                   placeholder="Type a message..."
-                  :disabled="!selectedChat || !isWebSocketConnected"
+                  :disabled="!selectedChat || !isWebSocketConnected || isUploading"
                   class="flex-1 px-4 py-2 bg-[#0f0f0f] border border-[#333] rounded-lg text-white placeholder-[#666] focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
+                <div class="relative">
+                  <button
+                    @click.stop="isUploadDropdownOpen = !isUploadDropdownOpen"
+                    :disabled="!selectedChat || !isWebSocketConnected || isUploading"
+                    class="p-2 bg-[#1a1a1a] text-white rounded-lg hover:bg-[#2a2a2a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-[#333]"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                  </button>
+                  
+                  <!-- Upload Dropdown -->
+                  <div
+                    v-if="isUploadDropdownOpen"
+                    ref="uploadDropdownRef"
+                    class="absolute right-0 bottom-full mb-2 w-48 bg-[#1a1a1a] border border-[#333] rounded-lg shadow-lg z-50 overflow-hidden"
+                    @click.stop
+                  >
+                    <div class="py-1">
+                      <button
+                        @click="triggerPhotoPicker"
+                        class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                          <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                        Photo's
+                      </button>
+                      <button
+                        @click="triggerVideoPicker"
+                        class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                          <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                        </svg>
+                        Video's
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <button
                   @click="handleSendMessage"
-                  :disabled="!selectedChat || !messageInput.trim() || !isWebSocketConnected"
+                  :disabled="!selectedChat || (!messageInput.trim() && uploadedMedia.length === 0) || !isWebSocketConnected || isUploading"
                   class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Send
+                  <span v-if="isUploading">Uploading...</span>
+                  <span v-else>Send</span>
                 </button>
               </div>
             </div>
