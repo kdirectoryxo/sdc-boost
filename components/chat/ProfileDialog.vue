@@ -158,6 +158,21 @@ function getGenderLabel(gender: number | undefined): string {
   return gender === 1 ? 'Her' : 'Him';
 }
 
+// Helper to combine hair color and length
+function combineHair(hairColor: string | undefined, hairLength: string | undefined): string[] {
+  const colors = splitValue(hairColor);
+  const lengths = splitValue(hairLength);
+  
+  return [
+    colors[0] !== '-' && lengths[0] !== '-' 
+      ? `${colors[0]} | ${lengths[0]}` 
+      : colors[0] !== '-' ? colors[0] : lengths[0] !== '-' ? lengths[0] : '-',
+    colors[1] !== '-' && lengths[1] !== '-' 
+      ? `${colors[1]} | ${lengths[1]}` 
+      : colors[1] !== '-' ? colors[1] : lengths[1] !== '-' ? lengths[1] : '-'
+  ];
+}
+
 // Handle album click
 function handleAlbumClick(album: PhotoAlbum) {
   // Set gallery state
@@ -436,6 +451,12 @@ function getLookingFor(): string[] {
                     </svg>
                     <span class="text-sm text-white">{{ profileData.likes }} Likes</span>
                   </div>
+                  <div v-if="profileData.messenger_count !== undefined && profileData.messenger_count !== null" class="flex items-center gap-2 px-3 py-1.5 bg-[#0f0f0f] rounded-lg border border-[#333]">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-cyan-400">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span class="text-sm text-white">{{ profileData.messenger_count }} Messages</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -484,6 +505,11 @@ function getLookingFor(): string[] {
                     <td class="py-3 px-4 text-pink-300 font-medium">{{ profileData.g1_age || '-' }}</td>
                     <td class="py-3 px-4 text-blue-300 font-medium">{{ profileData.g2_age || '-' }}</td>
                   </tr>
+                  <tr v-if="profileData.hair_color || profileData.hair_length" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
+                    <td class="py-3 px-4 text-[#999] font-medium">Hair</td>
+                    <td class="py-3 px-4 text-pink-300">{{ combineHair(profileData.hair_color, profileData.hair_length)[0] }}</td>
+                    <td class="py-3 px-4 text-blue-300">{{ combineHair(profileData.hair_color, profileData.hair_length)[1] }}</td>
+                  </tr>
                   <tr v-if="profileData.body_hair" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Body Hair</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.body_hair)[0] }}</td>
@@ -528,6 +554,16 @@ function getLookingFor(): string[] {
                     <td class="py-3 px-4 text-[#999] font-medium">Languages</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.languages)[0] }}</td>
                     <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.languages)[1] }}</td>
+                  </tr>
+                  <tr v-if="profileData.look_imp" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
+                    <td class="py-3 px-4 text-[#999] font-medium">Looks Importance</td>
+                    <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.look_imp)[0] }}</td>
+                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.look_imp)[1] }}</td>
+                  </tr>
+                  <tr v-if="profileData.inte_imp" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
+                    <td class="py-3 px-4 text-[#999] font-medium">Intelligence Importance</td>
+                    <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.inte_imp)[0] }}</td>
+                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.inte_imp)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.sexuality" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Sexuality</td>
