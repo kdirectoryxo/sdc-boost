@@ -1,8 +1,11 @@
 <script lang="ts" setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { getProfileV2 } from '@/lib/sdc-api/profile';
-import type { ProfileUser, PhotoAlbum } from '@/lib/sdc-api-types';
+import type { ProfileUser, PhotoAlbum, GalleryPhoto } from '@/lib/sdc-api-types';
 import GalleryModal from '@/components/chat/GalleryModal.vue';
+import VueEasyLightbox from 'vue-easy-lightbox';
+import 'vue-easy-lightbox/dist/external-css/vue-easy-lightbox.css';
+import VideoLightbox from '@/components/chat/VideoLightbox.vue';
 
 interface Props {
   visible: boolean;
@@ -31,6 +34,17 @@ const galleryModalVisible = ref<boolean>(false);
 const galleryName = ref<string>('');
 const galleryId = ref<string>('');
 const galleryDbId = ref<number>(0);
+const initialPassword = ref<string | undefined>(undefined);
+
+// Lightbox state
+const lightboxVisible = ref<boolean>(false);
+const lightboxImages = ref<string[]>([]);
+const lightboxIndex = ref<number>(0);
+
+// Video lightbox state
+const videoLightboxVisible = ref<boolean>(false);
+const videoLightboxVideos = ref<GalleryPhoto[]>([]);
+const videoLightboxIndex = ref<number>(0);
 
 const baseTabs = [
   { id: 'profile', label: 'Profile' },
@@ -173,8 +187,17 @@ function combineHair(hairColor: string | undefined, hairLength: string | undefin
   ];
 }
 
-// Handle album click
-function handleAlbumClick(album: PhotoAlbum) {
+// Handle album click with shift-click support for password auto-fill
+function handleAlbumClick(album: PhotoAlbum, event: MouseEvent) {
+  // If shift-clicked and album has password, use it for auto-fill
+  if (event.shiftKey && album.pwd) {
+    event.preventDefault(); // Prevent browser password manager interference
+    event.stopPropagation();
+    initialPassword.value = album.pwd;
+  } else {
+    initialPassword.value = undefined;
+  }
+  
   // Set gallery state
   galleryId.value = album.id;
   galleryName.value = album.name;
@@ -188,18 +211,101 @@ function handleCloseGalleryModal() {
   galleryName.value = '';
   galleryId.value = '';
   galleryDbId.value = 0;
+  initialPassword.value = undefined;
 }
 
 // Handle lightbox events from gallery modal
 function handleOpenLightbox(photos: string[], imageIndex: number) {
-  // TODO: Implement lightbox if needed in ProfileDialog context
-  console.log('[ProfileDialog] Open lightbox:', photos, imageIndex);
+  lightboxImages.value = photos;
+  lightboxIndex.value = imageIndex;
+  lightboxVisible.value = true;
 }
 
-function handleOpenVideoLightbox(videos: any[], videoIndex: number) {
-  // TODO: Implement video lightbox if needed in ProfileDialog context
-  console.log('[ProfileDialog] Open video lightbox:', videos, videoIndex);
+function handleOpenVideoLightbox(videos: GalleryPhoto[], videoIndex: number) {
+  videoLightboxVideos.value = videos;
+  videoLightboxIndex.value = videoIndex;
+  videoLightboxVisible.value = true;
 }
+
+// Compute lightbox z-index to be higher than ProfileDialog
+const lightboxZIndex = computed(() => {
+  return 10000020 + (props.stackLevel * 10);
+});
+
+// Inject lightbox z-index override styles
+function injectLightboxStyles() {
+  const styleId = `sdc-lightbox-z-index-override-${props.dialogId || 'profile'}`;
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      body .vel-modal {
+        z-index: ${lightboxZIndex.value} !important;
+        pointer-events: auto !important;
+      }
+      body .vel-modal-mask {
+        pointer-events: auto !important;
+        z-index: ${lightboxZIndex.value} !important;
+      }
+      body .v-popper__popper {
+        z-index: ${lightboxZIndex.value} !important;
+      }
+      body .v-popper__inner {
+        z-index: ${lightboxZIndex.value} !important;
+      }
+    `;
+    document.head.appendChild(style);
+  } else {
+    // Update existing style if z-index changed
+    const style = document.getElementById(styleId) as HTMLStyleElement;
+    if (style) {
+      style.textContent = `
+        body .vel-modal {
+          z-index: ${lightboxZIndex.value} !important;
+          pointer-events: auto !important;
+        }
+        body .vel-modal-mask {
+          pointer-events: auto !important;
+          z-index: ${lightboxZIndex.value} !important;
+        }
+        body .v-popper__popper {
+          z-index: ${lightboxZIndex.value} !important;
+        }
+        body .v-popper__inner {
+          z-index: ${lightboxZIndex.value} !important;
+        }
+      `;
+    }
+  }
+}
+
+function removeLightboxStyles() {
+  const styleId = `sdc-lightbox-z-index-override-${props.dialogId || 'profile'}`;
+  const style = document.getElementById(styleId);
+  if (style) {
+    style.remove();
+  }
+}
+
+// Watch for z-index changes and update styles
+watch(lightboxZIndex, () => {
+  if (props.visible) {
+    injectLightboxStyles();
+  }
+});
+
+// Inject styles when dialog opens, remove when it closes
+watch(() => props.visible, (newValue) => {
+  if (newValue) {
+    injectLightboxStyles();
+  } else {
+    removeLightboxStyles();
+  }
+});
+
+onUnmounted(() => {
+  removeLightboxStyles();
+});
 
 // Helper to get "looking for" from interests
 function getLookingFor(): string[] {
@@ -207,6 +313,24 @@ function getLookingFor(): string[] {
   // For now, return empty array
   return [];
 }
+
+// Helper to check if gender2 is a real person (not a placeholder)
+// Gender2 is not real if age is > 100, undefined, or if most fields are "-"
+const isGender2Real = computed(() => {
+  if (!profileData.value) return false;
+  
+  const g2Age = profileData.value.g2_age;
+  // If age is undefined, > 100, or < 18, it's not a real person
+  if (!g2Age || g2Age > 100 || g2Age < 18) return false;
+  
+  // Additional check: if g2_nick is "Person 2" or similar placeholder, it's likely not real
+  const g2Nick = profileData.value.g2_nick;
+  if (g2Nick && (g2Nick.toLowerCase().includes('person 2') || g2Nick.toLowerCase().includes('placeholder'))) {
+    return false;
+  }
+  
+  return true;
+});
 </script>
 
 <template>
@@ -283,9 +407,9 @@ function getLookingFor(): string[] {
                 </svg>
               </a>
             </div>
-            <div v-if="profileData?.g1_age || profileData?.g2_age" class="flex items-center gap-2">
+            <div v-if="profileData?.g1_age || (profileData?.g2_age && isGender2Real)" class="flex items-center gap-2">
               <span v-if="profileData.g1_age" :class="['text-sm font-medium', getAgeColorClass(profileData.gender1)]">{{ profileData.g1_age }}</span>
-              <span v-if="profileData.g2_age" :class="['text-sm font-medium', getAgeColorClass(profileData.gender2)]">{{ profileData.g2_age }}</span>
+              <span v-if="profileData.g2_age && isGender2Real" :class="['text-sm font-medium', getAgeColorClass(profileData.gender2)]">{{ profileData.g2_age }}</span>
             </div>
           </div>
         </div>
@@ -389,14 +513,14 @@ function getLookingFor(): string[] {
                     <span v-if="profileData.online === 1" class="px-3 py-1 bg-green-500/20 text-green-400 text-xs rounded-full font-medium">Online</span>
                     <span v-else class="px-3 py-1 bg-[#333] text-[#999] text-xs rounded-full font-medium">Offline</span>
                   </h3>
-                  <div v-if="profileData.g1_age || profileData.g2_age" class="flex items-center gap-2">
+                  <div v-if="profileData.g1_age || (profileData.g2_age && isGender2Real)" class="flex items-center gap-2">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-pink-400 shrink-0">
                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                       <circle cx="12" cy="7" r="4"></circle>
                     </svg>
                     <div class="flex items-center gap-2">
                       <span v-if="profileData.g1_age" :class="['text-xl font-semibold', getAgeColorClass(profileData.gender1)]">{{ profileData.g1_age }}</span>
-                      <span v-if="profileData.g2_age" :class="['text-xl font-semibold', getAgeColorClass(profileData.gender2)]">{{ profileData.g2_age }}</span>
+                      <span v-if="profileData.g2_age && isGender2Real" :class="['text-xl font-semibold', getAgeColorClass(profileData.gender2)]">{{ profileData.g2_age }}</span>
                     </div>
                   </div>
                 </div>
@@ -496,89 +620,89 @@ function getLookingFor(): string[] {
                   <tr class="border-b-2 border-[#333]">
                     <th class="text-left py-3 px-4 text-[#999] font-semibold"></th>
                     <th class="text-left py-3 px-4 text-pink-400 font-semibold text-base">{{ getGenderLabel(profileData.gender1) }}</th>
-                    <th class="text-left py-3 px-4 text-blue-400 font-semibold text-base">{{ getGenderLabel(profileData.gender2) }}</th>
+                    <th v-if="isGender2Real" class="text-left py-3 px-4 text-blue-400 font-semibold text-base">{{ getGenderLabel(profileData.gender2) }}</th>
                   </tr>
                 </thead>
                 <tbody class="text-white">
                   <tr class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Age</td>
                     <td class="py-3 px-4 text-pink-300 font-medium">{{ profileData.g1_age || '-' }}</td>
-                    <td class="py-3 px-4 text-blue-300 font-medium">{{ profileData.g2_age || '-' }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300 font-medium">{{ profileData.g2_age || '-' }}</td>
                   </tr>
                   <tr v-if="profileData.hair_color || profileData.hair_length" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Hair</td>
                     <td class="py-3 px-4 text-pink-300">{{ combineHair(profileData.hair_color, profileData.hair_length)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ combineHair(profileData.hair_color, profileData.hair_length)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ combineHair(profileData.hair_color, profileData.hair_length)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.body_hair" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Body Hair</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.body_hair)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.body_hair)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.body_hair)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.height" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Height</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.height)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.height)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.height)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.weight" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Weight</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.weight)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.weight)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.weight)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.body_type" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Body Type</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.body_type)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.body_type)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.body_type)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.race" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Ethnic Background</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.race)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.race)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.race)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.smoke" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Smoking</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.smoke)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.smoke)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.smoke)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.piercings" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Piercings</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.piercings)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.piercings)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.piercings)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.tattoos" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Tattoos</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.tattoos)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.tattoos)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.tattoos)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.languages" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Languages</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.languages)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.languages)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.languages)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.look_imp" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Looks Importance</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.look_imp)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.look_imp)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.look_imp)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.inte_imp" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Intelligence Importance</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.inte_imp)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.inte_imp)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.inte_imp)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.sexuality" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Sexuality</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.sexuality)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.sexuality)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.sexuality)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.relationship" class="border-b border-[#333]/50 hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Relationship</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.relationship)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.relationship)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.relationship)[1] }}</td>
                   </tr>
                   <tr v-if="profileData.experience" class="hover:bg-[#1a1a1a] transition-colors">
                     <td class="py-3 px-4 text-[#999] font-medium">Experience</td>
                     <td class="py-3 px-4 text-pink-300">{{ splitValue(profileData.experience)[0] }}</td>
-                    <td class="py-3 px-4 text-blue-300">{{ splitValue(profileData.experience)[1] }}</td>
+                    <td v-if="isGender2Real" class="py-3 px-4 text-blue-300">{{ splitValue(profileData.experience)[1] }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -705,7 +829,7 @@ function getLookingFor(): string[] {
             <div
               v-for="album in profileData.photoalbum_list"
               :key="album.id"
-              @click="handleAlbumClick(album)"
+              @click="handleAlbumClick(album, $event)"
               class="bg-[#0f0f0f] rounded-lg overflow-hidden border border-[#333] cursor-pointer hover:bg-[#1a1a1a] transition-colors"
             >
               <div class="aspect-square bg-[#1a1a1a] relative">
@@ -1022,9 +1146,31 @@ function getLookingFor(): string[] {
       :gallery-name="galleryName"
       :gallery-id="galleryId"
       :db-id="galleryDbId"
+      :initial-password="initialPassword"
       @close="handleCloseGalleryModal"
       @open-lightbox="handleOpenLightbox"
       @open-video-lightbox="handleOpenVideoLightbox"
+    />
+
+    <!-- Image Lightbox -->
+    <VueEasyLightbox
+      v-if="lightboxImages.length > 0"
+      :visible="lightboxVisible"
+      :imgs="lightboxImages"
+      :index="lightboxIndex"
+      teleport="body"
+      :mask-closable="true"
+      :scroll-disabled="true"
+      @hide="lightboxVisible = false"
+    />
+
+    <!-- Video Lightbox -->
+    <VideoLightbox
+      :visible="videoLightboxVisible"
+      :videos="videoLightboxVideos"
+      :initial-index="videoLightboxIndex"
+      :z-index="lightboxZIndex"
+      @close="videoLightboxVisible = false"
     />
   </div>
 </template>

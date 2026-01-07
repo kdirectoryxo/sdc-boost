@@ -5,6 +5,7 @@
 
 import { getMessengerChatDetails } from './sdc-api';
 import { messageStorage } from './message-storage';
+import { chatStorage } from './chat-storage';
 import type { MessengerChatItem, MessengerMessage } from './sdc-api-types';
 
 /**
@@ -32,7 +33,14 @@ export async function loadMessages(
             
             // Fetch new messages in background without blocking
             const latestMessageId = await messageStorage.getLatestMessageId(chat.group_id);
-            fetchNewMessagesOnly(chat, latestMessageId, onProgress).catch(console.error);
+            fetchNewMessagesOnly(chat, latestMessageId, onProgress).catch(async (err) => {
+                // Handle deleted chat errors
+                if (err && typeof err === 'object' && 'isDeletedChat' in err && err.isDeletedChat) {
+                    await handleDeletedChat(chat);
+                } else {
+                    console.error('[MessageService] Failed to fetch new messages:', err);
+                }
+            });
             
             return { messages: storedMessages, isLoading: false };
         } else if (hasBeenFetched && storedMessages.length === 0) {
@@ -136,6 +144,18 @@ export async function fetchAllMessages(
                 blockedError.isBlockedChat = true;
                 blockedError.name = 'BlockedChatError';
                 throw blockedError;
+            } else if (responseCode === '404' || responseCode === 404) {
+                // Deleted chat - this should have been caught by getMessengerChatDetails, but handle it here too
+                const deletedError = new Error(response.info.message || 'Profile is no longer available') as Error & {
+                    code: string | number;
+                    allowed?: number;
+                    isDeletedChat: boolean;
+                };
+                deletedError.code = response.info.code;
+                deletedError.allowed = response.info.allowed;
+                deletedError.isDeletedChat = true;
+                deletedError.name = 'DeletedChatError';
+                throw deletedError;
             } else {
                 hasMore = false;
             }
@@ -143,6 +163,11 @@ export async function fetchAllMessages(
             // Check if this is a blocked chat error - re-throw it so UI can handle it
             if (err && typeof err === 'object' && 'isBlockedChat' in err && err.isBlockedChat) {
                 throw err;
+            }
+            // Check if this is a deleted chat error - handle it and re-throw
+            if (err && typeof err === 'object' && 'isDeletedChat' in err && err.isDeletedChat) {
+                await handleDeletedChat(chat);
+                throw err; // Re-throw so UI layer can show toast and deselect
             }
             console.error(`[MessageService] Failed to fetch page ${page}:`, err);
             hasMore = false;
@@ -209,13 +234,76 @@ export async function refreshLatestPage(
             blockedError.isBlockedChat = true;
             blockedError.name = 'BlockedChatError';
             throw blockedError;
+        } else if (responseCode === '404' || responseCode === 404) {
+            // Deleted chat
+            const deletedError = new Error(response.info.message || 'Profile is no longer available') as Error & {
+                code: string | number;
+                allowed?: number;
+                isDeletedChat: boolean;
+            };
+            deletedError.code = response.info.code;
+            deletedError.allowed = response.info.allowed;
+            deletedError.isDeletedChat = true;
+            deletedError.name = 'DeletedChatError';
+            throw deletedError;
         }
     } catch (err) {
         // Check if this is a blocked chat error - re-throw it so UI can handle it
         if (err && typeof err === 'object' && 'isBlockedChat' in err && err.isBlockedChat) {
             throw err;
         }
+        // Check if this is a deleted chat error - re-throw it so UI can handle it
+        if (err && typeof err === 'object' && 'isDeletedChat' in err && err.isDeletedChat) {
+            throw err;
+        }
         console.error('[MessageService] Failed to refresh latest page:', err);
+    }
+}
+
+/**
+ * Helper function to handle deleted chat removal
+ */
+async function handleDeletedChat(chat: MessengerChatItem): Promise<void> {
+    // Calculate chat ID using the same logic as ChatStorage.getChatId
+    const isBroadcast = chat.broadcast || chat.type === 100;
+    let chatId: string;
+    if (isBroadcast) {
+        if (chat.id_broadcast !== undefined && chat.id_broadcast !== null) {
+            chatId = `broadcast_${chat.db_id}_${chat.id_broadcast}`;
+        } else {
+            chatId = `broadcast_${chat.db_id}`;
+        }
+    } else {
+        chatId = `group_${chat.group_id}`;
+    }
+    
+    // Delete chat from storage (idempotent - check if exists first)
+    try {
+        await chatStorage.deleteChat(chatId);
+    } catch (err) {
+        // Chat might already be deleted, ignore
+        console.log(`[MessageService] Chat ${chatId} might already be deleted`);
+    }
+    
+    // Clear messages for this chat
+    await messageStorage.clearMessages(chat.group_id);
+    
+    console.log(`[MessageService] Removed deleted chat ${chat.group_id} from storage`);
+    
+    // Mark that we've shown a toast for this deletion (to avoid duplicates)
+    // Store in a Set to track which chats we've shown toast for
+    if (!(window as any).__sdcBoostDeletedChatToasts) {
+        (window as any).__sdcBoostDeletedChatToasts = new Set<number>();
+    }
+    const deletedChatToasts = (window as any).__sdcBoostDeletedChatToasts as Set<number>;
+    
+    // Show toast only if we haven't shown one for this chat yet
+    if (!deletedChatToasts.has(chat.group_id)) {
+        deletedChatToasts.add(chat.group_id);
+        const toast = (window as any).__sdcBoostToast;
+        if (toast) {
+            toast.error('Dit profiel is niet langer beschikbaar. Het account van het lid is mogelijk inactief of verwijderd.');
+        }
     }
 }
 
@@ -290,11 +378,28 @@ export async function fetchNewMessagesOnly(
             blockedError.isBlockedChat = true;
             blockedError.name = 'BlockedChatError';
             throw blockedError;
+        } else if (responseCode === '404' || responseCode === 404) {
+            // Deleted chat
+            const deletedError = new Error(response.info.message || 'Profile is no longer available') as Error & {
+                code: string | number;
+                allowed?: number;
+                isDeletedChat: boolean;
+            };
+            deletedError.code = response.info.code;
+            deletedError.allowed = response.info.allowed;
+            deletedError.isDeletedChat = true;
+            deletedError.name = 'DeletedChatError';
+            throw deletedError;
         }
     } catch (err) {
         // Check if this is a blocked chat error - re-throw it so UI can handle it
         if (err && typeof err === 'object' && 'isBlockedChat' in err && err.isBlockedChat) {
             throw err;
+        }
+        // Check if this is a deleted chat error - re-throw it so it can be handled by loadMessages
+        // (which will call handleDeletedChat for background operations)
+        if (err && typeof err === 'object' && 'isDeletedChat' in err && err.isDeletedChat) {
+            throw err; // Re-throw - will be handled by loadMessages catch handler
         }
         console.error('[MessageService] Failed to fetch new messages:', err);
         throw err;

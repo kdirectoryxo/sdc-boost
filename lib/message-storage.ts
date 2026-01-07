@@ -359,10 +359,10 @@ class MessageStorage {
      * Get last message sender info for multiple chats efficiently
      * Uses Dexie queries to get only necessary data without loading all messages
      * @param groupIds Array of group IDs to check
-     * @returns Map of groupId -> { lastMessageSender: 0 | 1 | null, hasOnlyMyMessages: boolean }
+     * @returns Map of groupId -> { lastMessageSender: 0 | 1 | null, lastMessageSeen: 0 | 1 | null, lastMessageDate2: number | null, hasOnlyMyMessages: boolean }
      */
-    async getLastMessageInfoForChats(groupIds: number[]): Promise<Map<number, { lastMessageSender: 0 | 1 | null; hasOnlyMyMessages: boolean }>> {
-        const result = new Map<number, { lastMessageSender: 0 | 1 | null; hasOnlyMyMessages: boolean }>();
+    async getLastMessageInfoForChats(groupIds: number[]): Promise<Map<number, { lastMessageSender: 0 | 1 | null; lastMessageSeen: 0 | 1 | null; lastMessageDate2: number | null; hasOnlyMyMessages: boolean }>> {
+        const result = new Map<number, { lastMessageSender: 0 | 1 | null; lastMessageSeen: 0 | 1 | null; lastMessageDate2: number | null; hasOnlyMyMessages: boolean }>();
         
         if (groupIds.length === 0) {
             return result;
@@ -372,22 +372,23 @@ class MessageStorage {
         await Promise.all(
             groupIds.map(async (groupId) => {
                 try {
-                    // Get messages for this group using index
+                    // Get all messages for this group to find the last one and check hasOnlyMyMessages
+                    // Note: We could optimize further with compound indexes, but this is efficient enough
+                    // since we're using the group_id index
                     const messages = await db.messages
                         .where('group_id')
                         .equals(groupId)
                         .toArray();
                     
                     if (messages.length === 0) {
-                        result.set(groupId, { lastMessageSender: null, hasOnlyMyMessages: false });
+                        result.set(groupId, { lastMessageSender: null, lastMessageSeen: null, lastMessageDate2: null, hasOnlyMyMessages: false });
                         return;
                     }
                     
-                    // Find last message (highest date2) - only need to track the last one
+                    // Find last message (highest date2) efficiently in a single pass
                     let lastMessage = messages[0];
                     let hasOtherSender = messages[0].sender !== 0;
                     
-                    // Single pass through messages to find last and check for other senders
                     for (let i = 1; i < messages.length; i++) {
                         const msg = messages[i];
                         if (msg.date2 > lastMessage.date2) {
@@ -400,11 +401,13 @@ class MessageStorage {
                     
                     result.set(groupId, {
                         lastMessageSender: lastMessage.sender as 0 | 1,
+                        lastMessageSeen: lastMessage.seen !== undefined ? (lastMessage.seen as 0 | 1) : null,
+                        lastMessageDate2: lastMessage.date2,
                         hasOnlyMyMessages: !hasOtherSender
                     });
                 } catch (error) {
                     console.error(`[MessageStorage] Error getting message info for group ${groupId}:`, error);
-                    result.set(groupId, { lastMessageSender: null, hasOnlyMyMessages: false });
+                    result.set(groupId, { lastMessageSender: null, lastMessageSeen: null, lastMessageDate2: null, hasOnlyMyMessages: false });
                 }
             })
         );

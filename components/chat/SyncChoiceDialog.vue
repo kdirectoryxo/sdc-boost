@@ -1,0 +1,106 @@
+<script lang="ts" setup>
+import { watch, onUnmounted } from 'vue';
+
+interface Props {
+  modelValue: boolean;
+}
+
+const props = defineProps<Props>();
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean];
+  'select': [choice: 'sync-unsynced' | 'resync-all' | 'resync-newest'];
+}>();
+
+let escapeHandler: ((e: KeyboardEvent) => void) | null = null;
+
+function handleClose() {
+  emit('update:modelValue', false);
+}
+
+function handleSelect(choice: 'sync-unsynced' | 'resync-all' | 'resync-newest') {
+  emit('select', choice);
+  handleClose();
+}
+
+// Close on Escape key
+watch(() => props.modelValue, (isOpen) => {
+  if (isOpen) {
+    escapeHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    document.addEventListener('keydown', escapeHandler);
+  } else {
+    if (escapeHandler) {
+      document.removeEventListener('keydown', escapeHandler);
+      escapeHandler = null;
+    }
+  }
+});
+
+onUnmounted(() => {
+  if (escapeHandler) {
+    document.removeEventListener('keydown', escapeHandler);
+  }
+});
+</script>
+
+<template>
+  <div
+    v-if="modelValue"
+    class="fixed inset-0 flex items-center justify-center backdrop-blur-sm z-[1000000]"
+    style="pointer-events: auto; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"
+    @click.self="handleClose"
+  >
+    <div
+      class="bg-[#1a1a1a] border border-[#333] rounded-lg shadow-2xl min-w-[400px] max-w-[500px] overflow-hidden"
+      @click.stop
+    >
+      <!-- Header -->
+      <div class="px-6 py-4 border-b border-[#333]">
+        <h3 class="text-lg font-semibold text-white">Sync All Chat</h3>
+        <p class="text-sm text-[#999] mt-1">Choose how you want to sync chats</p>
+      </div>
+
+      <!-- Options -->
+      <div class="p-4 space-y-2">
+        <button
+          @click="handleSelect('sync-unsynced')"
+          class="w-full px-4 py-3 text-left bg-[#0f0f0f] hover:bg-[#2a2a2a] active:bg-[#333] active:scale-[0.98] border border-[#333] rounded-lg transition-all duration-150 group cursor-pointer"
+        >
+          <div class="font-medium text-white mb-1">Sync unsynced</div>
+          <div class="text-sm text-[#999]">Sync all chats that have no sync date</div>
+        </button>
+
+        <button
+          @click="handleSelect('resync-all')"
+          class="w-full px-4 py-3 text-left bg-[#0f0f0f] hover:bg-[#2a2a2a] active:bg-[#333] active:scale-[0.98] border border-[#333] rounded-lg transition-all duration-150 group cursor-pointer"
+        >
+          <div class="font-medium text-white mb-1">Resync all</div>
+          <div class="text-sm text-[#999]">Force resync all chats (all pages)</div>
+        </button>
+
+        <button
+          @click="handleSelect('resync-newest')"
+          class="w-full px-4 py-3 text-left bg-[#0f0f0f] hover:bg-[#2a2a2a] active:bg-[#333] active:scale-[0.98] border border-[#333] rounded-lg transition-all duration-150 group cursor-pointer"
+        >
+          <div class="font-medium text-white mb-1">Resync newest</div>
+          <div class="text-sm text-[#999]">Force resync first page of all chats</div>
+        </button>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 border-t border-[#333] flex justify-end">
+        <button
+          @click="handleClose"
+          class="px-4 py-2 text-sm text-[#999] hover:text-white active:text-[#ccc] transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+

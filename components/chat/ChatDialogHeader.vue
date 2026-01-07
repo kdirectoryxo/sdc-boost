@@ -13,7 +13,7 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
   close: [];
-  syncMessages: [];
+  'sync-all-chats': [];
 }>();
 
 // Get tags from selected chat (tags are merged from metadata)
@@ -27,7 +27,8 @@ function handleClose() {
 }
 
 function handleSyncMessages() {
-  emit('syncMessages');
+  console.log('handleSyncMessages');
+  emit('sync-all-chats');
 }
 </script>
 

@@ -195,5 +195,12 @@ export const moduleDefinitions: ModuleDefinition[] = [
             },
         ],
     },
+    {
+        id: 'profile-messenger-button',
+        name: 'Profile Messenger Button',
+        description: 'Intercepts messenger button on profile pages to open chat dialog with that user.',
+        category: 'UI',
+        configOptions: [],
+    },
 ];
 

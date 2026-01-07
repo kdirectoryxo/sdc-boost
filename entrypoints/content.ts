@@ -5,6 +5,7 @@ import { AdBlockModule } from '@/lib/modules/AdBlockModule';
 import { ChatExportModule } from '@/lib/modules/ChatExportModule';
 import { NavbarBoostButtonModule } from '@/lib/modules/NavbarBoostButtonModule';
 import { EnhancedClickModule } from '@/lib/modules/EnhancedClickModule';
+import { ProfileMessengerButtonModule } from '@/lib/modules/ProfileMessengerButtonModule';
 import { ChatDialogModule } from '@/lib/modules/ChatDialogModule';
 import { toast } from '@/lib/toast';
 import { confirm } from '@/lib/confirm';
@@ -47,6 +48,9 @@ export default defineContentScript({
 
     const enhancedClickModule = new EnhancedClickModule();
     moduleManager.register(enhancedClickModule);
+
+    const profileMessengerButtonModule = new ProfileMessengerButtonModule();
+    moduleManager.register(profileMessengerButtonModule);
 
     // Set up Vue Chat Dialog UI
     let chatDialogApp: ReturnType<typeof createApp> | null = null;

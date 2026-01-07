@@ -27,7 +27,10 @@ export type {
     PinChatResponse,
     PinChatInfo,
     MarkUnreadResponse,
-    MarkUnreadInfo
+    MarkUnreadInfo,
+    SearchGlobalV2Response,
+    SearchGlobalV2Result,
+    SearchGlobalV2Data
 } from '../sdc-api-types';
 
 // Re-export utility functions
@@ -51,10 +54,16 @@ export {
     syncInboxChats,
     syncFolderChats,
     syncArchivesChats,
+    syncUnsyncedChats,
+    syncAllChatsFirstPageOnly,
     getGalleryPhotos,
     loadAlbums,
     pinChat,
-    markChatUnread
+    markChatUnread,
+    searchGlobalV2,
+    startChat,
+    deleteBroadcast,
+    deleteConversation
 } from './messenger';
 
 // Re-export counters functions

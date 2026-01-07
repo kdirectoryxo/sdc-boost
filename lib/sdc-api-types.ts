@@ -502,3 +502,65 @@ export interface GalleryPhotosResponse {
     info: GalleryPhotosInfo;
 }
 
+/**
+ * Search Global V2 API Types
+ */
+export interface SearchGlobalV2Result {
+    db_id: number;
+    index: number;
+    account_id: string;
+    gender1: number;
+    gender2: number;
+    location_how_far: number;
+    age: string;
+    birthday_for: string;
+    profile_type: number;
+    photo_count: number;
+    primary_photo: string;
+    blur_primary_pic: number;
+    location: string;
+    valid_count: number;
+    this_birthday: number;
+    business_type: string;
+    video_count: number;
+    likes_count: number;
+    travel_counter: number;
+    service_counter: number;
+    follows_counter: number;
+    speed: number;
+    online: number;
+    summary_int: string;
+    reviews_counter: number;
+    lifetime_status: boolean;
+    is_app_user: number;
+    is_web_user: number;
+    biz_type_subcategories: any[];
+}
+
+export interface SearchGlobalV2Section {
+    count: number;
+    results: SearchGlobalV2Result[];
+    url_more: string;
+}
+
+export interface SearchGlobalV2Data {
+    PN?: SearchGlobalV2Section;
+    PD?: SearchGlobalV2Section;
+    PE?: SearchGlobalV2Section;
+    G?: SearchGlobalV2Section;
+    B?: SearchGlobalV2Section;
+    MS?: SearchGlobalV2Section;
+    BZ?: SearchGlobalV2Section;
+}
+
+export interface SearchGlobalV2Info {
+    code: number;
+    data?: SearchGlobalV2Data; // Old format (when search_type=ALL)
+    list?: SearchGlobalV2Result[]; // New format (when search_type=PN)
+    url_more?: string;
+}
+
+export interface SearchGlobalV2Response {
+    info: SearchGlobalV2Info;
+}
+

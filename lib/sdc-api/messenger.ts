@@ -2,7 +2,7 @@
  * SDC API Messenger Functions
  * Functions for fetching and working with messenger/chat data
  */
-import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse, GalleryPhotosResponse, AlbumsResponse, PinChatResponse, MarkUnreadResponse } from '../sdc-api-types';
+import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse, GalleryPhotosResponse, AlbumsResponse, PinChatResponse, MarkUnreadResponse, SearchGlobalV2Response } from '../sdc-api-types';
 import { getCurrentMuid } from './utils';
 import { chatStorage } from '../chat-storage';
 import { folderStorage } from '../folder-storage';
@@ -179,15 +179,22 @@ export async function getMessengerFolderItems(
  * Uses incremental sync: first time fetches all pages, subsequent times only fetches new chats
  * Upserts chats incrementally after each page for fast updates
  * @param onPageSynced Optional callback called after each page is synced (for UI updates)
+ * @param onFolderSynced Optional callback called after each folder/area is synced (for UI updates)
  * @returns Total number of chats synced
  */
-export async function syncAllChats(onPageSynced?: () => void | Promise<void>): Promise<number> {
+export async function syncAllChats(
+    onPageSynced?: () => void | Promise<void>,
+    onFolderSynced?: (folderName: string) => void | Promise<void>
+): Promise<number> {
     console.log('[Messenger API] Syncing all chats...');
     let totalSynced = 0;
 
     // Sync messenger_latest (inbox) - uses incremental sync
     const inboxCount = await syncInboxChats(onPageSynced);
     totalSynced += inboxCount;
+    if (onFolderSynced) {
+        await onFolderSynced('inbox');
+    }
 
     // Sync each folder - uses incremental sync
     const folderList = await folderStorage.getAllFolders();
@@ -195,6 +202,9 @@ export async function syncAllChats(onPageSynced?: () => void | Promise<void>): P
         try {
             const folderCount = await syncFolderChats(folder.id, onPageSynced);
             totalSynced += folderCount;
+            if (onFolderSynced) {
+                await onFolderSynced(folder.name);
+            }
         } catch (err) {
             console.error(`[Messenger API] Failed to sync folder ${folder.id}:`, err);
             // Continue with other folders even if one fails
@@ -205,6 +215,9 @@ export async function syncAllChats(onPageSynced?: () => void | Promise<void>): P
     try {
         const archivesCount = await syncArchivesChats(onPageSynced);
         totalSynced += archivesCount;
+        if (onFolderSynced) {
+            await onFolderSynced('archives');
+        }
     } catch (err) {
         console.error('[Messenger API] Failed to sync archives:', err);
         // Continue even if archives sync fails
@@ -387,12 +400,33 @@ export async function getMessengerChatDetails(
             throw blockedError;
         }
         
+        // Check if the response indicates a deleted/inactive profile (code 404)
+        // Handle both string '404' and number 404
+        if (data.info && (responseCode === '404' || responseCode === 404)) {
+            console.log('[SDC API] Deleted/inactive profile detected:', data.info);
+            const deletedError = new Error(data.info.message || 'Profile is no longer available') as Error & {
+                code: string | number;
+                allowed?: number;
+                isDeletedChat: boolean;
+            };
+            deletedError.code = responseCode;
+            deletedError.allowed = data.info.allowed;
+            deletedError.isDeletedChat = true;
+            deletedError.name = 'DeletedChatError';
+            console.log('[SDC API] Throwing deleted chat error:', deletedError);
+            throw deletedError;
+        }
+        
         console.log('[SDC API] Response code:', responseCode, 'type:', typeof responseCode);
         
         return data as MessengerChatDetailsResponse;
     } catch (error) {
         // Re-throw blocked chat errors as-is
         if (error && typeof error === 'object' && 'isBlockedChat' in error && error.isBlockedChat) {
+            throw error;
+        }
+        // Re-throw deleted chat errors as-is
+        if (error && typeof error === 'object' && 'isDeletedChat' in error && error.isDeletedChat) {
             throw error;
         }
         console.error('[SDC API] Failed to fetch chat details:', error);
@@ -495,6 +529,156 @@ export async function syncArchivesChats(onPageSynced?: () => void | Promise<void
     
     console.log(`[Messenger API] Synced ${result.totalSynced} archived chats`);
     return result.totalSynced;
+}
+
+/**
+ * Sync only chats that haven't been synced yet (no sync date)
+ * Checks inbox, archives, and all folders for sync times and only syncs those without sync dates
+ * @param onPageSynced Optional callback called after each page is synced (for UI updates)
+ * @param onFolderSynced Optional callback called after each folder/area is synced (for UI updates)
+ * @returns Total number of chats synced
+ */
+export async function syncUnsyncedChats(
+    onPageSynced?: () => void | Promise<void>,
+    onFolderSynced?: (folderName: string) => void | Promise<void>
+): Promise<number> {
+    console.log('[Messenger API] Syncing unsynced chats...');
+    let totalSynced = 0;
+
+    // Check inbox sync time
+    const inboxSyncTime = await chatStorage.getInboxLastSyncTime();
+    if (!inboxSyncTime) {
+        console.log('[Messenger API] Inbox has no sync date, syncing inbox...');
+        const inboxCount = await syncInboxChats(onPageSynced);
+        totalSynced += inboxCount;
+        if (onFolderSynced) {
+            await onFolderSynced('inbox');
+        }
+    } else {
+        console.log('[Messenger API] Inbox already synced, skipping');
+    }
+
+    // Check archives sync time
+    const archivesSyncTime = await chatStorage.getArchivesLastSyncTime();
+    if (!archivesSyncTime) {
+        console.log('[Messenger API] Archives have no sync date, syncing archives...');
+        try {
+            const archivesCount = await syncArchivesChats(onPageSynced);
+            totalSynced += archivesCount;
+            if (onFolderSynced) {
+                await onFolderSynced('archives');
+            }
+        } catch (err) {
+            console.error('[Messenger API] Failed to sync archives:', err);
+        }
+    } else {
+        console.log('[Messenger API] Archives already synced, skipping');
+    }
+
+    // Check each folder sync time
+    const folderList = await folderStorage.getAllFolders();
+    for (const folder of folderList) {
+        const folderSyncTime = await chatStorage.getFolderLastSyncTime(folder.id);
+        if (!folderSyncTime) {
+            console.log(`[Messenger API] Folder ${folder.id} has no sync date, syncing...`);
+            try {
+                const folderCount = await syncFolderChats(folder.id, onPageSynced);
+                totalSynced += folderCount;
+                if (onFolderSynced) {
+                    await onFolderSynced(folder.name);
+                }
+            } catch (err) {
+                console.error(`[Messenger API] Failed to sync folder ${folder.id}:`, err);
+            }
+        } else {
+            console.log(`[Messenger API] Folder ${folder.id} already synced, skipping`);
+        }
+    }
+
+    console.log(`[Messenger API] Synced ${totalSynced} total unsynced chats`);
+    return totalSynced;
+}
+
+/**
+ * Sync all chats but limit to first page only (page 0)
+ * Clears all sync times first to force resync, then syncs only first page
+ * @param onPageSynced Optional callback called after each page is synced (for UI updates)
+ * @param onFolderSynced Optional callback called after each folder/area is synced (for UI updates)
+ * @returns Total number of chats synced
+ */
+export async function syncAllChatsFirstPageOnly(
+    onPageSynced?: () => void | Promise<void>,
+    onFolderSynced?: (folderName: string, page: number) => void | Promise<void>
+): Promise<number> {
+    console.log('[Messenger API] Syncing all chats (first page only)...');
+    let totalSynced = 0;
+
+    // Sync inbox (first page only)
+    const inboxResult = await chatStorage.syncChatsFromEndpoint(
+        (page) => getMessengerLatest(page),
+        async (chats, total) => {
+            console.log(`[Messenger API] Synced ${chats.length} inbox chats (total: ${total})`);
+            if (onPageSynced) {
+                await onPageSynced();
+            }
+        },
+        null, // No lastSyncTime - force resync
+        1 // maxPages = 1 (only first page)
+    );
+    totalSynced += inboxResult.totalSynced;
+    if (onFolderSynced) {
+        await onFolderSynced('inbox', 0);
+    }
+
+    // Sync each folder (first page only)
+    const folderList = await folderStorage.getAllFolders();
+    for (const folder of folderList) {
+        try {
+            const folderResult = await chatStorage.syncChatsFromEndpoint(
+                (page) => getMessengerFolderItems(folder.id, page),
+                async (chats, total) => {
+                    console.log(`[Messenger API] Synced ${chats.length} chats from folder ${folder.id} (total: ${total})`);
+                    if (onPageSynced) {
+                        await onPageSynced();
+                    }
+                },
+                null, // No lastSyncTime - force resync
+                1 // maxPages = 1 (only first page)
+            );
+            totalSynced += folderResult.totalSynced;
+            if (onFolderSynced) {
+                await onFolderSynced(folder.name, 0);
+            }
+        } catch (err) {
+            console.error(`[Messenger API] Failed to sync folder ${folder.id}:`, err);
+        }
+    }
+
+    // Sync archives (first page only)
+    try {
+        const archivesResult = await chatStorage.syncChatsFromEndpoint(
+            (page) => getMessengerArchives(page),
+            async (chats, total) => {
+                console.log(`[Messenger API] Synced ${chats.length} archived chats (total: ${total})`);
+                // Mark chats as archived and upsert
+                await chatStorage.upsertChats(chats, true); // true = markAsArchived
+                if (onPageSynced) {
+                    await onPageSynced();
+                }
+            },
+            null, // No lastSyncTime - force resync
+            1 // maxPages = 1 (only first page)
+        );
+        totalSynced += archivesResult.totalSynced;
+        if (onFolderSynced) {
+            await onFolderSynced('archives', 0);
+        }
+    } catch (err) {
+        console.error('[Messenger API] Failed to sync archives:', err);
+    }
+
+    console.log(`[Messenger API] Synced ${totalSynced} total chats (first page only)`);
+    return totalSynced;
 }
 
 /**
@@ -777,3 +961,227 @@ export async function markChatUnread(
     }
 }
 
+/**
+ * Search for users globally
+ * @param search The search query (username/account_id)
+ * @param searchType The type of search (default: 'ALL')
+ * @param page Page number (default: 0)
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Search results with user profiles
+ */
+export async function searchGlobalV2(
+    search: string,
+    searchType: string = 'ALL',
+    page: number = 0,
+    muid?: string | null
+): Promise<SearchGlobalV2Response> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot search users.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/search_global_v2');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('search_type', searchType);
+    url.searchParams.set('search', search);
+    url.searchParams.set('page', page.toString());
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8,ar;q=0.7,nl;q=0.6',
+                'origin': 'https://www.sdc.com',
+                'referer': 'https://www.sdc.com/',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Search Global V2 API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data as SearchGlobalV2Response;
+    } catch (error) {
+        console.error('[SDC API] Failed to search users:', error);
+        throw error;
+    }
+}
+
+/**
+ * Start a new chat with a user
+ * @param dbId The DB_ID of the user to start a chat with
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Chat details response with group_id and session info
+ */
+export async function startChat(
+    dbId: number,
+    muid?: string | null
+): Promise<MessengerChatDetailsResponse> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot start chat.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_chat_details');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('DB_ID', dbId.toString());
+    url.searchParams.set('type', '0');
+    url.searchParams.set('GroupID', '0'); // 0 indicates new chat
+    url.searchParams.set('page', '0');
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Start Chat API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        // Check if the response indicates a blocked chat (code 402)
+        const responseCode = data.info?.code;
+        if (data.info && (responseCode === '402' || responseCode === 402)) {
+            console.log('[SDC API] Blocked chat detected:', data.info);
+            const blockedError = new Error(data.info.message || 'Chat is blocked') as Error & {
+                code: string | number;
+                allowed?: number;
+                isBlockedChat: boolean;
+            };
+            blockedError.code = responseCode;
+            blockedError.allowed = data.info.allowed;
+            blockedError.isBlockedChat = true;
+            blockedError.name = 'BlockedChatError';
+            throw blockedError;
+        }
+        
+        return data as MessengerChatDetailsResponse;
+    } catch (error) {
+        // Re-throw blocked chat errors as-is
+        if (error && typeof error === 'object' && 'isBlockedChat' in error && error.isBlockedChat) {
+            throw error;
+        }
+        console.error('[SDC API] Failed to start chat:', error);
+        throw error;
+    }
+}
+
+/**
+ * Delete a broadcast
+ * @param broadcastId The ID of the broadcast to delete
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Response indicating success
+ */
+export async function deleteBroadcast(
+    broadcastId: number,
+    muid?: string | null
+): Promise<{ info: { code: number | string; message: string } }> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot delete broadcast.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_delete_broadcast');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('broadcast_id', broadcastId.toString());
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
+                'origin': 'https://www.sdc.com',
+                'referer': 'https://www.sdc.com/',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Delete Broadcast API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        // Check if the operation was successful
+        const responseCode = data.info?.code;
+        if (responseCode !== 200 && responseCode !== '200') {
+            throw new Error(data.info?.message || 'Failed to delete broadcast');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('[SDC API] Failed to delete broadcast:', error);
+        throw error;
+    }
+}
+
+/**
+ * Delete a conversation
+ * @param groupId The Group_ID of the conversation to delete
+ * @param dbId The DB_ID of the conversation to delete
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Response indicating success
+ */
+export async function deleteConversation(
+    groupId: number,
+    dbId: number,
+    muid?: string | null
+): Promise<{ info: { code: number | string; message: string } }> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot delete conversation.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_delete_conversation');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('Group_ID', groupId.toString());
+    url.searchParams.set('DB_ID', dbId.toString());
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
+                'origin': 'https://www.sdc.com',
+                'referer': 'https://www.sdc.com/',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Delete Conversation API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        // Check if the operation was successful
+        const responseCode = data.info?.code;
+        if (responseCode !== 200 && responseCode !== '200') {
+            throw new Error(data.info?.message || 'Failed to delete conversation');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('[SDC API] Failed to delete conversation:', error);
+        throw error;
+    }
+}

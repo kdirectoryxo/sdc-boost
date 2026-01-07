@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch, toRef } from 'vue';
+import { ref, watch, toRef, nextTick } from 'vue';
 import VueEasyLightbox from 'vue-easy-lightbox';
 import 'vue-easy-lightbox/dist/external-css/vue-easy-lightbox.css';
 import { useChatState } from '@/lib/composables/chat/useChatState';
@@ -12,7 +12,7 @@ import { useChatWebSocket } from '@/lib/composables/chat/useChatWebSocket';
 import { useChatSync } from '@/lib/composables/chat/useChatSync';
 import { useChatSelection } from '@/lib/composables/chat/useChatSelection';
 import { useChatDialogLifecycle } from '@/lib/composables/chat/useChatDialogLifecycle';
-import { openProfileInNewTab } from '@/lib/composables/chat/utils';
+import { useProfileDialogs } from '@/lib/composables/chat/useProfileDialogs';
 import ChatDialogHeader from '@/components/chat/ChatDialogHeader.vue';
 import ChatFoldersSidebar from '@/components/chat/ChatFoldersSidebar.vue';
 import ChatListSidebar from '@/components/chat/ChatListSidebar.vue';
@@ -21,8 +21,13 @@ import ChatMessageInput from '@/components/chat/ChatMessageInput.vue';
 import GalleryModal from '@/components/chat/GalleryModal.vue';
 import AlbumSelectionModal from '@/components/chat/AlbumSelectionModal.vue';
 import TagDialog from '@/components/chat/TagDialog.vue';
+import SyncChoiceDialog from '@/components/chat/SyncChoiceDialog.vue';
 import VideoLightbox from '@/components/chat/VideoLightbox.vue';
-import type { GalleryPhoto } from '@/lib/sdc-api-types';
+import NewChatSearchDialog from '@/components/chat/NewChatSearchDialog.vue';
+import ProfileDialog from '@/components/chat/ProfileDialog.vue';
+import type { GalleryPhoto, MessengerChatItem } from '@/lib/sdc-api-types';
+import { startChat } from '@/lib/sdc-api';
+import { chatStorage } from '@/lib/chat-storage';
 
 interface Props {
   modelValue: boolean;
@@ -40,6 +45,7 @@ const {
   selectedChat,
   selectedFolderId,
   showArchives,
+  chatList,
 } = useChatState();
 
 const {
@@ -147,7 +153,11 @@ const {
   isLoading,
   error,
   isSyncingMessages,
+  isRefreshing,
   syncMessagesForCurrentFolder,
+  syncUnsyncedChats,
+  resyncAllChats,
+  resyncNewestChats,
 } = useChatSync();
 
 const { handleChatClick } = useChatSelection();
@@ -214,6 +224,140 @@ function handleTagSave() {
   // The chat list will automatically update via reactive queries
   isTagDialogOpen.value = false;
 }
+
+// Sync choice dialog state
+const isSyncChoiceDialogOpen = ref(false);
+
+function handleSyncAllChats() {
+  isSyncChoiceDialogOpen.value = true;
+}
+
+// New chat search dialog state
+const showNewChatDialog = ref(false);
+
+// Profile dialogs management
+const { profileDialogs, openProfileDialog, closeProfileDialog } = useProfileDialogs();
+
+function handleNewChat() {
+  console.log('[ChatDialog] handleNewChat called, setting showNewChatDialog to true');
+  console.log('[ChatDialog] showNewChatDialog before:', showNewChatDialog.value);
+  showNewChatDialog.value = true;
+  console.log('[ChatDialog] showNewChatDialog after:', showNewChatDialog.value);
+  // Force a re-render check
+  nextTick(() => {
+    console.log('[ChatDialog] showNewChatDialog in nextTick:', showNewChatDialog.value);
+  });
+}
+
+async function handleStartChat(dbId: number) {
+  const toast = (window as any).__sdcBoostToast;
+  
+  try {
+    // Check if chat already exists with this user
+    const existingChat = chatList.value.find(chat => chat.db_id === dbId && !chat.broadcast && chat.type !== 100);
+    
+    if (existingChat) {
+      // Chat already exists, just open it
+      await handleChatClick(existingChat);
+      showNewChatDialog.value = false;
+      if (toast) {
+        toast.success('Opened existing chat');
+      }
+      return;
+    }
+    
+    // Call start chat API
+    const response = await startChat(dbId);
+    
+    if (!response.info.group_id) {
+      throw new Error('Failed to create chat: no group_id returned');
+    }
+    
+    // Convert response to MessengerChatItem format
+    const chatItem: MessengerChatItem = {
+      db_id: response.info.target_db_id || dbId,
+      account_id: response.info.account_id || '',
+      gender1: response.info.gender1 || 0,
+      gender2: response.info.gender2 || 0,
+      profile_type: response.info.profile_type || 0,
+      unread_counter: 0,
+      last_message: '',
+      message_status: 0,
+      date: new Date().toISOString(),
+      date_time: new Date().toISOString(),
+      start_chat: 1,
+      primary_photo: response.info.primary_photo || '',
+      muted: response.info.muted || 0,
+      pin_chat: response.info.pin_chat || 0,
+      time_elapsed: '',
+      isFriend: false,
+      online: response.info.online || 0,
+      group_type: 0,
+      group_id: response.info.group_id,
+      blocked_profile: 0,
+      extra1: '',
+    };
+    
+    // Store the chat
+    await chatStorage.upsertChats([chatItem]);
+    
+    // Auto-open the chat
+    await handleChatClick(chatItem);
+    
+    // Close the dialog
+    showNewChatDialog.value = false;
+    
+    if (toast) {
+      toast.success('Chat started');
+    }
+  } catch (err: any) {
+    console.error('[ChatDialog] Failed to start chat:', err);
+    
+    if (err.isBlockedChat) {
+      if (toast) {
+        toast.error('Cannot start chat: ' + (err.message || 'Chat is blocked'));
+      }
+    } else {
+      if (toast) {
+        toast.error('Failed to start chat: ' + (err.message || 'Unknown error'));
+      }
+    }
+  }
+}
+
+async function handleSyncChoice(choice: 'sync-unsynced' | 'resync-all' | 'resync-newest') {
+  // Close dialog immediately
+  isSyncChoiceDialogOpen.value = false;
+  
+  try {
+    switch (choice) {
+      case 'sync-unsynced':
+        await syncUnsyncedChats();
+        break;
+      case 'resync-all':
+        await resyncAllChats();
+        break;
+      case 'resync-newest':
+        await resyncNewestChats();
+        break;
+    }
+  } catch (err) {
+    console.error('[ChatDialog] Failed to sync:', err);
+    // Error toasts are handled in the sync functions
+  }
+}
+
+function handleOpenProfileDialog(userId: number) {
+  openProfileDialog(userId);
+}
+
+function handleCloseProfileDialog(dialogId: string) {
+  closeProfileDialog(dialogId);
+}
+
+function handleOpenProfileFromDialog(userId: number) {
+  openProfileDialog(userId);
+}
 </script>
 
 <template>
@@ -230,10 +374,10 @@ function handleTagSave() {
       <!-- Header -->
       <ChatDialogHeader
         :is-web-socket-connected="isWebSocketConnected"
-        :is-syncing-messages="isSyncingMessages"
+        :is-syncing-messages="isSyncingMessages || isRefreshing"
         :selected-chat="selectedChat"
         @close="handleClose"
-        @sync-messages="syncMessagesForCurrentFolder"
+        @sync-all-chats="handleSyncAllChats"
       />
 
       <!-- Main Content -->
@@ -282,6 +426,7 @@ function handleTagSave() {
           @chat-open-tags="handleOpenTags"
           @clear-filters="clearAllFilters"
           @clear-search="clearChatSearch"
+          @new-chat="handleNewChat"
         />
 
         <!-- Right Side - Chat Messages Area -->
@@ -301,7 +446,7 @@ function handleTagSave() {
             :open-dropdown-message-id="openDropdownMessageId"
             :message-search-query="messageSearchQuery"
             @update:open-dropdown-message-id="openDropdownMessageId = $event"
-            @open-profile="openProfileInNewTab"
+            @open-profile-dialog="handleOpenProfileDialog"
             @quote-message="handleQuoteMessageWrapper"
             @copy-message="handleCopyMessageWrapper"
             @delete-message="handleDeleteMessageWrapper"
@@ -421,6 +566,13 @@ function handleTagSave() {
     @close="videoLightboxVisible = false"
   />
   
+  <!-- New Chat Search Dialog -->
+  <NewChatSearchDialog
+    :visible="showNewChatDialog"
+    @close="showNewChatDialog = false"
+    @start-chat="handleStartChat"
+  />
+  
   <!-- Album Selection Modal -->
   <AlbumSelectionModal
     :visible="albumModalVisible"
@@ -434,5 +586,24 @@ function handleTagSave() {
     :chat="tagDialogChat"
     @update:model-value="isTagDialogOpen = $event"
     @save="handleTagSave"
+  />
+  
+  <!-- Sync Choice Dialog -->
+  <SyncChoiceDialog
+    :model-value="isSyncChoiceDialogOpen"
+    @update:model-value="isSyncChoiceDialogOpen = $event"
+    @select="handleSyncChoice"
+  />
+  
+  <!-- Profile Dialogs (stacked) -->
+  <ProfileDialog
+    v-for="dialog in profileDialogs"
+    :key="dialog.id"
+    :visible="true"
+    :user-id="dialog.userId"
+    :stack-level="dialog.stackLevel"
+    :dialog-id="dialog.id"
+    @close="handleCloseProfileDialog(dialog.id)"
+    @open-profile="handleOpenProfileFromDialog"
   />
 </template>

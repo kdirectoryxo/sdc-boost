@@ -261,4 +261,3 @@ export async function clearGalleryPassword(galleryId: string, dbId: string): Pro
         console.error('SDC Boost: Error clearing gallery password', error);
     }
 }
-

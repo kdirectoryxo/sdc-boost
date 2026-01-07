@@ -9,6 +9,7 @@ interface Props {
   galleryName: string;
   galleryId: string;
   dbId: number;
+  initialPassword?: string;
 }
 
 const props = defineProps<Props>();
@@ -37,11 +38,14 @@ async function fetchPhotos(providedPassword?: string, isRetry: boolean = false) 
   passwordError.value = null;
   
   // Determine which password to use
-  // Priority: providedPassword > stored password
+  // Priority: providedPassword > initialPassword prop > stored password
   let passwordToUse: string | undefined;
   if (providedPassword !== undefined) {
     // Use provided password (from user input or retry)
     passwordToUse = providedPassword;
+  } else if (props.initialPassword) {
+    // Use initial password from prop (e.g., from shift-click)
+    passwordToUse = props.initialPassword;
   } else if (!isRetry) {
     // Try to load stored password first
     const storedPassword = await getGalleryPassword(props.galleryId, String(props.dbId));
@@ -69,6 +73,10 @@ async function fetchPhotos(providedPassword?: string, isRetry: boolean = false) 
         await clearGalleryPassword(props.galleryId, String(props.dbId));
       }
       showPasswordInput.value = true;
+      // Pre-fill password input with initialPassword if it was provided (e.g., from shift-click)
+      if (props.initialPassword && !providedPassword) {
+        password.value = props.initialPassword;
+      }
       if (providedPassword) {
         passwordError.value = 'Invalid password. Please try again.';
       }
@@ -89,6 +97,10 @@ async function fetchPhotos(providedPassword?: string, isRetry: boolean = false) 
       // Show password input to ask again
       isPasswordProtected.value = true;
       showPasswordInput.value = true;
+      // Pre-fill password input with initialPassword if it was provided (e.g., from shift-click)
+      if (props.initialPassword && !passwordToUse) {
+        password.value = props.initialPassword;
+      }
     } else {
       // No password and not known to be password-protected - show generic error
       error.value = 'Failed to load gallery photos';
@@ -181,7 +193,8 @@ watch(() => props.visible, async (newValue) => {
     error.value = null;
     photos.value = [];
     isPasswordProtected.value = false;
-    // Try to fetch with stored password or no password
+    // Try to fetch with initialPassword prop, stored password, or no password
+    // Pass undefined to let fetchPhotos handle the priority (initialPassword > stored)
     await fetchPhotos();
   }
 });

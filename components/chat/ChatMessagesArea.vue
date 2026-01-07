@@ -26,6 +26,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   'update:openDropdownMessageId': [value: number | null];
   'open-profile': [userId: number];
+  'open-profile-dialog': [userId: number];
   'quote-message': [message: MessengerMessage];
   'copy-message': [message: MessengerMessage];
   'delete-message': [message: MessengerMessage];
@@ -36,7 +37,7 @@ const emit = defineEmits<{
 }>();
 
 const messagesContainer = ref<HTMLElement | null>(null);
-const { togglePinChat, toggleMarkUnread } = useChatPin();
+const { togglePinChat, toggleMarkUnread, deleteChat } = useChatPin();
 const openHeaderDropdown = ref<boolean>(false);
 
 defineExpose({
@@ -68,6 +69,13 @@ function handleToggleMarkUnread() {
 
 function handleHeaderDropdownToggle(open: boolean) {
   openHeaderDropdown.value = open;
+}
+
+async function handleDeleteChat() {
+  if (props.selectedChat) {
+    await deleteChat(props.selectedChat);
+    openHeaderDropdown.value = false;
+  }
 }
 
 // Get tags from selected chat (tags are merged from metadata)
@@ -102,16 +110,16 @@ const chatTags = computed(() => {
       <img
         :src="`https://pictures.sdc.com/photos/${selectedChat.primary_photo}`"
         :alt="selectedChat.account_id"
-        @click="emit('open-profile', selectedChat.db_id)"
+        @click="emit('open-profile-dialog', selectedChat.db_id)"
         class="w-10 h-10 rounded-full object-cover shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-        title="Click to view profile in new tab"
+        title="Click to view profile"
       />
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
           <h3
-            @click="emit('open-profile', selectedChat.db_id)"
+            @click="emit('open-profile-dialog', selectedChat.db_id)"
             class="text-white font-semibold truncate cursor-pointer hover:text-blue-400 transition-colors"
-            title="Click to view profile in new tab"
+            title="Click to view profile"
           >
             {{ selectedChat.account_id }}
           </h3>
@@ -190,6 +198,18 @@ const chatTags = computed(() => {
                     <line x1="7" y1="7" x2="7.01" y2="7"></line>
                   </svg>
                   Tags
+                </button>
+                <button
+                  @click.stop="handleDeleteChat(); close()"
+                  class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                  </svg>
+                  Delete
                 </button>
               </div>
             </template>
@@ -415,4 +435,3 @@ const chatTags = computed(() => {
   padding-left: 1em;
 }
 </style>
-

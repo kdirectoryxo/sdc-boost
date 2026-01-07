@@ -8,6 +8,51 @@ import type { MessengerChatItem } from './sdc-api-types';
 import { messageStorage } from './message-storage';
 
 /**
+ * Sanitize chat data to ensure it can be stored in IndexedDB
+ * Handles non-serializable objects like extra_data.bc_date
+ */
+function sanitizeChatForStorage(chat: MessengerChatItem): MessengerChatItem {
+    // Use JSON serialization to ensure all data is IndexedDB-compatible
+    // This removes any non-serializable properties (functions, circular refs, etc.)
+    // and converts Date objects to strings
+    let sanitized: MessengerChatItem;
+    try {
+        sanitized = JSON.parse(JSON.stringify(chat));
+    } catch (e) {
+        // If JSON serialization fails, try to manually sanitize problematic fields
+        sanitized = { ...chat };
+        if (sanitized.extra_data?.bc_date) {
+            const bcDate = sanitized.extra_data.bc_date;
+            sanitized.extra_data = {
+                ...sanitized.extra_data,
+                bc_date: {
+                    date: String(bcDate.date || ''),
+                    timezone_type: typeof bcDate.timezone_type === 'number' ? bcDate.timezone_type : undefined,
+                    timezone: String(bcDate.timezone || ''),
+                },
+            };
+            // Remove undefined values
+            if (sanitized.extra_data.bc_date.timezone_type === undefined) {
+                delete sanitized.extra_data.bc_date.timezone_type;
+            }
+        }
+    }
+    
+    // Double-check extra_data.bc_date is properly serialized
+    if (sanitized.extra_data?.bc_date && typeof sanitized.extra_data.bc_date === 'object') {
+        const bcDate = sanitized.extra_data.bc_date;
+        // Ensure it's a plain object with only serializable properties
+        sanitized.extra_data.bc_date = {
+            ...(bcDate.date !== undefined && { date: String(bcDate.date) }),
+            ...(bcDate.timezone_type !== undefined && typeof bcDate.timezone_type === 'number' && { timezone_type: bcDate.timezone_type }),
+            ...(bcDate.timezone !== undefined && { timezone: String(bcDate.timezone) }),
+        };
+    }
+    
+    return sanitized;
+}
+
+/**
  * Helper function to deduplicate chats
  * For regular chats: use group_id
  * For broadcast messages (clubs/companies): use id_broadcast if available, otherwise db_id
@@ -79,8 +124,11 @@ class ChatStorage {
             chats.map(async (chat) => {
                 const chatId = this.getChatId(chat);
                 
+                // Sanitize chat data to ensure it can be stored in IndexedDB
+                const sanitizedChat = sanitizeChatForStorage(chat);
+                
                 // Remove archived, isBlocked, and tags from chat item (they're stored in metadata)
-                const { archived, isBlocked, tags, ...chatWithoutMetadata } = chat as any;
+                const { archived, isBlocked, tags, ...chatWithoutMetadata } = sanitizedChat as any;
                 
                 const chatWithId: ChatEntity = {
                     ...chatWithoutMetadata,
@@ -186,8 +234,11 @@ class ChatStorage {
     async updateChat(chat: MessengerChatItem): Promise<void> {
         const chatId = this.getChatId(chat);
         
+        // Sanitize chat data to ensure it can be stored in IndexedDB
+        const sanitizedChat = sanitizeChatForStorage(chat);
+        
         // Remove isBlocked, archived, and tags from chat item if present (they're stored in metadata)
-        const { isBlocked, archived, tags, ...chatWithoutMetadata } = chat as any;
+        const { isBlocked, archived, tags, ...chatWithoutMetadata } = sanitizedChat as any;
         
         const chatWithId: ChatEntity = {
             ...chatWithoutMetadata,
@@ -225,20 +276,28 @@ class ChatStorage {
      * @param fetchFn Function to fetch a page, returns response with chat_list and url_more
      * @param onProgress Optional callback called after each page is upserted
      * @param lastSyncTime Optional ISO date string - if provided, stops fetching when encountering older chats
+     * @param maxPages Optional maximum number of pages to fetch (default: unlimited)
      * @returns Object with total number of chats synced and most recent date_time
      */
     async syncChatsFromEndpoint(
         fetchFn: (page: number) => Promise<{ info: { chat_list?: MessengerChatItem[]; url_more?: string } }>,
         onProgress?: (pageChats: MessengerChatItem[], totalSynced: number) => void,
-        lastSyncTime: string | null = null
+        lastSyncTime: string | null = null,
+        maxPages: number | null = null
     ): Promise<{ totalSynced: number; mostRecentDateTime: string | null }> {
         let totalSynced = 0;
         let page = 0;
         let hasMore = true;
+        let pagesFetched = 0;
         let mostRecentDateTime: string | null = null;
         const lastSyncTimestamp = lastSyncTime ? this.getDateTimeTimestamp(lastSyncTime) : null;
 
         while (hasMore) {
+            // Check maxPages limit
+            if (maxPages !== null && pagesFetched >= maxPages) {
+                hasMore = false;
+                break;
+            }
             const response = await fetchFn(page);
             const chats = response.info.chat_list || [];
             
@@ -279,6 +338,8 @@ class ChatStorage {
             if (onProgress) {
                 onProgress(deduplicatedPageChats, totalSynced);
             }
+            
+            pagesFetched++;
             
             // If we found older chats, stop fetching more pages (but we've already processed this page)
             if (shouldStopDueToOlderChats) {
@@ -387,6 +448,23 @@ class ChatStorage {
      */
     async getArchivesLastSyncTime(): Promise<string | null> {
         return this.getLastSyncTime('archives');
+    }
+
+    /**
+     * Clear sync time for a specific key
+     * @param key The sync key ('inbox', 'archives', or 'folder_${folderId}')
+     */
+    async clearSyncTime(key: string): Promise<void> {
+        await db.sync_metadata.delete(key);
+        console.log(`[ChatStorage] Cleared sync time for ${key}`);
+    }
+
+    /**
+     * Clear all sync times (forces full resync on next sync)
+     */
+    async clearAllSyncTimes(): Promise<void> {
+        await db.sync_metadata.clear();
+        console.log('[ChatStorage] Cleared all sync times');
     }
 
     /**
