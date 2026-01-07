@@ -156,10 +156,20 @@ function splitValue(value: string | undefined): string[] {
   return value.split('|').map(v => v.trim() || '-');
 }
 
+// Helper to validate if an age is valid (between 18-100)
+function isValidAge(ageStr: string): boolean {
+  const age = parseInt(ageStr, 10);
+  return !isNaN(age) && age >= 18 && age <= 100;
+}
+
 // Helper to split age string (for friends/validations that only have age string)
 function splitAge(age: string | undefined): string[] {
   if (!age) return ['-', '-'];
-  return age.split('|').map(v => v.trim() || '-');
+  return age.split('|').map(v => {
+    const trimmed = v.trim();
+    if (!trimmed) return '-';
+    return isValidAge(trimmed) ? trimmed : '-';
+  });
 }
 
 // Helper to get age color based on gender (1 = female = pink, 0 = male = blue)
