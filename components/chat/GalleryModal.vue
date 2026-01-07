@@ -37,10 +37,7 @@ async function fetchPhotos(providedPassword?: string, isRetry: boolean = false) 
   passwordError.value = null;
   
   // Determine which password to use
-<<<<<<< HEAD
-=======
   // Priority: providedPassword > stored password
->>>>>>> 3555192 (chore: update package version to 1.1.6 and add profilev2.json)
   let passwordToUse: string | undefined;
   if (providedPassword !== undefined) {
     // Use provided password (from user input or retry)
@@ -184,11 +181,7 @@ watch(() => props.visible, async (newValue) => {
     error.value = null;
     photos.value = [];
     isPasswordProtected.value = false;
-<<<<<<< HEAD
-    // Try to fetch with stored password first
-=======
     // Try to fetch with stored password or no password
->>>>>>> 3555192 (chore: update package version to 1.1.6 and add profilev2.json)
     await fetchPhotos();
   }
 });
