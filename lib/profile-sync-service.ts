@@ -107,6 +107,11 @@ export async function syncProfilesForChats(
                     const response = await getProfileV2(chat.db_id.toString());
                     const profile = response.info.profile_user;
                     
+                    // Ensure db_id is set (API might not include it)
+                    if (!profile.db_id) {
+                        profile.db_id = chat.db_id;
+                    }
+                    
                     return profile;
                 } catch (err) {
                     console.error(`[ProfileSyncService] Failed to fetch profile for chat ${chat.db_id}:`, err);
@@ -168,7 +173,7 @@ export async function syncProfilesForChats(
             console.log(`[ProfileSyncService] Successfully synced ${syncedCount}/${chatsToSync.length} profiles (${failedCount} failed)`);
             if (toast) {
                 if (failedCount > 0) {
-                    toast.warning(`Synced ${syncedCount} profile${syncedCount !== 1 ? 's' : ''}, ${failedCount} failed`);
+                    toast.error(`Synced ${syncedCount} profile${syncedCount !== 1 ? 's' : ''}, ${failedCount} failed`);
                 } else {
                     toast.success(`Synced ${syncedCount} profile${syncedCount !== 1 ? 's' : ''}`);
                 }
