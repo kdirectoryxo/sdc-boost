@@ -16,6 +16,7 @@ export const useChatFilters = createGlobalState(() => {
   const filterLastMessageByOther = ref<boolean>(false);
   const filterOnlyMyMessages = ref<boolean>(false);
   const filterBlocked = ref<boolean>(false);
+  const filterFemalesCouples = ref<boolean>(false);
   const isFilterDropdownOpen = ref<boolean>(false);
   
   // Reactive filtered chats using liveQuery
@@ -34,6 +35,7 @@ export const useChatFilters = createGlobalState(() => {
       lastMessageByOther: filterLastMessageByOther.value,
       onlyMyMessages: filterOnlyMyMessages.value,
       blockedOnly: filterBlocked.value,
+      femalesCouplesOnly: filterFemalesCouples.value,
       showArchives: showArchives.value,
     });
     
@@ -56,6 +58,7 @@ export const useChatFilters = createGlobalState(() => {
           lastMessageByOther: filterLastMessageByOther.value,
           onlyMyMessages: filterOnlyMyMessages.value,
           blockedOnly: filterBlocked.value,
+          femalesCouplesOnly: filterFemalesCouples.value,
           showArchives: showArchives.value,
         });
         
@@ -70,7 +73,7 @@ export const useChatFilters = createGlobalState(() => {
     
     // Combine results: exact matches first (from chatMetadataMatches), then partial chat matches, then message matches
     return [...chatMetadataMatches, ...messageSearchMatches];
-  }, [searchQuery, selectedFolderId, showArchives, filterUnread, filterPinned, filterOnline, filterLastMessageByMe, filterLastMessageByOther, filterOnlyMyMessages, filterBlocked, chatList]);
+  }, [searchQuery, selectedFolderId, showArchives, filterUnread, filterPinned, filterOnline, filterLastMessageByMe, filterLastMessageByOther, filterOnlyMyMessages, filterBlocked, filterFemalesCouples, chatList]);
   
   const isLoadingFilteredChats = ref(false);
   let currentSearchPromise: Promise<void> | null = null;
@@ -80,7 +83,7 @@ export const useChatFilters = createGlobalState(() => {
   const hasActiveFilters = computed(() => {
     return filterUnread.value || filterPinned.value || filterOnline.value || 
            filterLastMessageByMe.value || filterLastMessageByOther.value || filterOnlyMyMessages.value ||
-           filterBlocked.value;
+           filterBlocked.value || filterFemalesCouples.value;
   });
   
   // Computed property to count active filters
@@ -93,6 +96,7 @@ export const useChatFilters = createGlobalState(() => {
     if (filterLastMessageByOther.value) count++;
     if (filterOnlyMyMessages.value) count++;
     if (filterBlocked.value) count++;
+    if (filterFemalesCouples.value) count++;
     return count;
   });
   
@@ -133,6 +137,7 @@ export const useChatFilters = createGlobalState(() => {
     filterLastMessageByOther.value = false;
     filterOnlyMyMessages.value = false;
     filterBlocked.value = false;
+    filterFemalesCouples.value = false;
   }
   
   // No need to watch for changes - liveQuery handles reactivity automatically
@@ -154,6 +159,7 @@ export const useChatFilters = createGlobalState(() => {
     filterLastMessageByOther,
     filterOnlyMyMessages,
     filterBlocked,
+    filterFemalesCouples,
     isFilterDropdownOpen,
     filteredChats: computed(() => filteredChats.value || []),
     isLoadingFilteredChats,

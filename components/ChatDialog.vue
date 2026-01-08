@@ -28,6 +28,7 @@ import ProfileDialog from '@/components/chat/ProfileDialog.vue';
 import type { GalleryPhoto, MessengerChatItem } from '@/lib/sdc-api-types';
 import { startChat } from '@/lib/sdc-api';
 import { chatStorage } from '@/lib/chat-storage';
+import { syncProfilesForChats } from '@/lib/profile-sync-service';
 
 interface Props {
   modelValue: boolean;
@@ -66,6 +67,7 @@ const {
   filterLastMessageByOther,
   filterOnlyMyMessages,
   filterBlocked,
+  filterFemalesCouples,
   isFilterDropdownOpen,
   filteredChats,
   hasActiveFilters,
@@ -325,7 +327,7 @@ async function handleStartChat(dbId: number) {
   }
 }
 
-async function handleSyncChoice(choice: 'sync-unsynced' | 'resync-all' | 'resync-newest') {
+async function handleSyncChoice(choice: 'sync-unsynced' | 'resync-all' | 'resync-newest' | 'sync-profiles' | 'sync-profiles-reset') {
   // Close dialog immediately
   isSyncChoiceDialogOpen.value = false;
   
@@ -340,6 +342,29 @@ async function handleSyncChoice(choice: 'sync-unsynced' | 'resync-all' | 'resync
       case 'resync-newest':
         await resyncNewestChats();
         break;
+      case 'sync-profiles':
+      case 'sync-profiles-reset': {
+        // Get chats based on current folder selection (same logic as message sync)
+        let chatsToSync: MessengerChatItem[] = [];
+        
+        if (showArchives.value) {
+          // Archives - get archived chats
+          chatsToSync = await chatStorage.searchChats({ showArchives: true });
+        } else if (selectedFolderId.value === null) {
+          // All chats - get all chats from all folders and inbox (excluding archives)
+          chatsToSync = await chatStorage.searchChats({ showArchives: false });
+        } else if (selectedFolderId.value === 0) {
+          // Inbox - get chats with folder_id === 0 or null (excluding archives)
+          chatsToSync = await chatStorage.searchChats({ folderId: 0, showArchives: false });
+        } else {
+          // Specific folder - get chats for that folder (excluding archives)
+          chatsToSync = await chatStorage.searchChats({ folderId: selectedFolderId.value, showArchives: false });
+        }
+        
+        const reset = choice === 'sync-profiles-reset';
+        await syncProfilesForChats(chatsToSync, reset);
+        break;
+      }
     }
   } catch (err) {
     console.error('[ChatDialog] Failed to sync:', err);
@@ -409,6 +434,7 @@ function handleOpenProfileFromDialog(userId: number) {
           :filter-last-message-by-other="filterLastMessageByOther"
           :filter-only-my-messages="filterOnlyMyMessages"
           :filter-blocked="filterBlocked"
+          :filter-females-couples="filterFemalesCouples"
           :is-filter-dropdown-open="isFilterDropdownOpen"
           :has-active-filters="hasActiveFilters"
           :active-filter-count="activeFilterCount"
@@ -421,6 +447,7 @@ function handleOpenProfileFromDialog(userId: number) {
           @update:filter-last-message-by-other="filterLastMessageByOther = $event"
           @update:filter-only-my-messages="filterOnlyMyMessages = $event"
           @update:filter-blocked="filterBlocked = $event"
+          @update:filter-females-couples="filterFemalesCouples = $event"
           @update:is-filter-dropdown-open="isFilterDropdownOpen = $event"
           @chat-click="handleChatClick"
           @chat-open-tags="handleOpenTags"

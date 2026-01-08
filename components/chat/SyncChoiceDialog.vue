@@ -9,7 +9,7 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];
-  'select': [choice: 'sync-unsynced' | 'resync-all' | 'resync-newest'];
+  'select': [choice: 'sync-unsynced' | 'resync-all' | 'resync-newest' | 'sync-profiles' | 'sync-profiles-reset'];
 }>();
 
 let escapeHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -18,9 +18,14 @@ function handleClose() {
   emit('update:modelValue', false);
 }
 
-function handleSelect(choice: 'sync-unsynced' | 'resync-all' | 'resync-newest') {
+function handleSelect(choice: 'sync-unsynced' | 'resync-all' | 'resync-newest' | 'sync-profiles' | 'sync-profiles-reset') {
   emit('select', choice);
   handleClose();
+}
+
+function handleSyncProfiles(event: MouseEvent) {
+  const reset = event.shiftKey;
+  handleSelect(reset ? 'sync-profiles-reset' : 'sync-profiles');
 }
 
 // Close on Escape key
@@ -88,6 +93,14 @@ onUnmounted(() => {
         >
           <div class="font-medium text-white mb-1">Resync newest</div>
           <div class="text-sm text-[#999]">Force resync first page of all chats</div>
+        </button>
+
+        <button
+          @click="handleSyncProfiles"
+          class="w-full px-4 py-3 text-left bg-[#0f0f0f] hover:bg-[#2a2a2a] active:bg-[#333] active:scale-[0.98] border border-[#333] rounded-lg transition-all duration-150 group cursor-pointer"
+        >
+          <div class="font-medium text-white mb-1">Sync Profile Data</div>
+          <div class="text-sm text-[#999]">Sync profile data for chats (hold Shift to reset and resync all)</div>
         </button>
       </div>
 

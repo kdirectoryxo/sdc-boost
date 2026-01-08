@@ -4,7 +4,7 @@
  */
 
 import Dexie, { type EntityTable } from 'dexie';
-import type { MessengerChatItem, MessengerFolder, MessengerMessage } from './sdc-api-types';
+import type { MessengerChatItem, MessengerFolder, MessengerMessage, ProfileUser } from './sdc-api-types';
 
 const DB_NAME = 'sdc-boost-v2';
 
@@ -16,6 +16,10 @@ export interface ChatEntity extends MessengerChatItem {
 export interface MessageEntity extends MessengerMessage {
 	id: string; // Composite key: ${group_id}_${message_id}
 	group_id: number;
+}
+
+export interface ProfileEntity extends ProfileUser {
+	db_id: number; // Primary key (user's DB_ID)
 }
 
 export interface ChatTag {
@@ -44,6 +48,7 @@ class SDCBoostDatabase extends Dexie {
 	messages!: EntityTable<MessageEntity, 'id'>;
 	chat_metadata!: EntityTable<ChatMetadata, 'group_id'>;
 	sync_metadata!: EntityTable<SyncMetadata, 'key'>;
+	profiles!: EntityTable<ProfileEntity, 'db_id'>;
 
 	constructor() {
 		super(DB_NAME);
@@ -67,6 +72,18 @@ class SDCBoostDatabase extends Dexie {
 		}).upgrade(tx => {
 			// Migration: tags field will be added automatically when metadata is updated
 			// No data migration needed as tags is optional
+		});
+
+		// Version 3: Add profiles table
+		this.version(3).stores({
+			chats: 'id, group_id, db_id, date_time, pin_chat, account_id, folder_id',
+			folders: 'id, name, new_messages',
+			messages: 'id, group_id, message_id, date2',
+			chat_metadata: 'group_id',
+			sync_metadata: 'key',
+			profiles: 'db_id',
+		}).upgrade(tx => {
+			// Migration: profiles table is new, no data migration needed
 		});
 	}
 }

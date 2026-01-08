@@ -5,6 +5,7 @@ import TagBadge from '@/components/ui/TagBadge.vue';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { parseGalleryMessage } from '@/lib/composables/chat/utils';
 import { useChatPin } from '@/lib/composables/chat/useChatPin';
+import { useChatProfile, getAgeColorClass, formatLocation, isGender2Real } from '@/lib/composables/chat/useChatProfile';
 
 interface Props {
   chat: MessengerChatItem;
@@ -25,6 +26,13 @@ const emit = defineEmits<{
 
 const { togglePinChat, toggleMarkUnread, deleteChat } = useChatPin();
 const openDropdownId = ref<number | null>(null);
+
+// Fetch profile data for ages and distances (skip for broadcasts)
+const shouldFetchProfile = computed(() => {
+  return !props.chat.broadcast && props.chat.type !== 100 && props.chat.db_id > 0;
+});
+
+const { profileData } = useChatProfile(computed(() => shouldFetchProfile.value ? props.chat.db_id : null));
 
 const nameColor = computed(() => {
   if (props.chat.broadcast || props.chat.type === 100) {
@@ -116,6 +124,42 @@ async function handleDeleteChat(close: () => void) {
 const chatTags = computed(() => {
   return (props.chat as any).tags || [];
 });
+
+// Computed values for ages and distances
+const displayAges = computed(() => {
+  if (!profileData.value) return null;
+  const ages: Array<{ age: number; colorClass: string }> = [];
+  
+  if (profileData.value.g1_age) {
+    ages.push({
+      age: profileData.value.g1_age,
+      colorClass: getAgeColorClass(profileData.value.gender1),
+    });
+  }
+  
+  if (profileData.value.g2_age && isGender2Real(profileData.value.g2_age, profileData.value.g2_nick)) {
+    ages.push({
+      age: profileData.value.g2_age,
+      colorClass: getAgeColorClass(profileData.value.gender2),
+    });
+  }
+  
+  return ages.length > 0 ? ages : null;
+});
+
+const displayDistance = computed(() => {
+  if (!profileData.value) return null;
+  
+  // Prefer location_how_far, fallback to location_how_far2
+  const distance = profileData.value.location_how_far 
+    ?? (profileData.value.location_how_far2 ? Number(profileData.value.location_how_far2) : undefined);
+  
+  if (distance !== undefined && distance > 0) {
+    return `${distance} km`;
+  }
+  
+  return null;
+});
 </script>
 
 <template>
@@ -149,6 +193,20 @@ const chatTags = computed(() => {
             <h3 :class="['font-semibold truncate', nameColor]">
               {{ chat.account_id }}
             </h3>
+            <!-- Ages -->
+            <div v-if="displayAges" class="flex items-center gap-1 shrink-0">
+              <span
+                v-for="(ageInfo, index) in displayAges"
+                :key="index"
+                :class="['text-xs font-medium', ageInfo.colorClass]"
+              >
+                {{ ageInfo.age }}
+              </span>
+            </div>
+            <!-- Distance -->
+            <span v-if="displayDistance" class="text-xs text-[#999] shrink-0">
+              {{ displayDistance }}
+            </span>
             <span v-if="folderName" class="px-1.5 py-0.5 bg-[#333] text-[#999] text-xs rounded shrink-0">
               {{ folderName }}
             </span>

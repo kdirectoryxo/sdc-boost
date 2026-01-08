@@ -482,6 +482,7 @@ class ChatStorage {
         lastMessageByOther?: boolean;
         onlyMyMessages?: boolean;
         blockedOnly?: boolean;
+        femalesCouplesOnly?: boolean; // If true, only show chats with gender1 === 1 (females or couples with female)
         showArchives?: boolean; // If true, only show archived chats. If false/undefined, exclude archived chats
     }): Promise<MessengerChatItem[]> {
         let chats: ChatEntity[] = [];
@@ -590,6 +591,11 @@ class ChatStorage {
         // Apply online filter
         if (options.onlineOnly) {
             result = result.filter(chat => chat.online === 1);
+        }
+        
+        // Apply females/couples filter
+        if (options.femalesCouplesOnly) {
+            result = result.filter(chat => chat.gender1 === 1);
         }
         
         // Apply message sender filters (requires checking messages in IndexedDB efficiently)

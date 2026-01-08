@@ -1,11 +1,11 @@
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { getProfileV2 } from '@/lib/sdc-api/profile';
 import type { ProfileUser, PhotoAlbum, GalleryPhoto } from '@/lib/sdc-api-types';
 import GalleryModal from '@/components/chat/GalleryModal.vue';
 import VueEasyLightbox from 'vue-easy-lightbox';
 import 'vue-easy-lightbox/dist/external-css/vue-easy-lightbox.css';
 import VideoLightbox from '@/components/chat/VideoLightbox.vue';
+import { profileStorage } from '@/lib/profile-storage';
 
 interface Props {
   visible: boolean;
@@ -115,12 +115,23 @@ async function fetchProfile(userId: number) {
   error.value = null;
   
   try {
-    const response = await getProfileV2(userId.toString());
-    profileData.value = response.info.profile_user;
+    // Only use cached profile from database - no API calls
+    // User must sync profiles manually via sync dialog
+    const cachedProfile = await profileStorage.getProfile(userId);
+    
+    if (cachedProfile) {
+      // Use cached data
+      profileData.value = cachedProfile;
+      isLoading.value = false;
+    } else {
+      // No cached data available
+      profileData.value = null;
+      error.value = 'Profile data not synced. Please sync profile data via the sync dialog.';
+      isLoading.value = false;
+    }
   } catch (err) {
-    console.error('[ProfileDialog] Failed to fetch profile:', err);
+    console.error('[ProfileDialog] Failed to get cached profile:', err);
     error.value = err instanceof Error ? err.message : 'Failed to load profile';
-  } finally {
     isLoading.value = false;
   }
 }
@@ -317,12 +328,98 @@ onUnmounted(() => {
   removeLightboxStyles();
 });
 
-// Helper to get "looking for" from interests
-function getLookingFor(): string[] {
-  // This would need to be parsed from interests field
-  // For now, return empty array
-  return [];
+// Parse interests_st (3 characters: Girl on Girl, Soft Swap, Full Swap)
+function parseInterestsSt(interestsSt: string | undefined): {
+  girlOnGirl: boolean;
+  softSwap: boolean;
+  fullSwap: boolean;
+} {
+  if (!interestsSt || interestsSt.length < 3) {
+    return { girlOnGirl: false, softSwap: false, fullSwap: false };
+  }
+  
+  const chars = interestsSt.split('');
+  return {
+    girlOnGirl: chars[0] === '1',
+    softSwap: chars[1] === '1',
+    fullSwap: chars[2] === '1',
+  };
 }
+
+// Parse interests1 or interests2 (6 characters: Couple M/F, Couple F/F, Couple M/M, Single F, Single M, Transgender)
+function parseInterests(interests: string | undefined): {
+  coupleMaleFemale: boolean;
+  coupleFemaleFemale: boolean;
+  coupleMaleMale: boolean;
+  singleFemale: boolean;
+  singleMale: boolean;
+  transgender: boolean;
+} {
+  if (!interests || interests.length < 6) {
+    return {
+      coupleMaleFemale: false,
+      coupleFemaleFemale: false,
+      coupleMaleMale: false,
+      singleFemale: false,
+      singleMale: false,
+      transgender: false,
+    };
+  }
+  
+  const chars = interests.split('');
+  return {
+    coupleMaleFemale: chars[0] === '1',
+    coupleFemaleFemale: chars[1] === '1',
+    coupleMaleMale: chars[2] === '1',
+    singleFemale: chars[3] === '1',
+    singleMale: chars[4] === '1',
+    transgender: chars[5] === '1',
+  };
+}
+
+// Get looking for icons based on interests1 and interests2
+function getLookingForIcons(): Array<{ type: 'couple' | 'single-female' | 'single-male'; url: string }> {
+  if (!profileData.value) return [];
+  
+  const icons: Array<{ type: 'couple' | 'single-female' | 'single-male'; url: string }> = [];
+  
+  // Parse interests1 (what they're looking for)
+  const interests1 = parseInterests(profileData.value.interests1);
+  
+  if (interests1.coupleMaleFemale) {
+    icons.push({
+      type: 'couple',
+      url: 'https://www.sdc.com/react/assets/couple_male_female_icon.a2db86e4.svg',
+    });
+  }
+  
+  if (interests1.singleFemale) {
+    icons.push({
+      type: 'single-female',
+      url: 'https://www.sdc.com/react/assets/single_female_icon.e150c7be.svg',
+    });
+  }
+  
+  if (interests1.singleMale) {
+    icons.push({
+      type: 'single-male',
+      url: 'https://www.sdc.com/react/assets/single_male_icon.6eca46f8.svg',
+    });
+  }
+  
+  return icons;
+}
+
+// Get preferences from interests_st
+const lookingForPreferences = computed(() => {
+  if (!profileData.value) return null;
+  return parseInterestsSt(profileData.value.interests_st);
+});
+
+// Get looking for icons
+const lookingForIcons = computed(() => {
+  return getLookingForIcons();
+});
 
 // Helper to check if gender2 is a real person (not a placeholder)
 // Gender2 is not real if age is > 100, undefined, or if most fields are "-"
@@ -559,6 +656,44 @@ const isGender2Real = computed(() => {
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
                   </svg>
                   <div class="px-3 py-1.5 bg-purple-500/20 text-purple-300 rounded-lg text-sm font-medium profile-bio" v-html="profileData.hope_to_find"></div>
+                </div>
+
+                <!-- Op zoek naar (Looking For) -->
+                <div 
+                  v-if="lookingForIcons.length > 0 || (lookingForPreferences && (lookingForPreferences.girlOnGirl || lookingForPreferences.softSwap || lookingForPreferences.fullSwap))" 
+                  class="flex items-center gap-3 px-4 py-2.5 bg-[#0f0f0f] rounded-lg border border-[#333]"
+                >
+                  <span class="text-sm text-[#999] whitespace-nowrap">Op zoek naar:</span>
+                  <!-- Icons -->
+                  <div v-if="lookingForIcons.length > 0" class="flex items-center gap-1">
+                    <img 
+                      v-for="icon in lookingForIcons" 
+                      :key="icon.type"
+                      :src="icon.url" 
+                      :alt="icon.type === 'couple' ? 'Couple' : icon.type === 'single-female' ? 'Single Female' : 'Single Male'"
+                      class="w-6 h-6"
+                    />
+                  </div>
+                  <!-- Separator -->
+                  <span 
+                    v-if="lookingForIcons.length > 0 && lookingForPreferences && (lookingForPreferences.girlOnGirl || lookingForPreferences.softSwap || lookingForPreferences.fullSwap)" 
+                    class="text-[#444]"
+                  >|</span>
+                  <!-- Preferences -->
+                  <div v-if="lookingForPreferences" class="flex flex-wrap items-center gap-2">
+                    <span 
+                      v-if="lookingForPreferences.girlOnGirl" 
+                      class="px-2 py-0.5 bg-pink-500/20 text-pink-300 rounded text-xs font-medium"
+                    >Vrouw met vrouw</span>
+                    <span 
+                      v-if="lookingForPreferences.softSwap" 
+                      class="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded text-xs font-medium"
+                    >Soft Swap</span>
+                    <span 
+                      v-if="lookingForPreferences.fullSwap" 
+                      class="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs font-medium"
+                    >Full Swap</span>
+                  </div>
                 </div>
 
                 <!-- Stats -->

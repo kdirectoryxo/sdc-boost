@@ -5,6 +5,7 @@ import TagBadge from '@/components/ui/TagBadge.vue';
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
 import ChatMessageItem from '@/components/chat/ChatMessageItem.vue';
 import { useChatPin } from '@/lib/composables/chat/useChatPin';
+import { useChatProfile, getAgeColorClass, isGender2Real } from '@/lib/composables/chat/useChatProfile';
 
 interface Props {
   selectedChat: MessengerChatItem | null;
@@ -48,6 +49,17 @@ const isBroadcast = computed(() => {
   return props.selectedChat?.broadcast || props.selectedChat?.type === 100;
 });
 
+// Name color based on gender (same logic as ChatListItem)
+const nameColor = computed(() => {
+  if (!props.selectedChat) return 'text-white';
+  if (props.selectedChat.broadcast || props.selectedChat.type === 100) {
+    return 'text-yellow-400'; // Yellow for broadcasts
+  } else if (props.selectedChat.gender1 === 1 && props.selectedChat.gender2 === 2) {
+    return 'text-pink-400'; // Pink for couples with female
+  }
+  return 'text-purple-400'; // Purple default
+});
+
 function handleContainerClick() {
   emit('update:openDropdownMessageId', null);
 }
@@ -82,6 +94,52 @@ async function handleDeleteChat() {
 const chatTags = computed(() => {
   if (!props.selectedChat) return [];
   return (props.selectedChat as any).tags || [];
+});
+
+// Fetch profile data for selected chat (skip for broadcasts)
+const profileDbId = computed(() => {
+  if (!props.selectedChat || isBroadcast.value || props.selectedChat.db_id <= 0) {
+    return null;
+  }
+  return props.selectedChat.db_id;
+});
+
+const { profileData } = useChatProfile(profileDbId);
+
+// Computed values for ages and distances
+const displayAges = computed(() => {
+  if (!profileData.value) return null;
+  const ages: Array<{ age: number; colorClass: string }> = [];
+  
+  if (profileData.value.g1_age) {
+    ages.push({
+      age: profileData.value.g1_age,
+      colorClass: getAgeColorClass(profileData.value.gender1),
+    });
+  }
+  
+  if (profileData.value.g2_age && isGender2Real(profileData.value.g2_age, profileData.value.g2_nick)) {
+    ages.push({
+      age: profileData.value.g2_age,
+      colorClass: getAgeColorClass(profileData.value.gender2),
+    });
+  }
+  
+  return ages.length > 0 ? ages : null;
+});
+
+const displayDistance = computed(() => {
+  if (!profileData.value) return null;
+  
+  // Prefer location_how_far, fallback to location_how_far2
+  const distance = profileData.value.location_how_far 
+    ?? (profileData.value.location_how_far2 ? Number(profileData.value.location_how_far2) : undefined);
+  
+  if (distance !== undefined && distance > 0) {
+    return `${distance} km`;
+  }
+  
+  return null;
 });
 </script>
 
@@ -118,11 +176,25 @@ const chatTags = computed(() => {
         <div class="flex items-center gap-2 flex-wrap">
           <h3
             @click="emit('open-profile-dialog', selectedChat.db_id)"
-            class="text-white font-semibold truncate cursor-pointer hover:text-blue-400 transition-colors"
+            :class="['font-semibold truncate cursor-pointer hover:text-blue-400 transition-colors', nameColor]"
             title="Click to view profile"
           >
             {{ selectedChat.account_id }}
           </h3>
+          <!-- Ages -->
+          <div v-if="displayAges" class="flex items-center gap-1 shrink-0">
+            <span
+              v-for="(ageInfo, index) in displayAges"
+              :key="index"
+              :class="['text-sm font-medium', ageInfo.colorClass]"
+            >
+              {{ ageInfo.age }}
+            </span>
+          </div>
+          <!-- Distance -->
+          <span v-if="displayDistance" class="text-sm text-[#999] shrink-0">
+            {{ displayDistance }}
+          </span>
           <!-- Tags -->
           <div v-if="chatTags.length > 0" class="flex items-center gap-1 shrink-0">
             <TagBadge
