@@ -113,7 +113,40 @@ export async function syncProfilesForChats(
                     }
                     
                     return profile;
-                } catch (err) {
+                } catch (err: any) {
+                    // Check if this is an unavailable profile error
+                    // Check both the flag and the error message as fallback
+                    const isUnavailable = err && (
+                        err.isUnavailableProfile === true ||
+                        (typeof err.message === 'string' && (
+                            err.message.includes('niet langer beschikbaar') ||
+                            err.message.includes('niet meer beschikbaar') ||
+                            err.message.includes('inactief of verwijderd')
+                        ))
+                    );
+                    
+                    if (isUnavailable) {
+                        console.log(`[ProfileSyncService] Profile unavailable for chat ${chat.db_id}: ${err.message}`);
+                        
+                        // Store a minimal profile entry to mark it as "synced" (so we don't retry)
+                        try {
+                            const unavailableProfile: ProfileUser = {
+                                db_id: chat.db_id,
+                                account_id: chat.account_id || `Unavailable_${chat.db_id}`,
+                                // Mark as unavailable by using a special account_id prefix or empty fields
+                                // This minimal entry will prevent retrying this profile
+                            };
+                            await profileStorage.upsertProfile(unavailableProfile);
+                            console.log(`[ProfileSyncService] Marked profile ${chat.db_id} as unavailable in database`);
+                        } catch (saveErr) {
+                            console.error(`[ProfileSyncService] Failed to save unavailable profile marker for ${chat.db_id}:`, saveErr);
+                        }
+                        
+                        // Don't count unavailable profiles as failures - they're handled
+                        return null; // Return null so it's filtered out, but don't increment failedCount
+                    }
+                    
+                    // Other errors are actual failures
                     console.error(`[ProfileSyncService] Failed to fetch profile for chat ${chat.db_id}:`, err);
                     failedCount++;
                     // Update progress on error

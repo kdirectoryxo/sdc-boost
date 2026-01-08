@@ -46,6 +46,18 @@ export async function getProfileV2(dbId: string, muid?: string | null): Promise<
         }
 
         const data = await response.json();
+        
+        // Check if profile_user is a string (error message) instead of an object
+        // This happens when the account is deleted/inactive
+        if (data.info && typeof data.info.profile_user === 'string') {
+            const errorMessage = data.info.profile_user;
+            const unavailableError = new Error(errorMessage) as Error & {
+                isUnavailableProfile: boolean;
+            };
+            unavailableError.isUnavailableProfile = true;
+            throw unavailableError;
+        }
+        
         return data as ProfileV2Response;
     } catch (error) {
         console.error('[SDC API] Failed to fetch profile:', error);
