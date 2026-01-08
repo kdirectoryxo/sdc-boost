@@ -136,7 +136,7 @@ function handleClearFilters() {
               <!-- Sort by Online -->
               <div class="px-3 py-1 text-xs text-[#666] uppercase tracking-wide mb-1">Sort by Online</div>
               <button
-                @click="emit('toggle-sort-online'); close()"
+                @click="emit('toggle-sort-online')"
                 class="w-full flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors text-left"
               >
                 <div class="flex-1 text-white text-sm">
@@ -169,7 +169,7 @@ function handleClearFilters() {
               <div class="border-t border-[#333] mt-2 pt-2">
                 <div class="px-3 py-1 text-xs text-[#666] uppercase tracking-wide mb-1">Sort by Distance</div>
                 <button
-                  @click="emit('toggle-sort-distance'); close()"
+                  @click="emit('toggle-sort-distance')"
                   class="w-full flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors text-left"
                 >
                   <div class="flex-1 text-white text-sm">
@@ -202,7 +202,7 @@ function handleClearFilters() {
               <!-- Disable Pinned Sort -->
               <div class="border-t border-[#333] mt-2 pt-2">
                 <button
-                  @click="emit('toggle-disable-pinned-sort'); close()"
+                  @click="emit('toggle-disable-pinned-sort')"
                   class="w-full flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors text-left"
                 >
                   <div class="flex-1 text-white text-sm">
