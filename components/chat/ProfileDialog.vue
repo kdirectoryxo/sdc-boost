@@ -228,7 +228,7 @@ function getCommunityPhotoUrl(picture: string | undefined): string {
 
 function formatLocation(location: string | undefined, distance: number | undefined): string {
   if (!location) return '';
-  if (distance !== undefined && distance > 0) {
+  if (distance !== undefined && distance !== null) {
     return `${location} | ${distance} km`;
   }
   return location;

@@ -135,7 +135,7 @@ const displayDistance = computed(() => {
   const distance = profileData.value.location_how_far 
     ?? (profileData.value.location_how_far2 ? Number(profileData.value.location_how_far2) : undefined);
   
-  if (distance !== undefined && distance > 0) {
+  if (distance !== undefined && distance !== null) {
     return `${distance} km`;
   }
   

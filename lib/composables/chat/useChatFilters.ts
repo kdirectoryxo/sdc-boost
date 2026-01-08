@@ -219,7 +219,8 @@ export const useChatFilters = createGlobalState(() => {
           if (!profile) return null;
           const distance = profile.location_how_far 
             ?? (profile.location_how_far2 ? Number(profile.location_how_far2) : undefined);
-          return distance !== undefined && distance > 0 ? distance : null;
+          // Return 0 as a valid distance, only return null if distance is undefined/null
+          return distance !== undefined && distance !== null ? distance : null;
         };
         
         const aDistance = getDistance(aProfile);
@@ -231,10 +232,11 @@ export const useChatFilters = createGlobalState(() => {
         if (bDistance === null) return -1; // b goes to bottom
         
         // Sort by distance
+        // Distance 0 is valid and should sort correctly (0 comes first in ascending, last in descending before null)
         if (sortByDistance.value === 'asc') {
-          return aDistance - bDistance; // Closest first
+          return aDistance - bDistance; // Closest first (0 comes first)
         } else {
-          return bDistance - aDistance; // Farthest first
+          return bDistance - aDistance; // Farthest first (0 comes after other distances but before null)
         }
       });
     }

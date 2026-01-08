@@ -9,10 +9,12 @@ import type { ProfileUser, MessengerChatItem } from './sdc-api-types';
 /**
  * Sanitize profile data to ensure it can be stored in IndexedDB
  * Handles non-serializable objects and circular references
+ * Note: JSON.stringify/parse preserves 0 values correctly (0 is a valid number)
  */
 function sanitizeProfileForStorage(profile: ProfileUser): ProfileUser {
     // Use JSON serialization to ensure all data is IndexedDB-compatible
     // This removes any non-serializable properties (functions, circular refs, etc.)
+    // Important: This preserves 0 values (e.g., location_how_far: 0) correctly
     let sanitized: ProfileUser;
     try {
         sanitized = JSON.parse(JSON.stringify(profile));

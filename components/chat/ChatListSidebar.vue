@@ -179,7 +179,7 @@ function handleClearFilters() {
                         <path d="M7 12h10"></path>
                         <path d="M10 18h4"></path>
                       </svg>
-                      <span>Ascending (Closest first)</span>
+                      <span>Ascending (Closest first, 0 km shown)</span>
                     </div>
                     <div v-else-if="sortByDistance === 'desc'" class="flex items-center gap-2">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
@@ -187,7 +187,7 @@ function handleClearFilters() {
                         <path d="M7 12h10"></path>
                         <path d="M10 6h4"></path>
                       </svg>
-                      <span>Descending (Farthest first)</span>
+                      <span>Descending (Farthest first, 0 km shown)</span>
                     </div>
                     <div v-else class="flex items-center gap-2">
                       <span>Disable</span>
