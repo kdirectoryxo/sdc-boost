@@ -4,6 +4,8 @@ import { chatStorage } from '@/lib/chat-storage';
 import { messageStorage } from '@/lib/message-storage';
 import { useChatState } from './useChatState';
 import { useLiveQuery } from '@/lib/composables/useLiveQuery';
+import { db } from '@/lib/db';
+import type { MessengerChatItem } from '@/lib/sdc-api-types';
 
 export const useChatFilters = createGlobalState(() => {
   const { chatList, selectedFolderId, showArchives } = useChatState();
@@ -19,6 +21,12 @@ export const useChatFilters = createGlobalState(() => {
   const filterCouples = ref<boolean>(false);
   const filterFemales = ref<boolean>(false);
   const isFilterDropdownOpen = ref<boolean>(false);
+  
+  // Sort state
+  const sortByOnline = ref<'asc' | 'desc' | null>(null);
+  const sortByDistance = ref<'asc' | 'desc' | null>(null);
+  const disablePinnedSort = ref<boolean>(false); // If true, pinned chats won't be forced to top
+  const isSortDropdownOpen = ref<boolean>(false);
   
   // Reactive filtered chats using liveQuery
   const filteredChats = useLiveQuery(async () => {
@@ -75,8 +83,13 @@ export const useChatFilters = createGlobalState(() => {
     }
     
     // Combine results: exact matches first (from chatMetadataMatches), then partial chat matches, then message matches
-    return [...chatMetadataMatches, ...messageSearchMatches];
-  }, [searchQuery, selectedFolderId, showArchives, filterUnread, filterPinned, filterOnline, filterLastMessageByMe, filterLastMessageByOther, filterOnlyMyMessages, filterBlocked, filterCouples, filterFemales, chatList]);
+    let combinedResults = [...chatMetadataMatches, ...messageSearchMatches];
+    
+    // Always apply sorting (includes default date_time sort when no sort is active)
+    combinedResults = await applySorting(combinedResults);
+    
+    return combinedResults;
+  }, [searchQuery, selectedFolderId, showArchives, filterUnread, filterPinned, filterOnline, filterLastMessageByMe, filterLastMessageByOther, filterOnlyMyMessages, filterBlocked, filterCouples, filterFemales, sortByOnline, sortByDistance, disablePinnedSort, chatList]);
   
   const isLoadingFilteredChats = ref(false);
   let currentSearchPromise: Promise<void> | null = null;
@@ -154,6 +167,169 @@ export const useChatFilters = createGlobalState(() => {
     searchQuery.value = '';
     // Filtered chats will update reactively
   }
+  
+  /**
+   * Apply sorting to chats
+   * Respects pinned chats (keeps them first) unless disablePinnedSort is true
+   */
+  async function applySorting(chats: MessengerChatItem[]): Promise<MessengerChatItem[]> {
+    // If no sort is active and pinned sort is enabled, return chats as-is (they're already sorted by chatStorage)
+    if (!sortByOnline.value && !sortByDistance.value && !disablePinnedSort.value) {
+      return chats;
+    }
+    
+    const sorted = [...chats];
+    
+    // Helper function to sort chats by online status
+    function sortByOnlineStatus(chatsToSort: MessengerChatItem[]): MessengerChatItem[] {
+      return chatsToSort.sort((a, b) => {
+        const aOnline = a.online || 0;
+        const bOnline = b.online || 0;
+        if (sortByOnline.value === 'asc') {
+          return bOnline - aOnline; // Online (1) first, then offline (0)
+        } else {
+          return aOnline - bOnline; // Offline (0) first, then online (1)
+        }
+      });
+    }
+    
+    // Helper function to sort chats by distance
+    async function sortByDistanceValue(chatsToSort: MessengerChatItem[]): Promise<MessengerChatItem[]> {
+      // Fetch profile data for all chats that need distance sorting
+      const dbIds = chatsToSort
+        .filter(chat => !chat.broadcast && chat.type !== 100 && chat.db_id > 0)
+        .map(chat => chat.db_id);
+      
+      const profiles = await db.profiles.bulkGet(dbIds);
+      const profileMap = new Map(profiles.filter(p => p !== undefined).map(p => [p!.db_id, p!]));
+      
+      return chatsToSort.sort((a, b) => {
+        // Broadcasts and invalid chats go to bottom
+        const aIsValid = !a.broadcast && a.type !== 100 && a.db_id > 0;
+        const bIsValid = !b.broadcast && b.type !== 100 && b.db_id > 0;
+        
+        if (!aIsValid && !bIsValid) return 0;
+        if (!aIsValid) return 1; // a goes to bottom
+        if (!bIsValid) return -1; // b goes to bottom
+        
+        const aProfile = profileMap.get(a.db_id);
+        const bProfile = profileMap.get(b.db_id);
+        
+        const getDistance = (profile: typeof aProfile): number | null => {
+          if (!profile) return null;
+          const distance = profile.location_how_far 
+            ?? (profile.location_how_far2 ? Number(profile.location_how_far2) : undefined);
+          return distance !== undefined && distance > 0 ? distance : null;
+        };
+        
+        const aDistance = getDistance(aProfile);
+        const bDistance = getDistance(bProfile);
+        
+        // Chats without distance go to bottom
+        if (aDistance === null && bDistance === null) return 0;
+        if (aDistance === null) return 1; // a goes to bottom
+        if (bDistance === null) return -1; // b goes to bottom
+        
+        // Sort by distance
+        if (sortByDistance.value === 'asc') {
+          return aDistance - bDistance; // Closest first
+        } else {
+          return bDistance - aDistance; // Farthest first
+        }
+      });
+    }
+    
+    // Helper function to sort by date_time
+    function sortByDateTime(chatsToSort: MessengerChatItem[]): MessengerChatItem[] {
+      return chatsToSort.sort((a, b) => {
+        const getTime = (chat: MessengerChatItem): number => {
+          if (!chat.date_time || chat.date_time === '') {
+            return new Date('1900-01-01').getTime();
+          }
+          const parsed = new Date(chat.date_time).getTime();
+          return isNaN(parsed) ? new Date('1900-01-01').getTime() : parsed;
+        };
+        return getTime(b) - getTime(a); // Descending order (newest first)
+      });
+    }
+    
+    // If pinned sort is disabled, sort all chats together
+    if (disablePinnedSort.value) {
+      if (sortByOnline.value) {
+        return sortByOnlineStatus(sorted);
+      } else if (sortByDistance.value) {
+        return await sortByDistanceValue(sorted);
+      } else {
+        // No active sort, just sort by date_time
+        return sortByDateTime(sorted);
+      }
+    }
+    
+    // Pinned sort is enabled - separate pinned and unpinned, sort each group
+    const pinnedChats = sorted.filter(chat => (chat.pin_chat || 0) > 0);
+    const unpinnedChats = sorted.filter(chat => (chat.pin_chat || 0) === 0);
+    
+    let sortedPinned = pinnedChats;
+    let sortedUnpinned = unpinnedChats;
+    
+    // Apply sorting to both groups
+    if (sortByOnline.value) {
+      sortedPinned = sortByOnlineStatus(pinnedChats);
+      sortedUnpinned = sortByOnlineStatus(unpinnedChats);
+    } else if (sortByDistance.value) {
+      sortedPinned = await sortByDistanceValue(pinnedChats);
+      sortedUnpinned = await sortByDistanceValue(unpinnedChats);
+    } else {
+      // No active sort, sort by date_time
+      sortedPinned = sortByDateTime(pinnedChats);
+      sortedUnpinned = sortByDateTime(unpinnedChats);
+    }
+    
+    // Combine: pinned first, then unpinned
+    return [...sortedPinned, ...sortedUnpinned];
+  }
+  
+  /**
+   * Toggle disable pinned sort
+   */
+  function toggleDisablePinnedSort() {
+    disablePinnedSort.value = !disablePinnedSort.value;
+  }
+  
+  /**
+   * Toggle sort by online (cycles through: asc -> desc -> null)
+   */
+  function toggleSortByOnline() {
+    if (sortByOnline.value === null) {
+      sortByOnline.value = 'asc';
+      sortByDistance.value = null; // Disable other sort
+    } else if (sortByOnline.value === 'asc') {
+      sortByOnline.value = 'desc';
+    } else {
+      sortByOnline.value = null;
+    }
+  }
+  
+  /**
+   * Toggle sort by distance (cycles through: asc -> desc -> null)
+   */
+  function toggleSortByDistance() {
+    if (sortByDistance.value === null) {
+      sortByDistance.value = 'asc';
+      sortByOnline.value = null; // Disable other sort
+    } else if (sortByDistance.value === 'asc') {
+      sortByDistance.value = 'desc';
+    } else {
+      sortByDistance.value = null;
+    }
+  }
+  
+  /**
+   * Check if any sort is active
+   */
+  const hasActiveSort = computed(() => {
+    return sortByOnline.value !== null || sortByDistance.value !== null;
+  });
 
   return {
     searchQuery,
@@ -167,6 +343,11 @@ export const useChatFilters = createGlobalState(() => {
     filterCouples,
     filterFemales,
     isFilterDropdownOpen,
+    sortByOnline,
+    sortByDistance,
+    disablePinnedSort,
+    isSortDropdownOpen,
+    hasActiveSort,
     filteredChats: computed(() => filteredChats.value || []),
     isLoadingFilteredChats,
     hasActiveFilters,
@@ -175,6 +356,9 @@ export const useChatFilters = createGlobalState(() => {
     toggleFilter,
     clearAllFilters,
     clearChatSearch,
+    toggleSortByOnline,
+    toggleSortByDistance,
+    toggleDisablePinnedSort,
   };
 });
 

@@ -6,6 +6,7 @@
 import { db, type ChatEntity, type ChatMetadata, type ChatTag, type SyncMetadata } from './db';
 import type { MessengerChatItem } from './sdc-api-types';
 import { messageStorage } from './message-storage';
+import { syncProfilesForChats, hasFullProfileSyncDone } from './profile-sync-service';
 
 /**
  * Sanitize chat data to ensure it can be stored in IndexedDB
@@ -119,10 +120,28 @@ class ChatStorage {
      * @param markAsArchived Optional flag to mark chats as archived
      */
     async upsertChats(chats: MessengerChatItem[], markAsArchived: boolean = false): Promise<void> {
-        // First, upsert all chats
+        // Check if full profile sync was done to enable auto-sync
+        const shouldAutoSyncProfiles = await hasFullProfileSyncDone();
+        
+        // Track which chats are new (for auto-sync)
+        const newChats: MessengerChatItem[] = [];
+        
+        // First, upsert all chats and detect new ones
         await Promise.all(
             chats.map(async (chat) => {
                 const chatId = this.getChatId(chat);
+                
+                // Check if this is a new chat (for auto-sync)
+                if (shouldAutoSyncProfiles) {
+                    const existingChat = await db.chats.get(chatId);
+                    if (!existingChat) {
+                        // This is a new chat - add to list for auto-sync
+                        // Only sync valid chats (not broadcasts, type !== 100, db_id > 0)
+                        if (!chat.broadcast && chat.type !== 100 && chat.db_id > 0) {
+                            newChats.push(chat);
+                        }
+                    }
+                }
                 
                 // Sanitize chat data to ensure it can be stored in IndexedDB
                 const sanitizedChat = sanitizeChatForStorage(chat);
@@ -161,6 +180,16 @@ class ChatStorage {
         }
 
         console.log(`[ChatStorage] Upserted ${chats.length} chats${markAsArchived ? ' (marked as archived)' : ''}`);
+        
+        // Auto-sync profiles for new chats if full sync was done
+        if (shouldAutoSyncProfiles && newChats.length > 0) {
+            console.log(`[ChatStorage] Auto-syncing profiles for ${newChats.length} new chat(s)`);
+            // Run auto-sync in background (don't await to avoid blocking)
+            syncProfilesForChats(newChats, false).catch((err) => {
+                console.error('[ChatStorage] Failed to auto-sync profiles for new chats:', err);
+                // Don't throw - auto-sync failures shouldn't break chat storage
+            });
+        }
     }
 
     /**

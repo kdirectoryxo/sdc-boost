@@ -28,7 +28,7 @@ import ProfileDialog from '@/components/chat/ProfileDialog.vue';
 import type { GalleryPhoto, MessengerChatItem } from '@/lib/sdc-api-types';
 import { startChat } from '@/lib/sdc-api';
 import { chatStorage } from '@/lib/chat-storage';
-import { syncProfilesForChats } from '@/lib/profile-sync-service';
+import { syncProfilesForChats, hasFullProfileSyncDone } from '@/lib/profile-sync-service';
 
 interface Props {
   modelValue: boolean;
@@ -70,11 +70,19 @@ const {
   filterCouples,
   filterFemales,
   isFilterDropdownOpen,
+  sortByOnline,
+  sortByDistance,
+  disablePinnedSort,
+  isSortDropdownOpen,
+  hasActiveSort,
   filteredChats,
   hasActiveFilters,
   activeFilterCount,
   clearAllFilters,
   clearChatSearch,
+  toggleSortByOnline,
+  toggleSortByDistance,
+  toggleDisablePinnedSort,
 } = useChatFilters();
 
 const chatMessagesAreaRef = ref<InstanceType<typeof ChatMessagesArea> | null>(null);
@@ -241,6 +249,16 @@ const showNewChatDialog = ref(false);
 // Profile dialogs management
 const { profileDialogs, openProfileDialog, closeProfileDialog } = useProfileDialogs();
 
+// Track full profile sync status
+const fullProfileSyncDone = ref(false);
+
+// Load full sync status on mount
+watch(() => props.modelValue, async (isOpen) => {
+  if (isOpen) {
+    fullProfileSyncDone.value = await hasFullProfileSyncDone();
+  }
+}, { immediate: true });
+
 function handleNewChat() {
   console.log('[ChatDialog] handleNewChat called, setting showNewChatDialog to true');
   console.log('[ChatDialog] showNewChatDialog before:', showNewChatDialog.value);
@@ -364,6 +382,8 @@ async function handleSyncChoice(choice: 'sync-unsynced' | 'resync-all' | 'resync
         
         const reset = choice === 'sync-profiles-reset';
         await syncProfilesForChats(chatsToSync, reset);
+        // Update full sync status after sync completes
+        fullProfileSyncDone.value = await hasFullProfileSyncDone();
         break;
       }
     }
@@ -402,6 +422,7 @@ function handleOpenProfileFromDialog(userId: number) {
         :is-web-socket-connected="isWebSocketConnected"
         :is-syncing-messages="isSyncingMessages || isRefreshing"
         :selected-chat="selectedChat"
+        :full-profile-sync-done="fullProfileSyncDone"
         @close="handleClose"
         @sync-all-chats="handleSyncAllChats"
       />
@@ -440,6 +461,11 @@ function handleOpenProfileFromDialog(userId: number) {
           :is-filter-dropdown-open="isFilterDropdownOpen"
           :has-active-filters="hasActiveFilters"
           :active-filter-count="activeFilterCount"
+          :sort-by-online="sortByOnline"
+          :sort-by-distance="sortByDistance"
+          :disable-pinned-sort="disablePinnedSort"
+          :is-sort-dropdown-open="isSortDropdownOpen"
+          :has-active-sort="hasActiveSort"
           :get-folder-name="getFolderName"
           @update:search-query="searchQuery = $event"
           @update:filter-unread="filterUnread = $event"
@@ -452,6 +478,10 @@ function handleOpenProfileFromDialog(userId: number) {
           @update:filter-couples="filterCouples = $event"
           @update:filter-females="filterFemales = $event"
           @update:is-filter-dropdown-open="isFilterDropdownOpen = $event"
+          @update:is-sort-dropdown-open="isSortDropdownOpen = $event"
+          @toggle-sort-online="toggleSortByOnline"
+          @toggle-sort-distance="toggleSortByDistance"
+          @toggle-disable-pinned-sort="toggleDisablePinnedSort"
           @chat-click="handleChatClick"
           @chat-open-tags="handleOpenTags"
           @clear-filters="clearAllFilters"

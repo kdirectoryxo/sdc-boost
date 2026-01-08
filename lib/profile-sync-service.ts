@@ -5,7 +5,39 @@
 
 import { getProfileV2 } from './sdc-api/profile';
 import { profileStorage } from './profile-storage';
+import { db } from './db';
 import type { MessengerChatItem, ProfileUser } from './sdc-api-types';
+
+const FULL_SYNC_METADATA_KEY = 'profile_full_sync_done';
+
+/**
+ * Check if a full profile sync has been performed
+ * @returns True if full sync was done, false otherwise
+ */
+export async function hasFullProfileSyncDone(): Promise<boolean> {
+    try {
+        const item = await db.sync_metadata.get(FULL_SYNC_METADATA_KEY);
+        return item !== undefined;
+    } catch (err) {
+        console.error('[ProfileSyncService] Failed to check full sync status:', err);
+        return false;
+    }
+}
+
+/**
+ * Mark that a full profile sync has been completed
+ */
+export async function setFullProfileSyncDone(): Promise<void> {
+    try {
+        await db.sync_metadata.put({
+            key: FULL_SYNC_METADATA_KEY,
+            last_sync_time: new Date().toISOString(),
+        });
+        console.log('[ProfileSyncService] Marked full profile sync as done');
+    } catch (err) {
+        console.error('[ProfileSyncService] Failed to mark full sync as done:', err);
+    }
+}
 
 /**
  * Sync profiles for a list of chats
@@ -47,8 +79,16 @@ export async function syncProfilesForChats(
         return;
     }
 
-    // Sort chats by date_time (newest first) so newest chats are synced first
+    // Sort chats: pinned first, then by date_time (newest first) so newest chats are synced first
     chatsToSync.sort((a, b) => {
+        // Pinned chats first
+        const aPinned = a.pin_chat || 0;
+        const bPinned = b.pin_chat || 0;
+        if (aPinned !== bPinned) {
+            return bPinned - aPinned; // Pinned (higher value) first
+        }
+        
+        // Then by date_time (newest first)
         const getTime = (chat: MessengerChatItem): number => {
             if (!chat.date_time || chat.date_time === '') {
                 return 0;
@@ -204,6 +244,13 @@ export async function syncProfilesForChats(
             }
         } else {
             console.log(`[ProfileSyncService] Successfully synced ${syncedCount}/${chatsToSync.length} profiles (${failedCount} failed)`);
+            
+            // Mark full sync as done if we synced any profiles successfully
+            // This indicates the user has performed a manual full sync
+            if (syncedCount > 0) {
+                await setFullProfileSyncDone();
+            }
+            
             if (toast) {
                 if (failedCount > 0) {
                     toast.error(`Synced ${syncedCount} profile${syncedCount !== 1 ? 's' : ''}, ${failedCount} failed`);

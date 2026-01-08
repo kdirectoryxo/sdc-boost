@@ -1,15 +1,19 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
 import TagBadge from '@/components/ui/TagBadge.vue';
+import Tooltip from '@/components/ui/Tooltip.vue';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 
 interface Props {
   isWebSocketConnected: boolean;
   isSyncingMessages: boolean;
   selectedChat?: MessengerChatItem | null;
+  fullProfileSyncDone?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  fullProfileSyncDone: false,
+});
 
 const emit = defineEmits<{
   close: [];
@@ -35,6 +39,29 @@ function handleSyncMessages() {
 <template>
   <div class="flex items-center justify-between px-6 py-4 border-b border-[#333] shrink-0">
     <div class="flex items-center gap-3 flex-1 min-w-0">
+      <!-- Full Profile Sync Indicator -->
+      <Tooltip 
+        v-if="props.fullProfileSyncDone" 
+        text="Auto profile sync enabled - new chats will automatically sync profiles"
+        position="bottom"
+        align="start"
+      >
+        <div class="flex items-center justify-center w-5 h-5 shrink-0">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="text-blue-500"
+          >
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+          </svg>
+        </div>
+      </Tooltip>
       <h2 class="text-xl font-semibold text-white shrink-0">Chats</h2>
       <!-- WebSocket Connection Status -->
       <div class="flex items-center gap-2 shrink-0">

@@ -23,6 +23,11 @@ interface Props {
   isFilterDropdownOpen: boolean;
   hasActiveFilters: boolean;
   activeFilterCount: number;
+  sortByOnline: 'asc' | 'desc' | null;
+  sortByDistance: 'asc' | 'desc' | null;
+  disablePinnedSort: boolean;
+  isSortDropdownOpen: boolean;
+  hasActiveSort: boolean;
   getFolderName: (folderId: number | undefined | null) => string;
 }
 
@@ -40,6 +45,10 @@ const emit = defineEmits<{
   'update:filterCouples': [value: boolean];
   'update:filterFemales': [value: boolean];
   'update:isFilterDropdownOpen': [value: boolean];
+  'update:isSortDropdownOpen': [value: boolean];
+  'toggle-sort-online': [];
+  'toggle-sort-distance': [];
+  'toggle-disable-pinned-sort': [];
   'chat-click': [chat: MessengerChatItem];
   'chat-open-tags': [chat: MessengerChatItem];
   'clear-filters': [];
@@ -93,6 +102,120 @@ function handleClearFilters() {
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
         </button>
+        <!-- Sort Button -->
+        <Dropdown
+          :model-value="isSortDropdownOpen"
+          @update:model-value="emit('update:isSortDropdownOpen', $event)"
+          placement="bottom"
+          alignment="end"
+          width="w-56"
+          offset="mt-2"
+          :z-index="100"
+        >
+          <template #trigger="{ isOpen, toggle }">
+            <button
+              @click.stop="toggle"
+              :class="[
+                'p-2 rounded-lg border transition-colors relative',
+                hasActiveSort
+                  ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                  : 'bg-[#1a1a1a] border-[#333] text-[#999] hover:border-[#444] hover:text-white'
+              ]"
+              title="Sort chats"
+            >
+              <!-- Sort icon -->
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"></path>
+                <path d="M7 12h10"></path>
+                <path d="M10 18h4"></path>
+              </svg>
+            </button>
+          </template>
+          <template #content="{ close }">
+            <div class="p-2">
+              <!-- Sort by Online -->
+              <div class="px-3 py-1 text-xs text-[#666] uppercase tracking-wide mb-1">Sort by Online</div>
+              <button
+                @click="emit('toggle-sort-online'); close()"
+                class="w-full flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors text-left"
+              >
+                <div class="flex-1 text-white text-sm">
+                  <div v-if="sortByOnline === 'asc'" class="flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
+                      <path d="M3 6h18"></path>
+                      <path d="M7 12h10"></path>
+                      <path d="M10 18h4"></path>
+                    </svg>
+                    <span>Ascending (Online first)</span>
+                  </div>
+                  <div v-else-if="sortByOnline === 'desc'" class="flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
+                      <path d="M3 18h18"></path>
+                      <path d="M7 12h10"></path>
+                      <path d="M10 6h4"></path>
+                    </svg>
+                    <span>Descending (Offline first)</span>
+                  </div>
+                  <div v-else class="flex items-center gap-2">
+                    <span>Disable</span>
+                  </div>
+                </div>
+                <svg v-if="sortByOnline !== null" class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+              </button>
+              
+              <!-- Sort by Distance -->
+              <div class="border-t border-[#333] mt-2 pt-2">
+                <div class="px-3 py-1 text-xs text-[#666] uppercase tracking-wide mb-1">Sort by Distance</div>
+                <button
+                  @click="emit('toggle-sort-distance'); close()"
+                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors text-left"
+                >
+                  <div class="flex-1 text-white text-sm">
+                    <div v-if="sortByDistance === 'asc'" class="flex items-center gap-2">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
+                        <path d="M3 6h18"></path>
+                        <path d="M7 12h10"></path>
+                        <path d="M10 18h4"></path>
+                      </svg>
+                      <span>Ascending (Closest first)</span>
+                    </div>
+                    <div v-else-if="sortByDistance === 'desc'" class="flex items-center gap-2">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
+                        <path d="M3 18h18"></path>
+                        <path d="M7 12h10"></path>
+                        <path d="M10 6h4"></path>
+                      </svg>
+                      <span>Descending (Farthest first)</span>
+                    </div>
+                    <div v-else class="flex items-center gap-2">
+                      <span>Disable</span>
+                    </div>
+                  </div>
+                  <svg v-if="sortByDistance !== null" class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+              
+              <!-- Disable Pinned Sort -->
+              <div class="border-t border-[#333] mt-2 pt-2">
+                <button
+                  @click="emit('toggle-disable-pinned-sort'); close()"
+                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors text-left"
+                >
+                  <div class="flex-1 text-white text-sm">
+                    <span>{{ disablePinnedSort ? 'Enable pinned sort' : 'Disable pinned sort' }}</span>
+                  </div>
+                  <svg v-if="disablePinnedSort" class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </template>
+        </Dropdown>
         <!-- Filter Button -->
         <Dropdown
           :model-value="isFilterDropdownOpen"
