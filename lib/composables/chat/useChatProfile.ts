@@ -41,9 +41,8 @@ export function useChatProfile(dbId: Ref<number | null | undefined> | number | n
         return null;
       }
       
-      // Remove the db_id field (it's the key, not part of ProfileUser)
-      const { db_id, ...profile } = profileEntity;
-      return profile as ProfileUser;
+      // ProfileUser includes db_id, so return it as-is
+      return profileEntity as ProfileUser;
     } catch (error) {
       console.warn(`[useChatProfile] Failed to get profile ${id}:`, error);
       return null;

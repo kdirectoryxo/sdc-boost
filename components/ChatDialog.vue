@@ -67,7 +67,8 @@ const {
   filterLastMessageByOther,
   filterOnlyMyMessages,
   filterBlocked,
-  filterFemalesCouples,
+  filterCouples,
+  filterFemales,
   isFilterDropdownOpen,
   filteredChats,
   hasActiveFilters,
@@ -434,7 +435,8 @@ function handleOpenProfileFromDialog(userId: number) {
           :filter-last-message-by-other="filterLastMessageByOther"
           :filter-only-my-messages="filterOnlyMyMessages"
           :filter-blocked="filterBlocked"
-          :filter-females-couples="filterFemalesCouples"
+          :filter-couples="filterCouples"
+          :filter-females="filterFemales"
           :is-filter-dropdown-open="isFilterDropdownOpen"
           :has-active-filters="hasActiveFilters"
           :active-filter-count="activeFilterCount"
@@ -447,7 +449,8 @@ function handleOpenProfileFromDialog(userId: number) {
           @update:filter-last-message-by-other="filterLastMessageByOther = $event"
           @update:filter-only-my-messages="filterOnlyMyMessages = $event"
           @update:filter-blocked="filterBlocked = $event"
-          @update:filter-females-couples="filterFemalesCouples = $event"
+          @update:filter-couples="filterCouples = $event"
+          @update:filter-females="filterFemales = $event"
           @update:is-filter-dropdown-open="isFilterDropdownOpen = $event"
           @chat-click="handleChatClick"
           @chat-open-tags="handleOpenTags"

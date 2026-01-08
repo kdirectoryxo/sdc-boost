@@ -18,7 +18,8 @@ interface Props {
   filterLastMessageByOther: boolean;
   filterOnlyMyMessages: boolean;
   filterBlocked: boolean;
-  filterFemalesCouples: boolean;
+  filterCouples: boolean;
+  filterFemales: boolean;
   isFilterDropdownOpen: boolean;
   hasActiveFilters: boolean;
   activeFilterCount: number;
@@ -36,7 +37,8 @@ const emit = defineEmits<{
   'update:filterLastMessageByOther': [value: boolean];
   'update:filterOnlyMyMessages': [value: boolean];
   'update:filterBlocked': [value: boolean];
-  'update:filterFemalesCouples': [value: boolean];
+  'update:filterCouples': [value: boolean];
+  'update:filterFemales': [value: boolean];
   'update:isFilterDropdownOpen': [value: boolean];
   'chat-click': [chat: MessengerChatItem];
   'chat-open-tags': [chat: MessengerChatItem];
@@ -203,21 +205,40 @@ function handleClearFilters() {
                 <span class="text-white text-sm select-none">Blocked only</span>
               </label>
               
-              <!-- Females / Couples Filter -->
-              <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
-                <div class="relative flex items-center">
-                  <input
-                    type="checkbox"
-                    :checked="filterFemalesCouples"
-                    @change="emit('update:filterFemalesCouples', ($event.target as HTMLInputElement).checked)"
-                    class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
-                  />
-                  <svg v-if="filterFemalesCouples" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <span class="text-white text-sm select-none">Females / Couples</span>
-              </label>
+              <!-- Gender Filters -->
+              <div class="border-t border-[#333] mt-2 pt-2">
+                <div class="px-3 py-1 text-xs text-[#666] uppercase tracking-wide mb-1">Gender</div>
+                
+                <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
+                  <div class="relative flex items-center">
+                    <input
+                      type="checkbox"
+                      :checked="filterCouples"
+                      @change="emit('update:filterCouples', ($event.target as HTMLInputElement).checked)"
+                      class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
+                    />
+                    <svg v-if="filterCouples" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                  <span class="text-white text-sm select-none">Only couples</span>
+                </label>
+                
+                <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
+                  <div class="relative flex items-center">
+                    <input
+                      type="checkbox"
+                      :checked="filterFemales"
+                      @change="emit('update:filterFemales', ($event.target as HTMLInputElement).checked)"
+                      class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
+                    />
+                    <svg v-if="filterFemales" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                  <span class="text-white text-sm select-none">Only females</span>
+                </label>
+              </div>
               
               <!-- Last Message Filters -->
               <div class="border-t border-[#333] mt-2 pt-2">

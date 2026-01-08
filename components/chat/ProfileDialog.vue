@@ -6,6 +6,7 @@ import VueEasyLightbox from 'vue-easy-lightbox';
 import 'vue-easy-lightbox/dist/external-css/vue-easy-lightbox.css';
 import VideoLightbox from '@/components/chat/VideoLightbox.vue';
 import { profileStorage } from '@/lib/profile-storage';
+import { getProfileV2 } from '@/lib/sdc-api/profile';
 
 interface Props {
   visible: boolean;
@@ -27,7 +28,10 @@ const emit = defineEmits<{
 const activeTab = ref<string>('profile');
 const profileData = ref<ProfileUser | null>(null);
 const isLoading = ref(false);
+const isRefreshingImages = ref(false);
+const isRefreshingDueToError = ref(false);
 const error = ref<string | null>(null);
+const imageErrors = ref<Set<string>>(new Set());
 
 // Gallery modal state
 const galleryModalVisible = ref<boolean>(false);
@@ -107,6 +111,9 @@ watch([() => props.visible, () => props.userId], async ([visible, userId]) => {
     profileData.value = null;
     error.value = null;
     activeTab.value = 'profile';
+    imageErrors.value.clear();
+    isRefreshingImages.value = false;
+    isRefreshingDueToError.value = false;
   }
 }, { immediate: true });
 
@@ -115,14 +122,17 @@ async function fetchProfile(userId: number) {
   error.value = null;
   
   try {
-    // Only use cached profile from database - no API calls
-    // User must sync profiles manually via sync dialog
+    // First, load cached profile from database for instant display
     const cachedProfile = await profileStorage.getProfile(userId);
     
     if (cachedProfile) {
-      // Use cached data
+      // Use cached data immediately
       profileData.value = cachedProfile;
       isLoading.value = false;
+      
+      // Then refresh image URLs in the background (they may have expired)
+      // Pass false to indicate this is not due to an error, so no spinner
+      refreshProfileImages(userId, false);
     } else {
       // No cached data available
       profileData.value = null;
@@ -136,6 +146,50 @@ async function fetchProfile(userId: number) {
   }
 }
 
+let refreshPromise: Promise<void> | null = null;
+
+async function refreshProfileImages(userId: number, dueToError: boolean = false) {
+  // Skip if already refreshing
+  if (isRefreshingImages.value || refreshPromise) {
+    return;
+  }
+  
+  isRefreshingImages.value = true;
+  isRefreshingDueToError.value = dueToError;
+  
+  refreshPromise = (async () => {
+    try {
+      // Fetch fresh profile data from API to get updated image URLs
+      const response = await getProfileV2(userId.toString());
+      const freshProfile = response.info.profile_user;
+      
+      // Only update if dialog is still open and showing the same user
+      if (props.visible && props.userId === userId) {
+        // Update the displayed profile data with fresh image URLs
+        profileData.value = freshProfile;
+        
+        // Also update the database with fresh data
+        await profileStorage.upsertProfile(freshProfile);
+        
+        // Clear image errors since we have fresh URLs
+        imageErrors.value.clear();
+        
+        console.log('[ProfileDialog] Refreshed profile images for user', userId);
+      }
+    } catch (err) {
+      console.error('[ProfileDialog] Failed to refresh profile images:', err);
+      // Don't show error to user - cached images will still be displayed
+      // The error is logged for debugging
+    } finally {
+      isRefreshingImages.value = false;
+      isRefreshingDueToError.value = false;
+      refreshPromise = null;
+    }
+  })();
+  
+  await refreshPromise;
+}
+
 function handleClose() {
   emit('close');
 }
@@ -144,6 +198,25 @@ function getPhotoUrl(photo: string | undefined): string {
   if (!photo) return '';
   if (photo.startsWith('http')) return photo;
   return `https://pictures.sdc.com/photos/${photo}`;
+}
+
+function handleImageError(event: Event, photoUrl: string) {
+  const img = event.target as HTMLImageElement;
+  imageErrors.value.add(photoUrl);
+  
+  // If image failed and we're not already refreshing, trigger a refresh
+  if (!isRefreshingImages.value && profileData.value?.db_id) {
+    console.log('[ProfileDialog] Image load failed, refreshing profile images:', photoUrl);
+    refreshProfileImages(profileData.value.db_id, true); // true = refreshing due to error
+  }
+  
+  // Show placeholder or hide image
+  img.style.display = 'none';
+}
+
+function handleImageLoad(event: Event, photoUrl: string) {
+  // Remove from error set if it loads successfully
+  imageErrors.value.delete(photoUrl);
 }
 
 function getCommunityPhotoUrl(picture: string | undefined): string {
@@ -471,17 +544,30 @@ const isGender2Real = computed(() => {
       <!-- Header -->
       <div class="flex items-center justify-between px-6 py-4 border-b border-[#333] shrink-0">
         <div class="flex items-center gap-4 flex-1 min-w-0">
-          <img
-            v-if="profileData?.photo_file_list?.[0]"
-            :src="getPhotoUrl(`${profileData.db_id}/${profileData.photo_file_list[0]}`)"
-            :alt="profileData?.account_id || 'Profile'"
-            class="w-12 h-12 rounded-full object-cover shrink-0"
-          />
-          <div v-else class="w-12 h-12 rounded-full bg-[#333] shrink-0 flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#666]">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
+          <div class="relative w-12 h-12 shrink-0">
+            <img
+              v-if="profileData?.photo_file_list?.[0]"
+              :src="getPhotoUrl(`${profileData.db_id}/${profileData.photo_file_list[0]}`)"
+              :alt="profileData?.account_id || 'Profile'"
+              class="w-12 h-12 rounded-full object-cover"
+              @error="handleImageError($event, getPhotoUrl(`${profileData.db_id}/${profileData.photo_file_list[0]}`))"
+              @load="handleImageLoad($event, getPhotoUrl(`${profileData.db_id}/${profileData.photo_file_list[0]}`))"
+            />
+            <div
+              v-else
+              class="w-12 h-12 rounded-full bg-[#333] flex items-center justify-center"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#666]">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </div>
+            <!-- Refresh indicator - only show when refreshing due to image errors -->
+            <div
+              v-if="isRefreshingImages && isRefreshingDueToError"
+              class="absolute -top-1 -right-1 w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin bg-[#1a1a1a]"
+              title="Refreshing images..."
+            ></div>
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
@@ -597,7 +683,24 @@ const isGender2Real = computed(() => {
                     :src="getPhotoUrl(`${profileData.db_id}/${profileData.photo_file_list[0]}`)"
                     :alt="profileData.account_id"
                     class="w-48 h-48 rounded-2xl object-cover shadow-xl border-2 border-[#333]"
+                    @error="handleImageError($event, getPhotoUrl(`${profileData.db_id}/${profileData.photo_file_list[0]}`))"
+                    @load="handleImageLoad($event, getPhotoUrl(`${profileData.db_id}/${profileData.photo_file_list[0]}`))"
                   />
+                  <div
+                    v-else
+                    class="w-48 h-48 rounded-2xl bg-[#333] flex items-center justify-center shadow-xl border-2 border-[#333]"
+                  >
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#666]">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                  </div>
+                  <!-- Refresh indicator - only show when refreshing due to image errors -->
+                  <div
+                    v-if="isRefreshingImages && isRefreshingDueToError"
+                    class="absolute top-2 right-2 w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin bg-[#1a1a1a]"
+                    title="Refreshing images..."
+                  ></div>
                   <div 
                     v-if="profileData.online === 1" 
                     class="absolute bottom-2 right-2 w-5 h-5 bg-green-500 rounded-full border-4 border-[#1a1a1a]"
@@ -880,6 +983,8 @@ const isGender2Real = computed(() => {
                     :src="getPhotoUrl(`${profileData.db_id}/${photo}`)"
                     :alt="`Photo ${index + 1}`"
                     class="w-full h-full object-cover"
+                    @error="handleImageError($event, getPhotoUrl(`${profileData.db_id}/${photo}`))"
+                    @load="handleImageLoad($event, getPhotoUrl(`${profileData.db_id}/${photo}`))"
                   />
                 </div>
               </div>
@@ -898,6 +1003,8 @@ const isGender2Real = computed(() => {
                     :src="getPhotoUrl(`${profileData.db_id}/${photo}`)"
                     :alt="`Photo ${index + 1}`"
                     class="w-full h-full object-cover"
+                    @error="handleImageError($event, getPhotoUrl(`${profileData.db_id}/${photo}`))"
+                    @load="handleImageLoad($event, getPhotoUrl(`${profileData.db_id}/${photo}`))"
                   />
                 </div>
               </div>

@@ -35,9 +35,8 @@ class ProfileStorage {
                 return null;
             }
             
-            // Remove the db_id field (it's the key, not part of ProfileUser)
-            const { db_id, ...profile } = profileEntity;
-            return profile as ProfileUser;
+            // ProfileUser includes db_id, so return it as-is
+            return profileEntity as ProfileUser;
         } catch (error) {
             console.error(`[ProfileStorage] Failed to get profile ${dbId}:`, error);
             return null;
@@ -167,7 +166,8 @@ class ProfileStorage {
     async getAllProfiles(): Promise<ProfileUser[]> {
         try {
             const entities = await db.profiles.toArray();
-            return entities.map(({ db_id, ...profile }) => profile as ProfileUser);
+            // ProfileUser includes db_id, so return entities as-is
+            return entities as ProfileUser[];
         } catch (error) {
             console.error('[ProfileStorage] Failed to get all profiles:', error);
             return [];

@@ -482,7 +482,8 @@ class ChatStorage {
         lastMessageByOther?: boolean;
         onlyMyMessages?: boolean;
         blockedOnly?: boolean;
-        femalesCouplesOnly?: boolean; // If true, only show chats with gender1 === 1 (females or couples with female)
+        couplesOnly?: boolean; // If true, only show chats with gender1 === 1 && gender2 !== 2 (couples with female)
+        femalesOnly?: boolean; // If true, only show chats with gender1 === 1 && gender2 === 2 (single females)
         showArchives?: boolean; // If true, only show archived chats. If false/undefined, exclude archived chats
     }): Promise<MessengerChatItem[]> {
         let chats: ChatEntity[] = [];
@@ -593,9 +594,26 @@ class ChatStorage {
             result = result.filter(chat => chat.online === 1);
         }
         
-        // Apply females/couples filter
-        if (options.femalesCouplesOnly) {
-            result = result.filter(chat => chat.gender1 === 1);
+        // Apply gender filters (OR logic when both are active)
+        if (options.couplesOnly || options.femalesOnly) {
+            result = result.filter(chat => {
+                // Couples: gender1 is female (1) and gender2 is NOT 2 (has a partner, could be 0, 1, etc.)
+                const isCouple = chat.gender1 === 1 && chat.gender2 !== 2;
+                // Single females: gender1 is female (1) and gender2 IS 2 (no partner, single)
+                const isFemale = chat.gender1 === 1 && chat.gender2 === 2;
+                
+                if (options.couplesOnly && options.femalesOnly) {
+                    // Both filters active: show couples OR females
+                    return isCouple || isFemale;
+                } else if (options.couplesOnly) {
+                    // Only couples filter active
+                    return isCouple;
+                } else if (options.femalesOnly) {
+                    // Only females filter active
+                    return isFemale;
+                }
+                return false;
+            });
         }
         
         // Apply message sender filters (requires checking messages in IndexedDB efficiently)
