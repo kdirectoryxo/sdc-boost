@@ -23,6 +23,11 @@ interface ChatMessage {
   timestamp: Date;
 }
 
+interface SessionConversation {
+  history: Array<{ role: 'user' | 'assistant'; content: string }>;
+  messages: ChatMessage[];
+}
+
 const messages = ref<ChatMessage[]>([]);
 const inputMessage = ref('');
 const isLoading = ref(false);
@@ -32,28 +37,90 @@ const profileData = ref<ProfileUser | null>(null);
 const chatMessages = ref<MessengerMessage[]>([]);
 const conversationHistory = ref<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
 
+// Session storage for conversations per chat
+const sessionConversations = ref<Map<number, SessionConversation>>(new Map());
+
 // Track current chat group_id to detect chat switches
 const currentGroupId = ref<number | null>(null);
+
+// Edit mode state
+const editingMessageIndex = ref<number | null>(null);
+const editingMessageText = ref('');
+
+// Abort controller for canceling AI requests
+const abortController = ref<AbortController | null>(null);
+
+// Save conversation to session storage
+function saveConversationToSession(groupId: number) {
+  sessionConversations.value.set(groupId, {
+    history: [...conversationHistory.value],
+    messages: [...messages.value],
+  });
+}
+
+// Load conversation from session storage
+function loadConversationFromSession(groupId: number): boolean {
+  const saved = sessionConversations.value.get(groupId);
+  if (saved) {
+    conversationHistory.value = [...saved.history];
+    messages.value = [...saved.messages];
+    return true;
+  }
+  return false;
+}
 
 // Load profile and messages when dialog opens
 watch([() => props.visible, () => props.selectedChat], async ([visible, chat]) => {
   if (visible && chat && !chat.broadcast && chat.type !== 100 && chat.db_id > 0) {
+    // Abort any ongoing request when switching chats
+    if (abortController.value) {
+      abortController.value.abort();
+      abortController.value = null;
+      isLoading.value = false;
+    }
+    
+    // Save current conversation before switching
+    if (currentGroupId.value !== null && currentGroupId.value !== chat.group_id) {
+      saveConversationToSession(currentGroupId.value);
+    }
+    
     // Reset conversation if switching to a different chat
     if (currentGroupId.value !== null && currentGroupId.value !== chat.group_id) {
       conversationHistory.value = [];
       messages.value = [];
     }
+    
     currentGroupId.value = chat.group_id;
-    await loadData();
+    
+    // Try to load conversation from session, otherwise load data
+    const hasSession = loadConversationFromSession(chat.group_id);
+    if (!hasSession) {
+      await loadData();
+    } else {
+      // Still need to load profile and chat messages for AI context
+      await loadData();
+    }
   } else if (!visible) {
-    // Reset state when closing
+    // Abort any ongoing request when closing
+    if (abortController.value) {
+      abortController.value.abort();
+      abortController.value = null;
+      isLoading.value = false;
+    }
+    
+    // Save conversation to session before closing
+    if (currentGroupId.value !== null) {
+      saveConversationToSession(currentGroupId.value);
+    }
+    
+    // Reset UI state when closing (but keep conversation in session)
     inputMessage.value = '';
     error.value = null;
     profileData.value = null;
     chatMessages.value = [];
-    conversationHistory.value = [];
-    messages.value = [];
-    currentGroupId.value = null;
+    editingMessageIndex.value = null;
+    editingMessageText.value = '';
+    // Don't reset conversationHistory and messages - they're saved in session
   }
 }, { immediate: true });
 
@@ -82,6 +149,7 @@ async function loadData() {
     chatMessages.value = msgs;
     
     // Add welcome message only if this is a fresh conversation (no messages yet)
+    // Don't add if we loaded from session (messages already exist)
     if (messages.value.length === 0 && conversationHistory.value.length === 0) {
       const welcomeMsg = {
         role: 'assistant' as const,
@@ -117,8 +185,16 @@ async function handleSendMessage() {
     content: userMessage,
   });
   
+  // Save to session
+  if (props.selectedChat) {
+    saveConversationToSession(props.selectedChat.group_id);
+  }
+  
   isLoading.value = true;
   error.value = null;
+  
+  // Create new abort controller for this request
+  abortController.value = new AbortController();
   
   // Scroll to bottom
   await nextTick();
@@ -129,7 +205,8 @@ async function handleSendMessage() {
       userMessage,
       profileData.value,
       chatMessages.value,
-      conversationHistory.value
+      conversationHistory.value,
+      abortController.value.signal
     );
     
     // Add AI response to UI
@@ -145,10 +222,24 @@ async function handleSendMessage() {
       content: aiResponse,
     });
     
+    // Save to session
+    if (props.selectedChat) {
+      saveConversationToSession(props.selectedChat.group_id);
+    }
+    
     // Scroll to bottom
     await nextTick();
     scrollToBottom();
   } catch (err) {
+    // Don't show error if request was aborted
+    if (err instanceof Error && err.name === 'AbortError') {
+      // Remove user message from conversation history on abort
+      conversationHistory.value.pop();
+      // Remove user message from UI
+      messages.value.pop();
+      return;
+    }
+    
     console.error('[AIChatDialog] Failed to get AI response:', err);
     error.value = err instanceof Error ? err.message : 'Failed to get AI response';
     
@@ -157,6 +248,15 @@ async function handleSendMessage() {
     // Remove user message from UI
     messages.value.pop();
   } finally {
+    isLoading.value = false;
+    abortController.value = null;
+  }
+}
+
+function handleStopGeneration() {
+  if (abortController.value) {
+    abortController.value.abort();
+    abortController.value = null;
     isLoading.value = false;
   }
 }
@@ -170,6 +270,84 @@ function handleKeydown(event: KeyboardEvent) {
 
 function handleClose() {
   emit('close');
+}
+
+function handleResetChat() {
+  // Clear conversation
+  conversationHistory.value = [];
+  messages.value = [];
+  
+  // Clear from session
+  if (props.selectedChat) {
+    sessionConversations.value.delete(props.selectedChat.group_id);
+  }
+  
+  // Re-add welcome message
+  if (profileData.value) {
+    const welcomeMsg = {
+      role: 'assistant' as const,
+      content: `Hello! I can help you analyze the profile and chat history with ${profileData.value.account_id}. What would you like to know?`,
+      timestamp: new Date(),
+    };
+    messages.value.push(welcomeMsg);
+  }
+  
+  // Clear edit mode
+  editingMessageIndex.value = null;
+  editingMessageText.value = '';
+}
+
+function handleStartEdit(index: number) {
+  if (messages.value[index] && messages.value[index].role === 'user') {
+    editingMessageIndex.value = index;
+    editingMessageText.value = messages.value[index].content;
+  }
+}
+
+function handleCancelEdit() {
+  editingMessageIndex.value = null;
+  editingMessageText.value = '';
+}
+
+async function handleSaveEdit(index: number) {
+  if (!editingMessageText.value.trim() || !profileData.value) {
+    return;
+  }
+  
+  const editedContent = editingMessageText.value.trim();
+  
+  // Find how many user messages are before this index (not including this one)
+  // This tells us where in conversationHistory this message is
+  let userMessagesBefore = 0;
+  for (let i = 0; i < index; i++) {
+    if (messages.value[i] && messages.value[i].role === 'user') {
+      userMessagesBefore++;
+    }
+  }
+  
+  // Truncate messages array (remove this message and all after it)
+  messages.value = messages.value.slice(0, index);
+  
+  // Truncate conversationHistory
+  // conversationHistory contains: [user1, assistant1, user2, assistant2, ...]
+  // If we're editing user2 (which is the 2nd user message, index 1 in user messages),
+  // we want to keep [user1, assistant1], so truncate to index userMessagesBefore * 2
+  // (each user message has a corresponding assistant response)
+  const conversationHistoryIndex = userMessagesBefore * 2;
+  conversationHistory.value = conversationHistory.value.slice(0, conversationHistoryIndex);
+  
+  // Clear edit mode
+  editingMessageIndex.value = null;
+  editingMessageText.value = '';
+  
+  // Save session before resending
+  if (props.selectedChat) {
+    saveConversationToSession(props.selectedChat.group_id);
+  }
+  
+  // Now resend the edited message
+  inputMessage.value = editedContent;
+  await handleSendMessage();
 }
 
 function scrollToBottom() {
@@ -262,26 +440,52 @@ onMounted(() => {
             <p v-if="error" class="text-xs text-red-400 mt-1">{{ error }}</p>
           </div>
         </div>
-        <button
-          @click="handleClose"
-          class="p-2 hover:bg-[#333] rounded-md transition-colors shrink-0"
-          title="Close"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="text-[#999] hover:text-white"
+        <div class="flex items-center gap-2">
+          <!-- Reset Button -->
+          <button
+            @click="handleResetChat"
+            class="p-2 hover:bg-[#333] rounded-md transition-colors shrink-0"
+            title="Reset conversation"
           >
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="text-[#999] hover:text-white"
+            >
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+              <path d="M21 3v5h-5"></path>
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+              <path d="M3 21v-5h5"></path>
+            </svg>
+          </button>
+          <!-- Close Button -->
+          <button
+            @click="handleClose"
+            class="p-2 hover:bg-[#333] rounded-md transition-colors shrink-0"
+            title="Close"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="text-[#999] hover:text-white"
+            >
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Messages Area -->
@@ -322,21 +526,72 @@ onMounted(() => {
           >
             <div
               :class="[
-                'max-w-[70%] rounded-lg px-4 py-2',
+                'max-w-[70%] rounded-lg px-4 py-2 relative group',
                 msg.role === 'user'
                   ? 'bg-blue-500 text-white'
                   : 'bg-[#2a2a2a] text-white border border-[#333]'
               ]"
             >
-              <div class="wrap-break-word ai-message-content" v-html="formatAIMessage(msg.content)"></div>
-              <div
-                :class="[
-                  'text-xs ai-timestamp',
-                  msg.role === 'user' ? 'text-blue-100' : 'text-[#666]'
-                ]"
-              >
-                {{ msg.timestamp.toLocaleTimeString() }}
+              <!-- Edit Mode -->
+              <div v-if="editingMessageIndex === index && msg.role === 'user'" class="space-y-2">
+                <textarea
+                  v-model="editingMessageText"
+                  rows="3"
+                  class="w-full bg-[#0f0f0f] border border-[#333] rounded-lg px-3 py-2 text-white placeholder-[#666] focus:outline-none focus:border-blue-400 resize-none"
+                  @keydown.enter.exact.prevent="handleSaveEdit(index)"
+                  @keydown.escape="handleCancelEdit"
+                ></textarea>
+                <div class="flex items-center gap-2">
+                  <button
+                    @click="handleSaveEdit(index)"
+                    class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm text-white transition-colors"
+                  >
+                    Save & Resend
+                  </button>
+                  <button
+                    @click="handleCancelEdit"
+                    class="px-3 py-1 bg-[#333] hover:bg-[#444] rounded text-sm text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
+              <!-- Normal Message Display -->
+              <template v-else>
+                <div class="wrap-break-word ai-message-content" v-html="formatAIMessage(msg.content)"></div>
+                <div class="flex items-center justify-between mt-0.5">
+                  <div
+                    :class="[
+                      'text-xs ai-timestamp',
+                      msg.role === 'user' ? 'text-blue-100' : 'text-[#666]'
+                    ]"
+                  >
+                    {{ msg.timestamp.toLocaleTimeString() }}
+                  </div>
+                  <!-- Edit Button (only for user messages) -->
+                  <button
+                    v-if="msg.role === 'user'"
+                    @click="handleStartEdit(index)"
+                    class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/20 rounded"
+                    title="Edit message"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="text-white/80 hover:text-white"
+                    >
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </button>
+                </div>
+              </template>
             </div>
           </div>
 
@@ -369,14 +624,36 @@ onMounted(() => {
               target.style.height = Math.min(target.scrollHeight, 120) + 'px';
             }"
           ></textarea>
+          <!-- Stop Button (shown when loading) -->
           <button
+            v-if="isLoading"
+            @click="handleStopGeneration"
+            class="p-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors shrink-0"
+            title="Stop generation"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="text-white"
+            >
+              <rect x="6" y="6" width="12" height="12" rx="1"></rect>
+            </svg>
+          </button>
+          <!-- Send Button (shown when not loading) -->
+          <button
+            v-else
             @click="handleSendMessage"
-            :disabled="!inputMessage.trim() || isLoading || !profileData || !!error"
+            :disabled="!inputMessage.trim() || !profileData || !!error"
             class="p-2 bg-blue-500 hover:bg-blue-600 disabled:bg-[#333] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors shrink-0"
             title="Send message"
           >
             <svg
-              v-if="!isLoading"
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -390,10 +667,6 @@ onMounted(() => {
               <line x1="22" y1="2" x2="11" y2="13"></line>
               <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
             </svg>
-            <div
-              v-else
-              class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"
-            ></div>
           </button>
         </div>
         <p class="text-xs text-[#666] mt-2">

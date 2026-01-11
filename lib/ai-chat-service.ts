@@ -221,7 +221,8 @@ export async function chatWithAI(
   userMessage: string,
   profile: ProfileUser,
   messages: MessengerMessage[],
-  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
+  abortSignal?: AbortSignal
 ): Promise<string> {
   const apiKey = await getSetting('openrouter_api_key') || undefined;
   
@@ -304,12 +305,15 @@ Keep responses clear and well-formatted.`;
       },
     ];
 
-    const response = await client.chat.send({
-      model: 'google/gemini-3-flash-preview',
-      messages: messagesArray,
-      maxTokens: 2000,
-      temperature: 0.7,
-    });
+    const response = await client.chat.send(
+      {
+        model: 'google/gemini-3-flash-preview',
+        messages: messagesArray,
+        maxTokens: 2000,
+        temperature: 0.7,
+      },
+      abortSignal ? { signal: abortSignal } : undefined
+    );
  
     const content = response.choices?.[0]?.message?.content;
     const aiResponse = typeof content === 'string' ? content.trim() : String(content).trim();
