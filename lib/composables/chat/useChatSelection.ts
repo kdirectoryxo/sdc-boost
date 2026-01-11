@@ -14,7 +14,7 @@ import { useChatInput } from './useChatInput';
  * Composable for handling chat selection and opening logic
  */
 export function useChatSelection() {
-  const { selectedChat, updateChatInURL } = useChatState();
+  const { selectedChat, updateChatInURL, chatList } = useChatState();
   const { searchQuery } = useChatFilters();
   const { 
     messages, 
@@ -50,11 +50,14 @@ export function useChatSelection() {
       clearSearch();
     }
     
+    // Get the latest chat object from chatList to ensure we have tags
+    const latestChat = chatList.value.find(c => c.group_id === chat.group_id) || chat;
+    
     // Optimistically set unread counter to 0 when opening a chat
-    let chatToUse = chat;
-    if (chat.unread_counter && chat.unread_counter > 0) {
+    let chatToUse = latestChat;
+    if (latestChat.unread_counter && latestChat.unread_counter > 0) {
       const updatedChat = {
-        ...chat,
+        ...latestChat,
         unread_counter: 0
       };
       
@@ -63,7 +66,7 @@ export function useChatSelection() {
       // Update in database - chatList will update reactively
       await chatStorage.updateChat(updatedChat);
       
-      console.log(`[ChatDialog] Optimistically set unread counter for chat ${chat.group_id} from ${chat.unread_counter} to 0`);
+      console.log(`[ChatDialog] Optimistically set unread counter for chat ${latestChat.group_id} from ${latestChat.unread_counter} to 0`);
     }
     
     selectedChat.value = chatToUse;
@@ -92,10 +95,12 @@ export function useChatSelection() {
    * Open chat from URL - handles the logic for opening a chat when dialog opens with a chat ID in URL
    */
   async function openChatFromURL(chat: MessengerChatItem): Promise<void> {
-    let chatToUse = chat;
-    if (chat.unread_counter && chat.unread_counter > 0) {
+    // Get the latest chat object from chatList to ensure we have tags
+    const latestChat = chatList.value.find(c => c.group_id === chat.group_id) || chat;
+    let chatToUse = latestChat;
+    if (latestChat.unread_counter && latestChat.unread_counter > 0) {
       const updatedChat = {
-        ...chat,
+        ...latestChat,
         unread_counter: 0
       };
       
@@ -105,7 +110,7 @@ export function useChatSelection() {
       await chatStorage.updateChat(updatedChat);
       await countersManager.recalculateMessengerCounter();
       
-      console.log(`[ChatDialog] Optimistically set unread counter for chat ${chat.group_id} from ${chat.unread_counter} to 0`);
+      console.log(`[ChatDialog] Optimistically set unread counter for chat ${latestChat.group_id} from ${latestChat.unread_counter} to 0`);
     }
     
     selectedChat.value = chatToUse;

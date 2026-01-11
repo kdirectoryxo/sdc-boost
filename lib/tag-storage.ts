@@ -1,6 +1,9 @@
 /**
  * IndexedDB storage manager for chat tags
- * Handles storing and retrieving tags for chats
+ * @deprecated Tags are now stored in SDC database. This file is kept for backward compatibility only.
+ * Use lib/sdc-db/tags.ts and lib/composables/chat/useChatTags.ts instead.
+ * 
+ * This file will be removed after migration is complete and verified.
  */
 
 import { db, type ChatTag, type ChatMetadata } from './db';

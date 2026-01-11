@@ -6,6 +6,7 @@ import { useChatSync } from './useChatSync';
 import { useChatWebSocket } from './useChatWebSocket';
 import { useChatMessages } from './useChatMessages';
 import { useChatSelection } from './useChatSelection';
+import { useSDCDatabaseStore } from '@/lib/sdc-db/store';
 
 /**
  * Composable for managing ChatDialog lifecycle (open/close, URL watching, mounting)
@@ -31,6 +32,7 @@ export function useChatDialogLifecycle(
   const { setupEventListeners, cleanupEventListeners } = useChatWebSocket();
   const { messages, clearSearch } = useChatMessages();
   const { handleChatClick, openChatFromURL } = useChatSelection();
+  const dbStore = useSDCDatabaseStore();
 
   /**
    * Inject lightbox z-index override styles
@@ -65,6 +67,14 @@ export function useChatDialogLifecycle(
    */
   async function initializeDialog() {
     isInitialLoad.value = true;
+    
+    // Initialize SDC database first
+    try {
+      await dbStore.initialize();
+    } catch (error) {
+      console.error('[ChatDialogLifecycle] Failed to initialize database:', error);
+      // Continue even if database init fails - UI can handle it
+    }
     
     const chatIdFromURL = getChatIdFromURL();
     

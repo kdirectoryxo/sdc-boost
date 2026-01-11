@@ -1,44 +1,70 @@
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { createGlobalState } from '@vueuse/core';
 import type { MessengerChatItem, MessengerFolder } from '@/lib/sdc-api-types';
 import { useLiveQuery } from '@/lib/composables/useLiveQuery';
 import { db } from '@/lib/db';
+import { tagChangeTrigger } from '@/lib/sdc-db/tag-change-trigger';
+import { useSDCDatabaseStore } from '@/lib/sdc-db/store';
 
 /**
  * Global chat state that persists across component instances
  */
 export const useChatState = createGlobalState(() => {
+  const { isReady: dbIsReady } = useSDCDatabaseStore();
+  
   // Reactive chat list from database
+  // Include tagChangeTrigger and dbIsReady in dependencies to react to tag changes and DB readiness
   const chatList = useLiveQuery(async () => {
+    // Access tagChangeTrigger and dbIsReady to make them dependencies
+    const _trigger = tagChangeTrigger.value;
+    const _dbReady = dbIsReady.value;
+    
     const chats = await db.chats.toArray();
     const allMetadata = await db.chat_metadata.toArray();
-    const metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean; tags?: import('@/lib/db').ChatTag[] }>();
+    const metadataMap = new Map<number, { isBlocked?: boolean; isArchived?: boolean }>();
     allMetadata.forEach((m) => {
-      // Serialize tags to ensure they're plain objects (avoid IndexedDB cloning issues)
-      const serializedTags = m.tags ? m.tags.map(tag => ({
-        text: String(tag.text),
-        color: String(tag.color),
-      })) : undefined;
-      
       metadataMap.set(m.group_id, { 
         isBlocked: m.isBlocked, 
         isArchived: m.isArchived,
-        tags: serializedTags
       });
     });
     
-    // Merge metadata into chats
+    // Load tags from SDC database for all chats
+    let tagsMap = new Map<number, import('@/lib/db').ChatTag[]>();
+    
+    // Only load tags if database is ready
+    if (dbIsReady.value) {
+      try {
+        const { getTagsForChat } = await import('@/lib/sdc-db/tags');
+        
+        // Load tags for each chat
+        for (const chat of chats) {
+          const tags = getTagsForChat(chat.group_id);
+          if (tags.length > 0) {
+            tagsMap.set(chat.group_id, tags.map(t => ({
+              text: t.text,
+              color: t.color,
+            })));
+          }
+        }
+      } catch (err) {
+        console.warn('[useChatState] Failed to load tags from SDC database:', err);
+      }
+    }
+    
+    // Merge metadata and tags into chats
     return chats.map((item) => {
       const { id, ...chat } = item;
       const metadata = metadataMap.get(chat.group_id);
+      const tags = tagsMap.get(chat.group_id);
       return {
         ...chat,
         ...(metadata?.isBlocked ? { isBlocked: true } : {}),
         ...(metadata?.isArchived ? { isArchived: true } : {}),
-        ...(metadata?.tags ? { tags: metadata.tags } : {}),
+        ...(tags ? { tags } : {}),
       } as MessengerChatItem & { tags?: import('@/lib/db').ChatTag[] };
     });
-  }, []);
+  }, [tagChangeTrigger, dbIsReady]);
 
   // Reactive folders from database
   const folders = useLiveQuery(() => db.folders.toArray(), []);
@@ -46,6 +72,18 @@ export const useChatState = createGlobalState(() => {
   const selectedChat = ref<MessengerChatItem | null>(null);
   const selectedFolderId = ref<number | null>(null); // null = all chats, 0 = inbox (no folder), number = specific folder, -1 = archives
   const showArchives = ref<boolean>(false);
+  
+  // Sync selectedChat with updated chatList when tags change
+  watch(() => chatList.value, (newChatList) => {
+    if (!newChatList || !Array.isArray(newChatList) || !selectedChat.value) return;
+    
+    const updatedChat = newChatList.find(
+      chat => chat.group_id === selectedChat.value!.group_id
+    );
+    if (updatedChat) {
+      selectedChat.value = updatedChat;
+    }
+  }, { immediate: false });
   
   // URL state management
   const urlSearchParams = ref(window.location.search);

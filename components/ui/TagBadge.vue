@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import { computed } from 'vue';
+
 interface Props {
 	text: string;
 	color: string;
@@ -7,9 +9,11 @@ interface Props {
 const props = defineProps<Props>();
 
 // Ensure color is valid hex, fallback to gray if invalid
-const normalizedColor = props.color && /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(props.color)
-	? props.color
-	: '#6b7280';
+const normalizedColor = computed(() => {
+	return props.color && /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(props.color)
+		? props.color
+		: '#6b7280';
+});
 </script>
 
 <template>

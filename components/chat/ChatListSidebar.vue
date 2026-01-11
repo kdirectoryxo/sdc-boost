@@ -1,8 +1,12 @@
 <script lang="ts" setup>
+import { computed } from 'vue';
 import ChatListItem from '@/components/ChatListItem.vue';
 import Dropdown from '@/components/ui/Dropdown.vue';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { getChatKey } from '@/lib/composables/chat/utils';
+import { getAllTags } from '@/lib/sdc-db/tags';
+import { useSDCDatabaseStore } from '@/lib/sdc-db/store';
+import { tagChangeTrigger } from '@/lib/sdc-db/tag-change-trigger';
 
 interface Props {
   searchQuery: string;
@@ -28,6 +32,7 @@ interface Props {
   disablePinnedSort: boolean;
   isSortDropdownOpen: boolean;
   hasActiveSort: boolean;
+  selectedTagIds: Set<number>;
   getFolderName: (folderId: number | undefined | null) => string;
 }
 
@@ -49,12 +54,27 @@ const emit = defineEmits<{
   'toggle-sort-online': [];
   'toggle-sort-distance': [];
   'toggle-disable-pinned-sort': [];
+  'toggle-tag-filter': [tagId: number];
   'chat-click': [chat: MessengerChatItem];
   'chat-open-tags': [chat: MessengerChatItem];
   'clear-filters': [];
   'clear-search': [];
   'new-chat': [];
 }>();
+
+const { isReady: dbIsReady } = useSDCDatabaseStore();
+
+const allTags = computed(() => {
+  // Access tagChangeTrigger to make this computed reactive to tag changes
+  const _trigger = tagChangeTrigger.value;
+  
+  if (!dbIsReady.value) return [];
+  try {
+    return getAllTags();
+  } catch {
+    return [];
+  }
+});
 
 function handleClearFilters() {
   emit('clear-filters');
@@ -425,6 +445,35 @@ function handleClearFilters() {
             </div>
           </template>
         </Dropdown>
+      </div>
+    </div>
+
+    <!-- Tag Filters -->
+    <div v-if="dbIsReady && allTags.length > 0" class="px-4 py-2 border-b border-[#333] bg-[#151515] overflow-x-auto shrink-0">
+      <div class="flex gap-2">
+        <button
+          v-for="tag in allTags"
+          :key="tag.id"
+          @click="emit('toggle-tag-filter', tag.id)"
+          :class="[
+            'px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap shrink-0 border-2 focus:outline-none focus:ring-0',
+            selectedTagIds.has(tag.id)
+              ? ''
+              : 'bg-transparent'
+          ]"
+          :style="selectedTagIds.has(tag.id) 
+            ? { 
+                color: tag.color, 
+                borderColor: tag.color, 
+                backgroundColor: tag.color + '20'
+              } 
+            : { 
+                color: tag.color, 
+                borderColor: '#333'
+              }"
+        >
+          {{ tag.text }}
+        </button>
       </div>
     </div>
 

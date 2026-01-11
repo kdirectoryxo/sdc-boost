@@ -6,9 +6,13 @@ import { useChatState } from './useChatState';
 import { useLiveQuery } from '@/lib/composables/useLiveQuery';
 import { db } from '@/lib/db';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
+import { tagChangeTrigger } from '@/lib/sdc-db/tag-change-trigger';
+import { useSDCDatabaseStore } from '@/lib/sdc-db/store';
+import { getTagsForChat } from '@/lib/sdc-db/tags';
 
 export const useChatFilters = createGlobalState(() => {
   const { chatList, selectedFolderId, showArchives } = useChatState();
+  const { isReady: dbIsReady } = useSDCDatabaseStore();
   
   const searchQuery = ref('');
   const filterUnread = ref<boolean>(false);
@@ -21,6 +25,13 @@ export const useChatFilters = createGlobalState(() => {
   const filterCouples = ref<boolean>(false);
   const filterFemales = ref<boolean>(false);
   const isFilterDropdownOpen = ref<boolean>(false);
+  const selectedTagIds = ref<Set<number>>(new Set());
+  
+  // Computed to track selected tag IDs for reactivity (used in dependency array)
+  // Convert Set to string for reliable dependency tracking
+  const selectedTagIdsKey = computed(() => {
+    return Array.from(selectedTagIds.value).sort().join(',');
+  });
   
   // Sort state
   const sortByOnline = ref<'asc' | 'desc' | null>(null);
@@ -85,11 +96,25 @@ export const useChatFilters = createGlobalState(() => {
     // Combine results: exact matches first (from chatMetadataMatches), then partial chat matches, then message matches
     let combinedResults = [...chatMetadataMatches, ...messageSearchMatches];
     
+    // Map to get latest chat objects from reactive chatList (with tags)
+    const chatListMap = new Map(chatList.value.map(c => [c.group_id, c]));
+    combinedResults = combinedResults.map(chat => chatListMap.get(chat.group_id) || chat);
+    
+    // Apply tag filtering if any tags are selected
+    if (selectedTagIds.value.size > 0 && dbIsReady.value) {
+      combinedResults = combinedResults.filter(chat => {
+        const chatTags = getTagsForChat(chat.group_id);
+        const chatTagIds = new Set(chatTags.map(t => t.id));
+        // Chat must have at least one of the selected tags
+        return Array.from(selectedTagIds.value).some(tagId => chatTagIds.has(tagId));
+      });
+    }
+    
     // Always apply sorting (includes default date_time sort when no sort is active)
     combinedResults = await applySorting(combinedResults);
     
     return combinedResults;
-  }, [searchQuery, selectedFolderId, showArchives, filterUnread, filterPinned, filterOnline, filterLastMessageByMe, filterLastMessageByOther, filterOnlyMyMessages, filterBlocked, filterCouples, filterFemales, sortByOnline, sortByDistance, disablePinnedSort, chatList]);
+  }, [searchQuery, selectedFolderId, showArchives, filterUnread, filterPinned, filterOnline, filterLastMessageByMe, filterLastMessageByOther, filterOnlyMyMessages, filterBlocked, filterCouples, filterFemales, sortByOnline, sortByDistance, disablePinnedSort, chatList, selectedTagIdsKey, tagChangeTrigger, dbIsReady]);
   
   const isLoadingFilteredChats = ref(false);
   let currentSearchPromise: Promise<void> | null = null;
@@ -99,7 +124,7 @@ export const useChatFilters = createGlobalState(() => {
   const hasActiveFilters = computed(() => {
     return filterUnread.value || filterPinned.value || filterOnline.value || 
            filterLastMessageByMe.value || filterLastMessageByOther.value || filterOnlyMyMessages.value ||
-           filterBlocked.value || filterCouples.value || filterFemales.value;
+           filterBlocked.value || filterCouples.value || filterFemales.value || selectedTagIds.value.size > 0;
   });
   
   // Computed property to count active filters
@@ -114,6 +139,7 @@ export const useChatFilters = createGlobalState(() => {
     if (filterBlocked.value) count++;
     if (filterCouples.value) count++;
     if (filterFemales.value) count++;
+    if (selectedTagIds.value.size > 0) count++;
     return count;
   });
   
@@ -156,6 +182,20 @@ export const useChatFilters = createGlobalState(() => {
     filterBlocked.value = false;
     filterCouples.value = false;
     filterFemales.value = false;
+    selectedTagIds.value.clear();
+  }
+  
+  /**
+   * Toggle tag filter selection
+   */
+  function toggleTagFilter(tagId: number): void {
+    const newSet = new Set(selectedTagIds.value);
+    if (newSet.has(tagId)) {
+      newSet.delete(tagId);
+    } else {
+      newSet.add(tagId);
+    }
+    selectedTagIds.value = newSet;
   }
   
   // No need to watch for changes - liveQuery handles reactivity automatically
@@ -350,6 +390,7 @@ export const useChatFilters = createGlobalState(() => {
     disablePinnedSort,
     isSortDropdownOpen,
     hasActiveSort,
+    selectedTagIds,
     filteredChats: computed(() => filteredChats.value || []),
     isLoadingFilteredChats,
     hasActiveFilters,
@@ -361,6 +402,7 @@ export const useChatFilters = createGlobalState(() => {
     toggleSortByOnline,
     toggleSortByDistance,
     toggleDisablePinnedSort,
+    toggleTagFilter,
   };
 });
 

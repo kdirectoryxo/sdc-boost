@@ -75,6 +75,7 @@ const {
   disablePinnedSort,
   isSortDropdownOpen,
   hasActiveSort,
+  selectedTagIds,
   filteredChats,
   hasActiveFilters,
   activeFilterCount,
@@ -83,6 +84,7 @@ const {
   toggleSortByOnline,
   toggleSortByDistance,
   toggleDisablePinnedSort,
+  toggleTagFilter,
 } = useChatFilters();
 
 const chatMessagesAreaRef = ref<InstanceType<typeof ChatMessagesArea> | null>(null);
@@ -466,6 +468,7 @@ function handleOpenProfileFromDialog(userId: number) {
           :disable-pinned-sort="disablePinnedSort"
           :is-sort-dropdown-open="isSortDropdownOpen"
           :has-active-sort="hasActiveSort"
+          :selected-tag-ids="selectedTagIds"
           :get-folder-name="getFolderName"
           @update:search-query="searchQuery = $event"
           @update:filter-unread="filterUnread = $event"
@@ -482,6 +485,7 @@ function handleOpenProfileFromDialog(userId: number) {
           @toggle-sort-online="toggleSortByOnline"
           @toggle-sort-distance="toggleSortByDistance"
           @toggle-disable-pinned-sort="toggleDisablePinnedSort"
+          @toggle-tag-filter="toggleTagFilter"
           @chat-click="handleChatClick"
           @chat-open-tags="handleOpenTags"
           @clear-filters="clearAllFilters"
