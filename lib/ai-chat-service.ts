@@ -2,6 +2,8 @@ import { getSetting } from './sdc-db/settings';
 import { OpenRouter } from '@openrouter/sdk';
 import type { ProfileUser, MessengerMessage } from './sdc-api-types';
 import { parseImageMessage, parseVideoMessage } from './composables/chat/utils';
+import { getCurrentDBId } from './sdc-api/utils';
+import { profileStorage } from './profile-storage';
 
 /**
  * Strip HTML tags and extract plain text from HTML string
@@ -227,23 +229,45 @@ export async function chatWithAI(
     throw new Error('OpenRouter API key not configured. Please set it in settings.');
   }
 
-  // Format profile data
+  // Format profile data for the profile being analyzed
   const profileContext = formatProfileForAI(profile);
+  
+  // Try to load current user's profile
+  let currentUserProfileContext = '';
+  try {
+    const currentDbId = getCurrentDBId();
+    if (currentDbId) {
+      const currentUserProfile = await profileStorage.getProfile(parseInt(currentDbId));
+      if (currentUserProfile) {
+        currentUserProfileContext = formatProfileForAI(currentUserProfile);
+      }
+    }
+  } catch (err) {
+    // Non-blocking: if current user profile isn't available, continue without it
+    console.warn('[ai-chat-service] Could not load current user profile:', err);
+  }
   
   // Compress chat history
   const chatHistory = compressChatHistory(messages, profile.account_id);
   
   // Build system prompt
+  const yourProfileSection = currentUserProfileContext 
+    ? `Your Profile (the person asking questions):
+${currentUserProfileContext}
+
+`
+    : '';
+  
   const systemPrompt = `You are an AI assistant helping analyze a profile and chat history from SDC.com (a social networking platform).
 
-Profile Information:
+${yourProfileSection}Profile Information (the profile being analyzed):
 ${profileContext}
 
 Chat History:
 ${chatHistory}
 
 IMPORTANT CONTEXT:
-- "Me" in the chat history refers to the CURRENT USER (the person asking you questions)
+- "Me" in the chat history refers to YOU (the current user asking questions)
 - "${profile.account_id}" in the chat history refers to the PROFILE BEING ANALYZED
 - When analyzing the chat, focus on what ${profile.account_id} said and did, NOT what "Me" said
 - "Me" is asking you questions about ${profile.account_id}, so messages from "Me" are from the questioner, not from ${profile.account_id}
