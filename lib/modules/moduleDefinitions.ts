@@ -84,46 +84,6 @@ export const moduleDefinitions: ModuleDefinition[] = [
         ],
     },
     {
-        id: 'chat-export',
-        name: 'Chat Export',
-        description: 'Export all chat messages to markdown format and copy to clipboard.',
-        category: 'Chat',
-        configOptions: [
-            {
-                key: 'hideTitle',
-                label: 'Hide Title',
-                description: 'Hide the "Chat with:" title in exported chat',
-                type: 'boolean',
-                default: false,
-            },
-            {
-                key: 'hideTotalMessages',
-                label: 'Hide Total Messages',
-                description: 'Hide the total messages count in exported chat',
-                type: 'boolean',
-                default: false,
-            },
-            {
-                key: 'aiSaveAsNote',
-                label: 'AI Save as Note',
-                description: 'Use AI to generate a summary and save it as a note (requires API key in settings)',
-                type: 'boolean',
-                default: true,
-            },
-            {
-                key: 'autoSaveConfirm',
-                label: 'Confirm Before Saving',
-                description: 'Show confirmation dialog before saving AI-generated note',
-                type: 'boolean',
-                default: true,
-                dependsOn: {
-                    key: 'aiSaveAsNote',
-                    value: true,
-                },
-            },
-        ],
-    },
-    {
         id: 'navbar-boost-button',
         name: 'Navbar Boost Button',
         description: 'Adds a Boost button to the navbar next to Messenger to open the boost dialog.',

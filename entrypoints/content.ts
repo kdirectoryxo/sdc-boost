@@ -2,7 +2,6 @@ import { ModuleManager } from '@/lib/modules/ModuleManager';
 import { AgeFilterModule } from '@/lib/modules/AgeFilterModule';
 import { AgeHighlighterModule } from '@/lib/modules/AgeHighlighterModule';
 import { AdBlockModule } from '@/lib/modules/AdBlockModule';
-import { ChatExportModule } from '@/lib/modules/ChatExportModule';
 import { NavbarBoostButtonModule } from '@/lib/modules/NavbarBoostButtonModule';
 import { EnhancedClickModule } from '@/lib/modules/EnhancedClickModule';
 import { ProfileMessengerButtonModule } from '@/lib/modules/ProfileMessengerButtonModule';
@@ -39,9 +38,6 @@ export default defineContentScript({
 
     const adBlockModule = new AdBlockModule();
     moduleManager.register(adBlockModule);
-
-    const chatExportModule = new ChatExportModule();
-    moduleManager.register(chatExportModule);
 
     const navbarBoostButtonModule = new NavbarBoostButtonModule();
     moduleManager.register(navbarBoostButtonModule);

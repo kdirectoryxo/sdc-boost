@@ -21,6 +21,7 @@
     "release:major": "bash scripts/release-major.sh"
   },
   "dependencies": {
+    "@openrouter/sdk": "^0.3.12",
     "@vueuse/core": "^14.1.0",
     "@vueuse/rxjs": "^14.1.0",
     "class-variance-authority": "^0.7.1",

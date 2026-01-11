@@ -93,7 +93,6 @@ export async function setModuleConfig(moduleId: string, config: Record<string, a
  * Global settings interface
  */
 export interface GlobalSettings {
-    aiApiKey?: string;
     showCategoryIcons?: boolean;
     filterByActive?: boolean;
 }
@@ -128,32 +127,6 @@ export async function setGlobalSettings(settings: GlobalSettings): Promise<void>
         await globalSettings.setValue(settings);
     } catch (error) {
         console.error('SDC Boost: Error setting global settings', error);
-    }
-}
-
-/**
- * Get AI API key
- */
-export async function getAIApiKey(): Promise<string | undefined> {
-    try {
-        const settings = await globalSettings.getValue();
-        return settings.aiApiKey;
-    } catch (error) {
-        console.error('SDC Boost: Error getting AI API key', error);
-        return undefined;
-    }
-}
-
-/**
- * Set AI API key
- */
-export async function setAIApiKey(apiKey: string): Promise<void> {
-    try {
-        const settings = await globalSettings.getValue();
-        settings.aiApiKey = apiKey;
-        await globalSettings.setValue(settings);
-    } catch (error) {
-        console.error('SDC Boost: Error setting AI API key', error);
     }
 }
 

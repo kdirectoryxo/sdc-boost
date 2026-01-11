@@ -25,6 +25,7 @@ import SyncChoiceDialog from '@/components/chat/SyncChoiceDialog.vue';
 import VideoLightbox from '@/components/chat/VideoLightbox.vue';
 import NewChatSearchDialog from '@/components/chat/NewChatSearchDialog.vue';
 import ProfileDialog from '@/components/chat/ProfileDialog.vue';
+import ChatDialogSettings from '@/components/chat/ChatDialogSettings.vue';
 import type { GalleryPhoto, MessengerChatItem } from '@/lib/sdc-api-types';
 import { startChat } from '@/lib/sdc-api';
 import { chatStorage } from '@/lib/chat-storage';
@@ -245,6 +246,13 @@ function handleSyncAllChats() {
   isSyncChoiceDialogOpen.value = true;
 }
 
+// Settings dialog state
+const isSettingsDialogOpen = ref(false);
+
+function handleOpenSettings() {
+  isSettingsDialogOpen.value = true;
+}
+
 // New chat search dialog state
 const showNewChatDialog = ref(false);
 
@@ -427,6 +435,7 @@ function handleOpenProfileFromDialog(userId: number) {
         :full-profile-sync-done="fullProfileSyncDone"
         @close="handleClose"
         @sync-all-chats="handleSyncAllChats"
+        @open-settings="handleOpenSettings"
       />
 
       <!-- Main Content -->
@@ -657,6 +666,12 @@ function handleOpenProfileFromDialog(userId: number) {
     :model-value="isSyncChoiceDialogOpen"
     @update:model-value="isSyncChoiceDialogOpen = $event"
     @select="handleSyncChoice"
+  />
+  
+  <!-- Settings Dialog -->
+  <ChatDialogSettings
+    :model-value="isSettingsDialogOpen"
+    @update:model-value="isSettingsDialogOpen = $event"
   />
   
   <!-- Profile Dialogs (stacked) -->

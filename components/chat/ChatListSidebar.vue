@@ -261,6 +261,13 @@ function handleClearFilters() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
               </svg>
+              <!-- Active filter badge (top-left) -->
+              <span
+                v-if="activeFilterCount > 0"
+                class="absolute -top-1 -left-1 w-5 h-5 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center z-20"
+              >
+                {{ activeFilterCount }}
+              </span>
               <!-- Cross icon for quick clear (shown when filters are active, positioned top-right) -->
               <button
                 v-if="hasActiveFilters"
@@ -273,13 +280,6 @@ function handleClearFilters() {
                   <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
               </button>
-              <!-- Active filter badge -->
-              <span
-                v-if="activeFilterCount > 0"
-                class="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center z-20"
-              >
-                {{ activeFilterCount }}
-              </span>
             </button>
           </template>
           <template #content="{ close }">

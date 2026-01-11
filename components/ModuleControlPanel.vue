@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed, onUnmounted } from 'vue';
-import { moduleStates, moduleConfigs, getAIApiKey, getShowCategoryIcons, getFilterByActive, setFilterByActive } from '@/lib/storage';
+import { moduleStates, moduleConfigs, getShowCategoryIcons, getFilterByActive, setFilterByActive } from '@/lib/storage';
 import type { ModuleDefinition, ModuleConfigOption } from '@/lib/modules/types';
 import { getCategoryConfig } from '@/lib/categoryConfig';
 import Switch from '@/components/ui/Switch.vue';
@@ -31,7 +31,6 @@ const modules = ref<ModuleInfo[]>([]);
 const loading = ref(true);
 const activeTab = ref<string>('All');
 const showSettings = ref(false);
-const hasApiKey = ref(false);
 const showCategoryIcons = ref(true);
 const filterByActive = ref(false);
 const showFilterPopup = ref(false);
@@ -243,11 +242,6 @@ function isOptionDisabled(module: ModuleInfo, option: ModuleConfigOption): boole
     return true;
   }
   
-  // Special case: aiSaveAsNote requires API key
-  if (option.key === 'aiSaveAsNote' && !hasApiKey.value) {
-    return true;
-  }
-  
   // Check if dependency is not met (but still show it, just disabled)
   if (option.dependsOn) {
     const dependencyValue = module.config[option.dependsOn.key];
@@ -260,11 +254,6 @@ function isOptionDisabled(module: ModuleInfo, option: ModuleConfigOption): boole
 }
 
 function getDisabledReason(module: ModuleInfo, option: ModuleConfigOption): string | undefined {
-  // Special case: aiSaveAsNote requires API key
-  if (option.key === 'aiSaveAsNote' && !hasApiKey.value) {
-    return 'OpenAI API key not configured. Please set it in Settings.';
-  }
-  
   // Check if dependency is not met
   if (option.dependsOn) {
     const dependencyValue = module.config[option.dependsOn.key];
@@ -275,16 +264,6 @@ function getDisabledReason(module: ModuleInfo, option: ModuleConfigOption): stri
   }
   
   return option.disabledReason;
-}
-
-async function checkApiKey() {
-  try {
-    const key = await getAIApiKey();
-    hasApiKey.value = !!key && key.trim().length > 0;
-  } catch (error) {
-    console.error('Error checking API key:', error);
-    hasApiKey.value = false;
-  }
 }
 
 async function loadCategoryIconsSetting() {
@@ -318,26 +297,16 @@ function handleCategoryIconsSettingChange(event: CustomEvent) {
   showCategoryIcons.value = event.detail.show;
 }
 
-function handleApiKeyChanged(event: CustomEvent) {
-  // Immediately update the API key status when it changes
-  checkApiKey();
-}
-
 onMounted(async () => {
-  await checkApiKey();
   await loadCategoryIconsSetting();
   await loadFilterByActiveSetting();
   loadModules();
-  
-  // Listen for API key changes
-  window.addEventListener('api-key-changed', handleApiKeyChanged as EventListener);
   
   // Listen for category icons setting changes
   window.addEventListener('category-icons-setting-changed', handleCategoryIconsSettingChange as EventListener);
 });
 
 onUnmounted(() => {
-  window.removeEventListener('api-key-changed', handleApiKeyChanged as EventListener);
   window.removeEventListener('category-icons-setting-changed', handleCategoryIconsSettingChange as EventListener);
 });
 </script>
@@ -348,7 +317,7 @@ onUnmounted(() => {
       Loading modules...
     </div>
 
-    <SettingsView v-else-if="showSettings" @back="async () => { showSettings = false; await checkApiKey(); }" />
+    <SettingsView v-else-if="showSettings" @back="() => { showSettings = false; }" />
 
     <div v-else class="flex-1 flex flex-col overflow-hidden">
       <!-- Header with Settings Icon -->

@@ -1,7 +1,8 @@
-import { getAIApiKey } from './storage';
+import { getSetting } from './sdc-db/settings';
+import { OpenRouter } from '@openrouter/sdk';
 
 /**
- * Generate a note summary using OpenAI API
+ * Generate a note summary using OpenRouter API
  * @param chatContent The full chat content to summarize
  * @param accountName The name of the account the chat is with
  * @returns Generated summary text
@@ -10,10 +11,10 @@ export async function generateNoteSummary(
     chatContent: string,
     accountName: string
 ): Promise<string> {
-    const apiKey = await getAIApiKey();
+    const apiKey = await getSetting('openrouter_api_key') || undefined;
     
     if (!apiKey) {
-        throw new Error('OpenAI API key not configured. Please set it in settings.');
+        throw new Error('OpenRouter API key not configured. Please set it in settings.');
     }
 
     const prompt = `Maak een mini samenvatting van dit gesprek met ${accountName}, max 2-3 zinnen met belangrijke dingen die we moeten onthouden. Dit komt onder notities op hun profiel.
@@ -26,37 +27,27 @@ ${chatContent}
 Samenvatting:`;
 
     try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-                model: 'gpt-3.5-turbo',
-                messages: [
-                    {
-                        role: 'user',
-                        content: prompt,
-                    },
-                ],
-                max_tokens: 150,
-                temperature: 0.7,
-            }),
+        const client = new OpenRouter({
+            apiKey: apiKey,
         });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(
-                `OpenAI API error: ${response.status} - ${errorData.error?.message || response.statusText}`
-            );
-        }
-
-        const data = await response.json();
-        const summary = data.choices?.[0]?.message?.content?.trim();
+        const response = await client.chat.send({
+            model: 'openai/gpt-3.5-turbo',
+            messages: [
+                {
+                    role: 'user',
+                    content: prompt,
+                },
+            ],
+            maxTokens: 150,
+            temperature: 0.7,
+        });
+ 
+        const content = response.choices?.[0]?.message?.content;
+        const summary = typeof content === 'string' ? content.trim() : String(content).trim();
 
         if (!summary) {
-            throw new Error('No summary generated from OpenAI API');
+            throw new Error('No summary generated from OpenRouter API');
         }
 
         return summary;
