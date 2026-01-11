@@ -9,6 +9,7 @@ import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { tagChangeTrigger } from '@/lib/sdc-db/tag-change-trigger';
 import { useSDCDatabaseStore } from '@/lib/sdc-db/store';
 import { getTagsForChat } from '@/lib/sdc-db/tags';
+import { getChatKey } from './utils';
 
 export const useChatFilters = createGlobalState(() => {
   const { chatList, selectedFolderId, showArchives } = useChatState();
@@ -88,17 +89,30 @@ export const useChatFilters = createGlobalState(() => {
         messageSearchMatches = allChatsForMessages.filter(chat => matchingGroupIds.has(chat.group_id));
         
         // Remove chats that are already in chatMetadataMatches to avoid duplicates
-        const chatMetadataGroupIds = new Set(chatMetadataMatches.map(c => c.group_id));
-        messageSearchMatches = messageSearchMatches.filter(chat => !chatMetadataGroupIds.has(chat.group_id));
+        // Use getChatKey for proper deduplication (handles broadcasts correctly)
+        const chatMetadataKeys = new Set(chatMetadataMatches.map(c => getChatKey(c)));
+        messageSearchMatches = messageSearchMatches.filter(chat => !chatMetadataKeys.has(getChatKey(chat)));
       }
     }
     
     // Combine results: exact matches first (from chatMetadataMatches), then partial chat matches, then message matches
     let combinedResults = [...chatMetadataMatches, ...messageSearchMatches];
     
+    // Deduplicate using getChatKey (handles broadcasts correctly)
+    const seenKeys = new Set<string>();
+    combinedResults = combinedResults.filter(chat => {
+      const key = getChatKey(chat);
+      if (seenKeys.has(key)) {
+        return false;
+      }
+      seenKeys.add(key);
+      return true;
+    });
+    
     // Map to get latest chat objects from reactive chatList (with tags)
-    const chatListMap = new Map(chatList.value.map(c => [c.group_id, c]));
-    combinedResults = combinedResults.map(chat => chatListMap.get(chat.group_id) || chat);
+    // Use getChatKey for proper mapping (handles broadcasts correctly)
+    const chatListMap = new Map(chatList.value.map(c => [getChatKey(c), c]));
+    combinedResults = combinedResults.map(chat => chatListMap.get(getChatKey(chat)) || chat);
     
     // Apply tag filtering if any tags are selected
     if (selectedTagIds.value.size > 0 && dbIsReady.value) {

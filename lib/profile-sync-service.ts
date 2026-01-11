@@ -8,6 +8,64 @@ import { profileStorage } from './profile-storage';
 import { db } from './db';
 import type { MessengerChatItem, ProfileUser } from './sdc-api-types';
 
+/**
+ * Silently sync a single profile without showing any toasts
+ * Used for auto-sync when opening chats
+ * @param dbId The profile db_id to sync
+ */
+export async function syncSingleProfileSilently(dbId: number): Promise<void> {
+    try {
+        // Check if already synced
+        const isSynced = await profileStorage.hasProfileBeenSynced(dbId);
+        if (isSynced) {
+            return; // Already synced, nothing to do
+        }
+
+        // Fetch profile from API
+        const response = await getProfileV2(dbId.toString());
+        const profile = response.info.profile_user;
+        
+        // Ensure db_id is set
+        if (!profile.db_id) {
+            profile.db_id = dbId;
+        }
+        
+        // Save to database
+        await profileStorage.upsertProfile(profile);
+        
+        console.log(`[ProfileSyncService] Silently synced profile ${dbId}`);
+    } catch (err: any) {
+        // Check if this is an unavailable profile error
+        const isUnavailable = err && (
+            err.isUnavailableProfile === true ||
+            (typeof err.message === 'string' && (
+                err.message.includes('niet langer beschikbaar') ||
+                err.message.includes('niet meer beschikbaar') ||
+                err.message.includes('inactief of verwijderd')
+            ))
+        );
+        
+        if (isUnavailable) {
+            console.log(`[ProfileSyncService] Profile unavailable for ${dbId}: ${err.message}`);
+            
+            // Store a minimal profile entry to mark it as "synced" (so we don't retry)
+            try {
+                const unavailableProfile: ProfileUser = {
+                    db_id: dbId,
+                    account_id: `Unavailable_${dbId}`,
+                };
+                await profileStorage.upsertProfile(unavailableProfile);
+                console.log(`[ProfileSyncService] Marked profile ${dbId} as unavailable in database`);
+            } catch (saveErr) {
+                console.error(`[ProfileSyncService] Failed to save unavailable profile marker for ${dbId}:`, saveErr);
+            }
+        } else {
+            // Other errors - just log, don't throw (silent failure)
+            console.error(`[ProfileSyncService] Failed to silently sync profile ${dbId}:`, err);
+        }
+    }
+}
+
 const FULL_SYNC_METADATA_KEY = 'profile_full_sync_done';
 
 /**

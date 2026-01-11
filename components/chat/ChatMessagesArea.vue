@@ -35,6 +35,7 @@ const emit = defineEmits<{
   'open-lightbox': [message: MessengerMessage, imageIndex: number, event?: Event];
   'open-gallery': [message: MessengerMessage];
   'open-tags': [];
+  'open-ai-chat': [];
 }>();
 
 const messagesContainer = ref<HTMLElement | null>(null);
@@ -88,6 +89,10 @@ async function handleDeleteChat() {
     await deleteChat(props.selectedChat);
     openHeaderDropdown.value = false;
   }
+}
+
+function handleOpenAIChat() {
+  emit('open-ai-chat');
 }
 
 // Get tags from selected chat (tags are merged from metadata)
@@ -212,6 +217,22 @@ const displayDistance = computed(() => {
       
       <div v-if="!isBroadcast" class="flex items-center gap-2">
         <slot name="message-search" />
+        
+        <!-- AI Chat Button -->
+        <button
+          @click="handleOpenAIChat"
+          class="p-1.5 rounded hover:bg-[#2a2a2a] transition-colors shrink-0"
+          title="AI Chat"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+            <path d="M12 3v3m0 12v3m9-9h-3m-12 0H3m15.364 6.364l-2.121-2.121M6.757 6.757L4.636 4.636m14.728 0l-2.121 2.121M6.757 17.243l-2.121 2.121"></path>
+            <circle cx="12" cy="12" r="1"></circle>
+            <circle cx="19" cy="5" r="1"></circle>
+            <circle cx="5" cy="19" r="1"></circle>
+            <circle cx="19" cy="19" r="1"></circle>
+            <circle cx="5" cy="5" r="1"></circle>
+          </svg>
+        </button>
         
         <!-- Dropdown Menu -->
         <div @click.stop class="relative z-50">

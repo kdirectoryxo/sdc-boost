@@ -26,6 +26,7 @@ import VideoLightbox from '@/components/chat/VideoLightbox.vue';
 import NewChatSearchDialog from '@/components/chat/NewChatSearchDialog.vue';
 import ProfileDialog from '@/components/chat/ProfileDialog.vue';
 import ChatDialogSettings from '@/components/chat/ChatDialogSettings.vue';
+import AIChatDialog from '@/components/chat/AIChatDialog.vue';
 import type { GalleryPhoto, MessengerChatItem } from '@/lib/sdc-api-types';
 import { startChat } from '@/lib/sdc-api';
 import { chatStorage } from '@/lib/chat-storage';
@@ -251,6 +252,13 @@ const isSettingsDialogOpen = ref(false);
 
 function handleOpenSettings() {
   isSettingsDialogOpen.value = true;
+}
+
+// AI Chat dialog state
+const isAIChatDialogOpen = ref(false);
+
+function handleOpenAIChat() {
+  isAIChatDialogOpen.value = true;
 }
 
 // New chat search dialog state
@@ -527,6 +535,7 @@ function handleOpenProfileFromDialog(userId: number) {
             @open-lightbox="openLightbox"
             @open-gallery="handleOpenGallery"
             @open-tags="handleOpenTags()"
+            @open-ai-chat="handleOpenAIChat"
           >
             <template #message-search>
               <div class="flex items-center gap-2 shrink-0">
@@ -684,5 +693,12 @@ function handleOpenProfileFromDialog(userId: number) {
     :dialog-id="dialog.id"
     @close="handleCloseProfileDialog(dialog.id)"
     @open-profile="handleOpenProfileFromDialog"
+  />
+  
+  <!-- AI Chat Dialog -->
+  <AIChatDialog
+    :visible="isAIChatDialogOpen"
+    :selected-chat="selectedChat"
+    @close="isAIChatDialogOpen = false"
   />
 </template>

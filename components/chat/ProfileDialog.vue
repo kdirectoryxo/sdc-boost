@@ -123,7 +123,7 @@ async function fetchProfile(userId: number) {
   
   try {
     // First, load cached profile from database for instant display
-    const cachedProfile = await profileStorage.getProfile(userId);
+    let cachedProfile = await profileStorage.getProfile(userId);
     
     if (cachedProfile) {
       // Use cached data immediately
@@ -134,10 +134,41 @@ async function fetchProfile(userId: number) {
       // Pass false to indicate this is not due to an error, so no spinner
       refreshProfileImages(userId, false);
     } else {
-      // No cached data available
-      profileData.value = null;
-      error.value = 'Profile data not synced. Please sync profile data via the sync dialog.';
-      isLoading.value = false;
+      // No cached data available - try to sync it automatically
+      console.log(`[ProfileDialog] Profile ${userId} not synced, attempting auto-sync...`);
+      
+      try {
+        // Fetch profile directly from API and save it
+        const response = await getProfileV2(userId.toString());
+        const freshProfile = response.info.profile_user;
+        
+        // Ensure db_id is set
+        if (!freshProfile.db_id) {
+          freshProfile.db_id = userId;
+        }
+        
+        // Save to database
+        await profileStorage.upsertProfile(freshProfile);
+        
+        // Use the fresh profile data
+        profileData.value = freshProfile;
+        isLoading.value = false;
+        
+        console.log(`[ProfileDialog] Auto-synced profile ${userId} successfully`);
+      } catch (syncErr) {
+        console.error(`[ProfileDialog] Failed to auto-sync profile ${userId}:`, syncErr);
+        
+        // Check if profile was saved despite error (race condition)
+        cachedProfile = await profileStorage.getProfile(userId);
+        if (cachedProfile) {
+          profileData.value = cachedProfile;
+          isLoading.value = false;
+        } else {
+          profileData.value = null;
+          error.value = 'Profile data not synced. Please sync profile data via the sync dialog.';
+          isLoading.value = false;
+        }
+      }
     }
   } catch (err) {
     console.error('[ProfileDialog] Failed to get cached profile:', err);

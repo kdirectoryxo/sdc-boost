@@ -9,6 +9,8 @@ import { useChatFolders } from './useChatFolders';
 import { useChatFilters } from './useChatFilters';
 import { useChatMessages } from './useChatMessages';
 import { useChatInput } from './useChatInput';
+import { profileStorage } from '@/lib/profile-storage';
+import { syncSingleProfileSilently } from '@/lib/profile-sync-service';
 
 /**
  * Composable for handling chat selection and opening logic
@@ -53,6 +55,22 @@ export function useChatSelection() {
     // Get the latest chat object from chatList to ensure we have tags
     const latestChat = chatList.value.find(c => c.group_id === chat.group_id) || chat;
     
+    // Check if profile is synced, and sync it if not (only for valid chats)
+    const isBroadcast = latestChat.broadcast || latestChat.type === 100;
+    const isValidChat = !isBroadcast && latestChat.db_id > 0;
+    
+    if (isValidChat) {
+      const isProfileSynced = await profileStorage.hasProfileBeenSynced(latestChat.db_id);
+      if (!isProfileSynced) {
+        // Auto-sync profile silently in the background (fire and forget, no toasts)
+        console.log(`[ChatDialog] Profile not synced for chat ${latestChat.db_id}, auto-syncing silently...`);
+        syncSingleProfileSilently(latestChat.db_id).catch((err: unknown) => {
+          console.error(`[ChatDialog] Failed to auto-sync profile for chat ${latestChat.db_id}:`, err);
+          // Silently fail - errors are already handled in syncSingleProfileSilently
+        });
+      }
+    }
+    
     // Optimistically set unread counter to 0 when opening a chat
     let chatToUse = latestChat;
     if (latestChat.unread_counter && latestChat.unread_counter > 0) {
@@ -75,7 +93,6 @@ export function useChatSelection() {
     await handleLoadMessages(chatToUse);
     
     // Don't auto-scroll for broadcasts
-    const isBroadcast = chatToUse.broadcast || chatToUse.type === 100;
     if (!isBroadcast) {
       await nextTick();
       if (messagesContainer.value) {
@@ -97,6 +114,23 @@ export function useChatSelection() {
   async function openChatFromURL(chat: MessengerChatItem): Promise<void> {
     // Get the latest chat object from chatList to ensure we have tags
     const latestChat = chatList.value.find(c => c.group_id === chat.group_id) || chat;
+    
+    // Check if profile is synced, and sync it if not (only for valid chats)
+    const isBroadcast = latestChat.broadcast || latestChat.type === 100;
+    const isValidChat = !isBroadcast && latestChat.db_id > 0;
+    
+    if (isValidChat) {
+      const isProfileSynced = await profileStorage.hasProfileBeenSynced(latestChat.db_id);
+      if (!isProfileSynced) {
+        // Auto-sync profile silently in the background (fire and forget, no toasts)
+        console.log(`[ChatDialog] Profile not synced for chat ${latestChat.db_id}, auto-syncing silently...`);
+        syncSingleProfileSilently(latestChat.db_id).catch((err: unknown) => {
+          console.error(`[ChatDialog] Failed to auto-sync profile for chat ${latestChat.db_id}:`, err);
+          // Silently fail - errors are already handled in syncSingleProfileSilently
+        });
+      }
+    }
+    
     let chatToUse = latestChat;
     if (latestChat.unread_counter && latestChat.unread_counter > 0) {
       const updatedChat = {
@@ -122,7 +156,6 @@ export function useChatSelection() {
     await handleLoadMessages(chatToUse);
     
     // Don't auto-scroll for broadcasts
-    const isBroadcast = chatToUse.broadcast || chatToUse.type === 100;
     if (!isBroadcast) {
       await nextTick();
       if (messagesContainer.value) {

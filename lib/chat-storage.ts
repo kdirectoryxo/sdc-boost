@@ -684,6 +684,9 @@ class ChatStorage {
             });
         }
         
+        // Deduplicate chats (handles broadcasts correctly)
+        result = deduplicateChats(result);
+        
         // Sort: pinned first, then by date_time
         result.sort((a, b) => {
             const aPinned = a.pin_chat || 0;
