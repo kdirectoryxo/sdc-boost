@@ -550,9 +550,9 @@ function handleCloseGroupDialog(dialogId: string) {
             @open-ai-chat="handleOpenAIChat"
           >
             <template #message-search>
-              <div class="flex items-center gap-2 shrink-0">
-                <div class="relative flex items-center gap-1 bg-[#0f0f0f] border border-[#333] rounded-lg px-2 py-1.5 min-w-[200px]">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#666] shrink-0">
+              <div class="flex items-center gap-1.5 shrink-0">
+                <div class="relative flex items-center gap-1 bg-[#0f0f0f] border border-[#333] rounded-md px-2 py-1 min-w-[100px] max-w-[160px]">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#666] shrink-0">
                     <circle cx="11" cy="11" r="8"></circle>
                     <path d="m21 21-4.35-4.35"></path>
                   </svg>
@@ -561,8 +561,8 @@ function handleCloseGroupDialog(dialogId: string) {
                     @keydown="handleSearchKeydown"
                     @input="currentSearchIndex = -1"
                     type="text"
-                    placeholder="Search messages..."
-                    class="flex-1 bg-transparent text-white text-sm placeholder-[#666] focus:outline-none min-w-0"
+                    placeholder="Search..."
+                    class="flex-1 bg-transparent text-white text-xs placeholder-[#666] focus:outline-none min-w-0 w-full"
                   />
                   <button
                     v-if="isSearchActive"
@@ -570,7 +570,7 @@ function handleCloseGroupDialog(dialogId: string) {
                     class="p-0.5 hover:bg-[#2a2a2a] rounded transition-colors shrink-0"
                     title="Clear search"
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
                       <line x1="18" y1="6" x2="6" y2="18"></line>
                       <line x1="6" y1="6" x2="18" y2="18"></line>
                     </svg>
@@ -578,25 +578,25 @@ function handleCloseGroupDialog(dialogId: string) {
                 </div>
                 
                 <!-- Search Navigation -->
-                <div v-if="isSearchActive && messageSearchResults.length > 0" class="flex items-center gap-1 bg-[#0f0f0f] border border-[#333] rounded-lg px-2 py-1 shrink-0">
+                <div v-if="isSearchActive && messageSearchResults.length > 0" class="flex items-center gap-0.5 bg-[#0f0f0f] border border-[#333] rounded-md px-1.5 py-0.5 shrink-0">
                   <button
                     @click="navigateToPreviousResult"
-                    class="p-1 hover:bg-[#2a2a2a] rounded transition-colors"
+                    class="p-0.5 hover:bg-[#2a2a2a] rounded transition-colors"
                     title="Previous result (↑)"
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
                       <polyline points="18 15 12 9 6 15"></polyline>
                     </svg>
                   </button>
-                  <span class="text-xs text-[#666] px-1 min-w-[50px] text-center">
-                    {{ currentSearchIndex + 1 }} / {{ messageSearchResults.length }}
+                  <span class="text-[10px] text-[#666] px-0.5 min-w-[36px] text-center">
+                    {{ currentSearchIndex + 1 }}/{{ messageSearchResults.length }}
                   </span>
                   <button
                     @click="navigateToNextResult"
-                    class="p-1 hover:bg-[#2a2a2a] rounded transition-colors"
+                    class="p-0.5 hover:bg-[#2a2a2a] rounded transition-colors"
                     title="Next result (↓ or Enter)"
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
                       <polyline points="6 9 12 15 18 9"></polyline>
                     </svg>
                   </button>

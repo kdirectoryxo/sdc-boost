@@ -176,83 +176,90 @@ const displayDistance = computed(() => {
   </div>
   <div v-else class="flex-1 flex flex-col min-w-0 overflow-hidden">
     <!-- Chat Header -->
-    <div class="px-6 py-4 border-b border-[#333] shrink-0 flex items-center gap-4 min-w-0 relative z-50">
-      <img
-        v-if="!isGroup || (selectedChat.primary_photo && selectedChat.primary_photo !== '/thumbnail/' && selectedChat.primary_photo.trim() !== '')"
-        :src="`https://pictures.sdc.com/photos/${selectedChat.primary_photo}`"
-        :alt="isGroup ? selectedChat.group_name : selectedChat.account_id"
-        @click="isGroup ? emit('open-group-dialog', String(selectedChat.group_id)) : emit('open-profile-dialog', selectedChat.db_id)"
-        class="w-10 h-10 rounded-full object-cover shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-        :title="isGroup ? 'Click to view group' : 'Click to view profile'"
-      />
-      <img
-        v-else-if="isGroup"
-        src="https://www.sdc.com/react/assets/group.8481d87a.svg"
-        :alt="selectedChat.group_name"
-        @click="emit('open-group-dialog', String(selectedChat.group_id))"
-        class="w-10 h-10 rounded-full object-cover shrink-0 cursor-pointer hover:opacity-80 transition-opacity bg-[#333] p-2"
-        title="Click to view group"
-      />
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 flex-wrap">
-          <h3
+    <div class="px-4 py-3 border-b border-[#333] shrink-0 min-w-0 relative z-50">
+      <div class="flex items-center gap-3 flex-wrap">
+        <!-- Profile Info -->
+        <div class="flex items-center gap-3 min-w-0 flex-1 basis-[200px]">
+          <img
+            v-if="!isGroup || (selectedChat.primary_photo && selectedChat.primary_photo !== '/thumbnail/' && selectedChat.primary_photo.trim() !== '')"
+            :src="`https://pictures.sdc.com/photos/${selectedChat.primary_photo}`"
+            :alt="isGroup ? selectedChat.group_name : selectedChat.account_id"
             @click="isGroup ? emit('open-group-dialog', String(selectedChat.group_id)) : emit('open-profile-dialog', selectedChat.db_id)"
-            :class="['font-semibold truncate cursor-pointer hover:text-blue-400 transition-colors', nameColor]"
+            class="w-9 h-9 rounded-full object-cover shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
             :title="isGroup ? 'Click to view group' : 'Click to view profile'"
-          >
-            {{ isGroup ? selectedChat.group_name : selectedChat.account_id }}
-          </h3>
-          <!-- Ages -->
-          <div v-if="displayAges" class="flex items-center gap-1 shrink-0">
-            <span
-              v-for="(ageInfo, index) in displayAges"
-              :key="index"
-              :class="['text-sm font-medium', ageInfo.colorClass]"
-            >
-              {{ ageInfo.age }}
-            </span>
-          </div>
-          <!-- Distance -->
-          <span v-if="displayDistance" class="text-sm text-[#999] shrink-0">
-            {{ displayDistance }}
-          </span>
-          <!-- Tags -->
-          <div v-if="chatTags.length > 0" class="flex items-center gap-1 shrink-0">
-            <TagBadge
-              v-for="(tag, index) in chatTags"
-              :key="index"
-              :text="tag.text"
-              :color="tag.color"
-            />
+          />
+          <img
+            v-else-if="isGroup"
+            src="https://www.sdc.com/react/assets/group.8481d87a.svg"
+            :alt="selectedChat.group_name"
+            @click="emit('open-group-dialog', String(selectedChat.group_id))"
+            class="w-9 h-9 rounded-full object-cover shrink-0 cursor-pointer hover:opacity-80 transition-opacity bg-[#333] p-1.5"
+            title="Click to view group"
+          />
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3
+                @click="isGroup ? emit('open-group-dialog', String(selectedChat.group_id)) : emit('open-profile-dialog', selectedChat.db_id)"
+                :class="['font-semibold truncate cursor-pointer hover:text-blue-400 transition-colors text-sm', nameColor]"
+                :title="isGroup ? 'Click to view group' : 'Click to view profile'"
+              >
+                {{ isGroup ? selectedChat.group_name : selectedChat.account_id }}
+              </h3>
+              <!-- Ages -->
+              <div v-if="displayAges" class="flex items-center gap-1 shrink-0">
+                <span
+                  v-for="(ageInfo, index) in displayAges"
+                  :key="index"
+                  :class="['text-xs font-medium', ageInfo.colorClass]"
+                >
+                  {{ ageInfo.age }}
+                </span>
+              </div>
+              <!-- Distance -->
+              <span v-if="displayDistance" class="text-xs text-[#999] shrink-0">
+                {{ displayDistance }}
+              </span>
+              <!-- Tags -->
+              <div v-if="chatTags.length > 0" class="flex items-center gap-1 shrink-0">
+                <TagBadge
+                  v-for="(tag, index) in chatTags"
+                  :key="index"
+                  :text="tag.text"
+                  :color="tag.color"
+                />
+              </div>
+            </div>
+            <p v-if="selectedChat.online === 1 && !isBroadcast && !isGroup" class="text-[11px] text-green-500">Online</p>
+            <p v-else-if="!isBroadcast && !isGroup" class="text-[11px] text-[#999]">Offline</p>
+            <p v-else-if="isGroup" class="text-[11px] text-blue-400">👥 Group</p>
+            <p v-else class="text-[11px] text-yellow-400">📢 Broadcast</p>
           </div>
         </div>
-        <p v-if="selectedChat.online === 1 && !isBroadcast && !isGroup" class="text-xs text-green-500">Online</p>
-        <p v-else-if="!isBroadcast && !isGroup" class="text-xs text-[#999]">Offline</p>
-        <p v-else-if="isGroup" class="text-xs text-blue-400">👥 Group</p>
-        <p v-else class="text-xs text-yellow-400">📢 Broadcast</p>
-      </div>
-      
-      <div v-if="!isBroadcast" class="flex items-center gap-2">
-        <slot name="message-search" />
         
-        <!-- AI Chat Button -->
-        <button
-          @click="handleOpenAIChat"
-          class="p-1.5 rounded hover:bg-[#2a2a2a] transition-colors shrink-0"
-          title="AI Chat"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
-            <path d="M12 3v3m0 12v3m9-9h-3m-12 0H3m15.364 6.364l-2.121-2.121M6.757 6.757L4.636 4.636m14.728 0l-2.121 2.121M6.757 17.243l-2.121 2.121"></path>
-            <circle cx="12" cy="12" r="1"></circle>
-            <circle cx="19" cy="5" r="1"></circle>
-            <circle cx="5" cy="19" r="1"></circle>
-            <circle cx="19" cy="19" r="1"></circle>
-            <circle cx="5" cy="5" r="1"></circle>
-          </svg>
-        </button>
-        
-        <!-- Dropdown Menu -->
-        <div @click.stop class="relative z-50">
+        <!-- Actions -->
+        <div v-if="!isBroadcast" class="flex items-center gap-1.5 flex-wrap justify-end">
+          <slot name="message-search" />
+          
+          <!-- AI & Menu buttons grouped -->
+          <div class="flex items-center gap-1 shrink-0">
+            <!-- AI Chat Button -->
+            <button
+              @click="handleOpenAIChat"
+              class="p-1.5 rounded hover:bg-[#2a2a2a] transition-colors"
+              title="AI Chat"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+                <path d="M12 3v3m0 12v3m9-9h-3m-12 0H3m15.364 6.364l-2.121-2.121M6.757 6.757L4.636 4.636m14.728 0l-2.121 2.121M6.757 17.243l-2.121 2.121"></path>
+                <circle cx="12" cy="12" r="1"></circle>
+                <circle cx="19" cy="5" r="1"></circle>
+                <circle cx="5" cy="19" r="1"></circle>
+                <circle cx="19" cy="19" r="1"></circle>
+                <circle cx="5" cy="5" r="1"></circle>
+              </svg>
+            </button>
+            
+            <!-- Dropdown Menu -->
+            <div @click.stop class="relative z-50">
           <Dropdown
             :model-value="openHeaderDropdown"
             @update:model-value="handleHeaderDropdownToggle"
@@ -323,7 +330,9 @@ const displayDistance = computed(() => {
                 </button>
               </div>
             </template>
-          </Dropdown>
+            </Dropdown>
+            </div>
+          </div>
         </div>
       </div>
     </div>

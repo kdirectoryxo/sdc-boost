@@ -85,10 +85,10 @@ function handleClearFilters() {
 <template>
   <div class="w-[35%] border-r border-[#333] flex flex-col bg-[#0f0f0f]">
     <!-- Search Bar and Filter -->
-    <div class="p-4 border-b border-[#333] shrink-0 relative z-10">
-      <div class="flex items-center gap-2">
-        <div class="relative flex-1 flex items-center gap-1 bg-[#1a1a1a] border border-[#333] rounded-lg px-4 py-2 focus-within:border-blue-500 transition-colors">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#666] shrink-0">
+    <div class="p-3 border-b border-[#333] shrink-0 relative z-10">
+      <div class="flex items-center gap-2 flex-wrap">
+        <div class="relative flex items-center gap-1 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-1.5 focus-within:border-blue-500 transition-colors min-w-0 flex-1 basis-[120px]">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#666] shrink-0">
             <circle cx="11" cy="11" r="8"></circle>
             <path d="m21 21-4.35-4.35"></path>
           </svg>
@@ -96,8 +96,8 @@ function handleClearFilters() {
             :value="searchQuery"
             @input="emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
             type="text"
-            placeholder="Search chats..."
-            class="flex-1 bg-transparent text-white placeholder-[#666] focus:outline-none min-w-0"
+            placeholder="Search..."
+            class="flex-1 bg-transparent text-white text-sm placeholder-[#666] focus:outline-none min-w-0"
           />
           <button
             v-if="searchQuery.trim()"
@@ -105,52 +105,54 @@ function handleClearFilters() {
             class="p-0.5 hover:bg-[#2a2a2a] rounded transition-colors shrink-0"
             title="Clear search"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
-        </div> 
-        <!-- Plus Button - New Chat -->
-        <button
-          @click="emit('new-chat')" 
-          class="p-2 rounded-lg border bg-[#1a1a1a] border-[#333] text-[#999] hover:border-[#444] hover:text-white transition-colors"
-          title="New chat"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-        </button>
-        <!-- Sort Button -->
-        <Dropdown
-          :model-value="isSortDropdownOpen"
-          @update:model-value="emit('update:isSortDropdownOpen', $event)"
-          placement="bottom"
-          alignment="end"
-          width="w-56"
-          offset="mt-2"
-          :z-index="100"
-        >
-          <template #trigger="{ isOpen, toggle }">
-            <button
-              @click.stop="toggle"
-              :class="[
-                'p-2 rounded-lg border transition-colors relative',
-                hasActiveSort
-                  ? 'bg-blue-500/20 border-blue-500 text-blue-400'
-                  : 'bg-[#1a1a1a] border-[#333] text-[#999] hover:border-[#444] hover:text-white'
-              ]"
-              title="Sort chats"
-            >
-              <!-- Sort icon -->
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 6h18"></path>
-                <path d="M7 12h10"></path>
-                <path d="M10 18h4"></path>
-              </svg>
-            </button>
-          </template>
+        </div>
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-1.5 shrink-0">
+          <!-- Plus Button - New Chat -->
+          <button
+            @click="emit('new-chat')" 
+            class="p-1.5 rounded-md border bg-[#1a1a1a] border-[#333] text-[#999] hover:border-[#444] hover:text-white transition-colors"
+            title="New chat"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+          <!-- Sort Button -->
+          <Dropdown
+            :model-value="isSortDropdownOpen"
+            @update:model-value="emit('update:isSortDropdownOpen', $event)"
+            placement="bottom"
+            alignment="end"
+            width="w-56"
+            offset="mt-2"
+            :z-index="100"
+          >
+            <template #trigger="{ isOpen, toggle }">
+              <button
+                @click.stop="toggle"
+                :class="[
+                  'p-1.5 rounded-md border transition-colors relative',
+                  hasActiveSort
+                    ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                    : 'bg-[#1a1a1a] border-[#333] text-[#999] hover:border-[#444] hover:text-white'
+                ]"
+                title="Sort chats"
+              >
+                <!-- Sort icon -->
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 6h18"></path>
+                  <path d="M7 12h10"></path>
+                  <path d="M10 18h4"></path>
+                </svg>
+              </button>
+            </template>
           <template #content="{ close }">
             <div class="p-2">
               <!-- Sort by Online -->
@@ -235,41 +237,41 @@ function handleClearFilters() {
               </div>
             </div>
           </template>
-        </Dropdown>
-        <!-- Filter Button -->
-        <Dropdown
-          :model-value="isFilterDropdownOpen"
-          @update:model-value="emit('update:isFilterDropdownOpen', $event)"
-          placement="bottom"
-          alignment="end"
-          width="w-64"
-          offset="mt-2"
-          :z-index="100"
-        >
-          <template #trigger="{ isOpen, toggle }">
-            <button
-              @click.stop="toggle"
-              :class="[
-                'p-2 rounded-lg border transition-colors relative',
-                hasActiveFilters
-                  ? 'bg-blue-500/20 border-blue-500 text-blue-400'
-                  : 'bg-[#1a1a1a] border-[#333] text-[#999] hover:border-[#444] hover:text-white'
-              ]"
-              title="Filter chats"
-            >
-              <!-- Filter icon -->
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-              </svg>
-              <!-- Active filter badge (top-left) -->
-              <span
-                v-if="activeFilterCount > 0"
-                class="absolute -top-1.5 -left-1.5 min-w-[18px] h-[18px] px-1 bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center z-20"
+          </Dropdown>
+          <!-- Filter Button -->
+          <Dropdown
+            :model-value="isFilterDropdownOpen"
+            @update:model-value="emit('update:isFilterDropdownOpen', $event)"
+            placement="bottom"
+            alignment="end"
+            width="w-64"
+            offset="mt-2"
+            :z-index="100"
+          >
+            <template #trigger="{ isOpen, toggle }">
+              <button
+                @click.stop="toggle"
+                :class="[
+                  'p-1.5 rounded-md border transition-colors relative',
+                  hasActiveFilters
+                    ? 'bg-blue-500/20 border-blue-500 text-blue-400'
+                    : 'bg-[#1a1a1a] border-[#333] text-[#999] hover:border-[#444] hover:text-white'
+                ]"
+                title="Filter chats"
               >
-                {{ activeFilterCount }}
-              </span>
-            </button>
-          </template>
+                <!-- Filter icon -->
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+                <!-- Active filter badge (top-left) -->
+                <span
+                  v-if="activeFilterCount > 0"
+                  class="absolute -top-1.5 -left-1.5 min-w-[16px] h-[16px] px-0.5 bg-blue-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center z-20"
+                >
+                  {{ activeFilterCount }}
+                </span>
+              </button>
+            </template>
           <template #content="{ close }">
             <div class="flex flex-col max-h-[450px]">
               <!-- Header with clear button -->
@@ -491,7 +493,8 @@ function handleClearFilters() {
               </div>
             </div>
           </template>
-        </Dropdown>
+          </Dropdown>
+        </div>
       </div>
     </div>
 
