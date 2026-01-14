@@ -242,7 +242,7 @@ function handleClearFilters() {
           @update:model-value="emit('update:isFilterDropdownOpen', $event)"
           placement="bottom"
           alignment="end"
-          width="w-56"
+          width="w-64"
           offset="mt-2"
           :z-index="100"
         >
@@ -264,183 +264,230 @@ function handleClearFilters() {
               <!-- Active filter badge (top-left) -->
               <span
                 v-if="activeFilterCount > 0"
-                class="absolute -top-1 -left-1 w-5 h-5 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center z-20"
+                class="absolute -top-1.5 -left-1.5 min-w-[18px] h-[18px] px-1 bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center z-20"
               >
                 {{ activeFilterCount }}
               </span>
-              <!-- Cross icon for quick clear (shown when filters are active, positioned top-right) -->
-              <button
-                v-if="hasActiveFilters"
-                @click.stop="handleClearFilters"
-                class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center z-30 transition-colors"
-                title="Clear all filters"
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
             </button>
           </template>
           <template #content="{ close }">
-            <div class="p-2">
-              <!-- Unread Filter -->
-              <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
-                <div class="relative flex items-center">
-                  <input
-                    type="checkbox"
-                    :checked="filterUnread"
-                    @change="emit('update:filterUnread', ($event.target as HTMLInputElement).checked)"
-                    class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
-                  />
-                  <svg v-if="filterUnread" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <span class="text-white text-sm select-none">Unread only</span>
-              </label>
-              
-              <!-- Pinned Filter -->
-              <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
-                <div class="relative flex items-center">
-                  <input
-                    type="checkbox"
-                    :checked="filterPinned"
-                    @change="emit('update:filterPinned', ($event.target as HTMLInputElement).checked)"
-                    class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
-                  />
-                  <svg v-if="filterPinned" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <span class="text-white text-sm select-none">Pinned only</span>
-              </label>
-              
-              <!-- Online Filter -->
-              <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
-                <div class="relative flex items-center">
-                  <input
-                    type="checkbox"
-                    :checked="filterOnline"
-                    @change="emit('update:filterOnline', ($event.target as HTMLInputElement).checked)"
-                    class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
-                  />
-                  <svg v-if="filterOnline" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <span class="text-white text-sm select-none">Online only</span>
-              </label>
-              
-              <!-- Blocked Filter -->
-              <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
-                <div class="relative flex items-center">
-                  <input
-                    type="checkbox"
-                    :checked="filterBlocked"
-                    @change="emit('update:filterBlocked', ($event.target as HTMLInputElement).checked)"
-                    class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
-                  />
-                  <svg v-if="filterBlocked" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <span class="text-white text-sm select-none">Blocked only</span>
-              </label>
-              
-              <!-- Gender Filters -->
-              <div class="border-t border-[#333] mt-2 pt-2">
-                <div class="px-3 py-1 text-xs text-[#666] uppercase tracking-wide mb-1">Gender</div>
-                
-                <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
-                  <div class="relative flex items-center">
-                    <input
-                      type="checkbox"
-                      :checked="filterCouples"
-                      @change="emit('update:filterCouples', ($event.target as HTMLInputElement).checked)"
-                      class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
-                    />
-                    <svg v-if="filterCouples" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                    </svg>
-                  </div>
-                  <span class="text-white text-sm select-none">Only couples</span>
-                </label>
-                
-                <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
-                  <div class="relative flex items-center">
-                    <input
-                      type="checkbox"
-                      :checked="filterFemales"
-                      @change="emit('update:filterFemales', ($event.target as HTMLInputElement).checked)"
-                      class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
-                    />
-                    <svg v-if="filterFemales" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                    </svg>
-                  </div>
-                  <span class="text-white text-sm select-none">Only females</span>
-                </label>
-              </div>
-              
-              <!-- Last Message Filters -->
-              <div class="border-t border-[#333] mt-2 pt-2">
-                <div class="px-3 py-1 text-xs text-[#666] uppercase tracking-wide mb-1">Last Message</div>
-                
-                <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
-                  <div class="relative flex items-center">
-                    <input
-                      type="checkbox"
-                      :checked="filterLastMessageByMe"
-                      @change="emit('update:filterLastMessageByMe', ($event.target as HTMLInputElement).checked)"
-                      class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
-                    />
-                    <svg v-if="filterLastMessageByMe" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                    </svg>
-                  </div>
-                  <span class="text-white text-sm select-none">I sent last</span>
-                </label>
-                
-                <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
-                  <div class="relative flex items-center">
-                    <input
-                      type="checkbox"
-                      :checked="filterLastMessageByOther"
-                      @change="emit('update:filterLastMessageByOther', ($event.target as HTMLInputElement).checked)"
-                      class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
-                    />
-                    <svg v-if="filterLastMessageByOther" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                    </svg>
-                  </div>
-                  <span class="text-white text-sm select-none">Other sent last</span>
-                </label>
-                
-                <label class="flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors group">
-                  <div class="relative flex items-center">
-                    <input
-                      type="checkbox"
-                      :checked="filterOnlyMyMessages"
-                      @change="emit('update:filterOnlyMyMessages', ($event.target as HTMLInputElement).checked)"
-                      class="w-4 h-4 rounded border-2 border-[#555] bg-[#0f0f0f] text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer appearance-none checked:bg-blue-500 checked:border-blue-500 transition-all duration-200"
-                    />
-                    <svg v-if="filterOnlyMyMessages" class="absolute left-0.5 w-3 h-3 text-white pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                    </svg>
-                  </div>
-                  <span class="text-white text-sm select-none">Only my messages</span>
-                </label>
-              </div>
-              
-              <!-- Clear Filters Button -->
-              <div v-if="hasActiveFilters" class="border-t border-[#333] mt-2 pt-2">
+            <div class="flex flex-col max-h-[450px]">
+              <!-- Header with clear button -->
+              <div class="flex items-center justify-between px-3 py-2 border-b border-[#333] bg-[#151515] sticky top-0 z-10">
+                <span class="text-xs font-medium text-[#999] uppercase tracking-wider">Filters</span>
                 <button
-                  @click="handleClearFilters; close()"
-                  class="w-full px-3 py-2 text-sm text-[#999] hover:text-white hover:bg-[#2a2a2a] rounded transition-colors text-left"
+                  v-if="hasActiveFilters"
+                  @click="handleClearFilters"
+                  class="text-xs text-red-400 hover:text-red-300 transition-colors"
                 >
-                  Clear filters
+                  Clear all
                 </button>
+              </div>
+              
+              <!-- Scrollable content -->
+              <div class="overflow-y-auto flex-1 py-1">
+                <!-- Status Filters -->
+                <div class="px-1">
+                  <button
+                    @click="emit('update:filterUnread', !filterUnread)"
+                    :class="[
+                      'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
+                      filterUnread ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                    ]"
+                  >
+                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterUnread ? 'bg-blue-500' : 'bg-[#333]']">
+                      <svg v-if="filterUnread" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </div>
+                    <div class="flex items-center gap-2 flex-1">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <circle cx="12" cy="12" r="3" fill="currentColor"></circle>
+                      </svg>
+                      <span class="text-sm">Unread</span>
+                    </div>
+                  </button>
+                  
+                  <button
+                    @click="emit('update:filterPinned', !filterPinned)"
+                    :class="[
+                      'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
+                      filterPinned ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                    ]"
+                  >
+                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterPinned ? 'bg-blue-500' : 'bg-[#333]']">
+                      <svg v-if="filterPinned" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </div>
+                    <div class="flex items-center gap-2 flex-1">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
+                        <path d="M12 17v5"></path>
+                        <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"></path>
+                      </svg>
+                      <span class="text-sm">Pinned</span>
+                    </div>
+                  </button>
+                  
+                  <button
+                    @click="emit('update:filterOnline', !filterOnline)"
+                    :class="[
+                      'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
+                      filterOnline ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                    ]"
+                  >
+                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterOnline ? 'bg-blue-500' : 'bg-[#333]']">
+                      <svg v-if="filterOnline" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </div>
+                    <div class="flex items-center gap-2 flex-1">
+                      <div class="w-3.5 h-3.5 rounded-full bg-green-500 opacity-60"></div>
+                      <span class="text-sm">Online</span>
+                    </div>
+                  </button>
+                  
+                  <button
+                    @click="emit('update:filterBlocked', !filterBlocked)"
+                    :class="[
+                      'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
+                      filterBlocked ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                    ]"
+                  >
+                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterBlocked ? 'bg-blue-500' : 'bg-[#333]']">
+                      <svg v-if="filterBlocked" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </div>
+                    <div class="flex items-center gap-2 flex-1">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="m4.9 4.9 14.2 14.2"></path>
+                      </svg>
+                      <span class="text-sm">Blocked</span>
+                    </div>
+                  </button>
+                </div>
+                
+                <!-- Profile Type -->
+                <div class="mt-1 pt-1 border-t border-[#2a2a2a]">
+                  <div class="px-3 py-1.5 text-[10px] font-medium text-[#666] uppercase tracking-wider">Profile Type</div>
+                  <div class="px-1">
+                    <button
+                      @click="emit('update:filterCouples', !filterCouples)"
+                      :class="[
+                        'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
+                        filterCouples ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                      ]"
+                    >
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterCouples ? 'bg-blue-500' : 'bg-[#333]']">
+                        <svg v-if="filterCouples" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      </div>
+                      <div class="flex items-center gap-2 flex-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
+                          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="9" cy="7" r="4"></circle>
+                          <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        <span class="text-sm">Couples</span>
+                      </div>
+                    </button>
+                    
+                    <button
+                      @click="emit('update:filterFemales', !filterFemales)"
+                      :class="[
+                        'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
+                        filterFemales ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                      ]"
+                    >
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterFemales ? 'bg-blue-500' : 'bg-[#333]']">
+                        <svg v-if="filterFemales" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      </div>
+                      <div class="flex items-center gap-2 flex-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
+                          <circle cx="12" cy="8" r="5"></circle>
+                          <path d="M12 13v8"></path>
+                          <path d="M9 18h6"></path>
+                        </svg>
+                        <span class="text-sm">Females</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Message Filters -->
+                <div class="mt-1 pt-1 border-t border-[#2a2a2a]">
+                  <div class="px-3 py-1.5 text-[10px] font-medium text-[#666] uppercase tracking-wider">Last Message</div>
+                  <div class="px-1">
+                    <button
+                      @click="emit('update:filterLastMessageByMe', !filterLastMessageByMe)"
+                      :class="[
+                        'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
+                        filterLastMessageByMe ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                      ]"
+                    >
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterLastMessageByMe ? 'bg-blue-500' : 'bg-[#333]']">
+                        <svg v-if="filterLastMessageByMe" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      </div>
+                      <div class="flex items-center gap-2 flex-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
+                          <path d="m5 12 7-7 7 7"></path>
+                          <path d="M12 19V5"></path>
+                        </svg>
+                        <span class="text-sm">Sent by me</span>
+                      </div>
+                    </button>
+                    
+                    <button
+                      @click="emit('update:filterLastMessageByOther', !filterLastMessageByOther)"
+                      :class="[
+                        'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
+                        filterLastMessageByOther ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                      ]"
+                    >
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterLastMessageByOther ? 'bg-blue-500' : 'bg-[#333]']">
+                        <svg v-if="filterLastMessageByOther" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      </div>
+                      <div class="flex items-center gap-2 flex-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
+                          <path d="m19 12-7 7-7-7"></path>
+                          <path d="M12 5v14"></path>
+                        </svg>
+                        <span class="text-sm">Sent by them</span>
+                      </div>
+                    </button>
+                    
+                    <button
+                      @click="emit('update:filterOnlyMyMessages', !filterOnlyMyMessages)"
+                      :class="[
+                        'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
+                        filterOnlyMyMessages ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                      ]"
+                    >
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterOnlyMyMessages ? 'bg-blue-500' : 'bg-[#333]']">
+                        <svg v-if="filterOnlyMyMessages" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      </div>
+                      <div class="flex items-center gap-2 flex-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        <span class="text-sm">Only my messages</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </template>
