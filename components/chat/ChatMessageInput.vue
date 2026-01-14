@@ -1,6 +1,8 @@
 <script lang="ts" setup>
+import { computed } from 'vue';
 import Dropdown from '@/components/ui/Dropdown.vue';
 import type { MessengerMessage } from '@/lib/sdc-api-types';
+import { parseImageMessage, parseGalleryMessage, getImageUrl } from '@/lib/composables/chat/utils';
 
 interface Props {
   messageInput: string;
@@ -38,6 +40,21 @@ function handleKeydown(event: KeyboardEvent) {
     emit('send-message');
   }
 }
+
+// Parse quoted message to detect images and albums
+const quotedImageMessage = computed(() => {
+  if (props.quotedMessage?.message) {
+    return parseImageMessage(props.quotedMessage.message);
+  }
+  return { imageIds: [], text: '' };
+});
+
+const quotedGalleryMessage = computed(() => {
+  if (props.quotedMessage?.message) {
+    return parseGalleryMessage(props.quotedMessage.message);
+  }
+  return null;
+});
 </script>
 
 <template>
@@ -46,7 +63,44 @@ function handleKeydown(event: KeyboardEvent) {
     <div v-if="quotedMessage" class="mb-2 px-3 py-2 bg-[#0f0f0f] border border-[#333] rounded-lg flex items-start gap-2">
       <div class="flex-1 min-w-0">
         <div class="text-xs text-[#999] mb-1">Quoting {{ quotedMessage.account_id }}</div>
-        <div class="text-sm text-white line-clamp-2">{{ quotedMessage.message }}</div>
+        <!-- Quoted Album -->
+        <div v-if="quotedGalleryMessage" class="flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 opacity-70 text-[#999]">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <div class="text-sm text-white line-clamp-2 wrap-break-word min-w-0">
+            <template v-if="quotedGalleryMessage.albums && quotedGalleryMessage.albums.length > 1">
+              {{ quotedGalleryMessage.albums[0].name }} +{{ quotedGalleryMessage.albums.length - 1 }} more
+            </template>
+            <template v-else>
+              {{ quotedGalleryMessage.galleryName }}
+            </template>
+          </div>
+        </div>
+        <!-- Quoted Image -->
+        <div v-else-if="quotedImageMessage.imageIds.length > 0" class="flex items-center gap-2">
+          <div class="flex gap-1.5 shrink-0">
+            <img
+              v-for="(imageId, idx) in quotedImageMessage.imageIds.slice(0, 2)"
+              :key="idx"
+              :src="getImageUrl(imageId, quotedMessage.db_id || undefined)"
+              :alt="`Quoted image ${idx + 1}`"
+              class="w-10 h-10 rounded object-cover"
+              @error="(e) => { (e.target as HTMLImageElement).style.display = 'none'; }"
+            />
+            <div v-if="quotedImageMessage.imageIds.length > 2" class="w-10 h-10 rounded bg-[#1a1a1a] flex items-center justify-center text-xs text-[#999]">
+              +{{ quotedImageMessage.imageIds.length - 2 }}
+            </div>
+          </div>
+          <div v-if="quotedImageMessage.text" class="text-sm text-white line-clamp-1 wrap-break-word min-w-0">
+            {{ quotedImageMessage.text }}
+          </div>
+        </div>
+        <!-- Quoted Regular Message -->
+        <div v-else class="text-sm text-white line-clamp-2">{{ quotedMessage.message }}</div>
       </div>
       <button
         @click="$emit('cancel-quote')"

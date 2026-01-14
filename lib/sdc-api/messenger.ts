@@ -2,7 +2,7 @@
  * SDC API Messenger Functions
  * Functions for fetching and working with messenger/chat data
  */
-import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse, GalleryPhotosResponse, AlbumsResponse, PinChatResponse, MarkUnreadResponse, SearchGlobalV2Response } from '../sdc-api-types';
+import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse, GalleryPhotosResponse, AlbumsResponse, PinChatResponse, MarkUnreadResponse, SearchGlobalV2Response, MessengerGroupContactsResponse, MessengerGroupInfoResponse } from '../sdc-api-types';
 import { getCurrentMuid } from './utils';
 import { chatStorage } from '../chat-storage';
 import { folderStorage } from '../folder-storage';
@@ -196,6 +196,18 @@ export async function syncAllChats(
         await onFolderSynced('inbox');
     }
 
+    // Sync groups - uses incremental sync
+    try {
+        const groupsCount = await syncGroupsChats(onPageSynced);
+        totalSynced += groupsCount;
+        if (onFolderSynced) {
+            await onFolderSynced('groups');
+        }
+    } catch (err) {
+        console.error('[Messenger API] Failed to sync groups:', err);
+        // Continue even if groups sync fails
+    }
+
     // Sync each folder - uses incremental sync
     const folderList = await folderStorage.getAllFolders();
     for (const folder of folderList) {
@@ -278,6 +290,63 @@ export async function syncInboxChats(onPageSynced?: () => void | Promise<void>):
     }
     
     console.log(`[Messenger API] Synced ${result.totalSynced} inbox chats`);
+    return result.totalSynced;
+}
+
+/**
+ * Sync groups chats from messenger_groups_gm
+ * Uses incremental sync: first time fetches all pages, subsequent times only fetches new chats
+ * Upserts chats incrementally after each page for fast updates
+ * @param onPageSynced Optional callback called after each page is synced (for UI updates)
+ * @returns Total number of chats synced
+ */
+export async function syncGroupsChats(onPageSynced?: () => void | Promise<void>): Promise<number> {
+    console.log('[Messenger API] Syncing groups chats...');
+    
+    // Get last sync time for incremental sync
+    const lastSyncTime = await chatStorage.getGroupsLastSyncTime();
+    
+    if (lastSyncTime) {
+        console.log(`[Messenger API] Incremental sync for groups: last sync was at ${lastSyncTime}`);
+    } else {
+        console.log('[Messenger API] First-time sync for groups: fetching all pages');
+    }
+    
+    // Sync groups with incremental sync support
+    const result = await chatStorage.syncChatsFromEndpoint(
+        (page) => {
+            const t1 = lastSyncTime ? new Date(lastSyncTime).getTime() : Date.now();
+            return getMessengerGroups(page, t1);
+        },
+        async (chats, total) => {
+            console.log(`[Messenger API] Synced ${chats.length} groups chats (total: ${total})`);
+            // Trigger UI update after each page
+            if (onPageSynced) {
+                await onPageSynced();
+            }
+        },
+        lastSyncTime
+    );
+    
+    // Update last sync time
+    // If first-time sync, always save (use mostRecentDateTime or current time)
+    // If incremental sync, only update if we have a more recent date_time
+    if (!lastSyncTime) {
+        // First-time sync: always save sync time
+        const syncTimeToSave = result.mostRecentDateTime || new Date().toISOString();
+        await chatStorage.setLastSyncTime('groups', syncTimeToSave);
+        console.log(`[Messenger API] Set groups last sync time to ${syncTimeToSave}`);
+    } else if (result.mostRecentDateTime) {
+        // Incremental sync: only update if we have a more recent date_time
+        const mostRecentTimestamp = new Date(result.mostRecentDateTime).getTime();
+        const lastSyncTimestamp = new Date(lastSyncTime).getTime();
+        if (mostRecentTimestamp >= lastSyncTimestamp) {
+            await chatStorage.setLastSyncTime('groups', result.mostRecentDateTime);
+            console.log(`[Messenger API] Updated groups last sync time to ${result.mostRecentDateTime}`);
+        }
+    }
+    
+    console.log(`[Messenger API] Synced ${result.totalSynced} groups chats`);
     return result.totalSynced;
 }
 
@@ -558,6 +627,23 @@ export async function syncUnsyncedChats(
         console.log('[Messenger API] Inbox already synced, skipping');
     }
 
+    // Check groups sync time
+    const groupsSyncTime = await chatStorage.getGroupsLastSyncTime();
+    if (!groupsSyncTime) {
+        console.log('[Messenger API] Groups have no sync date, syncing groups...');
+        try {
+            const groupsCount = await syncGroupsChats(onPageSynced);
+            totalSynced += groupsCount;
+            if (onFolderSynced) {
+                await onFolderSynced('groups');
+            }
+        } catch (err) {
+            console.error('[Messenger API] Failed to sync groups:', err);
+        }
+    } else {
+        console.log('[Messenger API] Groups already synced, skipping');
+    }
+
     // Check archives sync time
     const archivesSyncTime = await chatStorage.getArchivesLastSyncTime();
     if (!archivesSyncTime) {
@@ -628,6 +714,27 @@ export async function syncAllChatsFirstPageOnly(
     totalSynced += inboxResult.totalSynced;
     if (onFolderSynced) {
         await onFolderSynced('inbox', 0);
+    }
+
+    // Sync groups (first page only)
+    try {
+        const groupsResult = await chatStorage.syncChatsFromEndpoint(
+            (page) => getMessengerGroups(page),
+            async (chats, total) => {
+                console.log(`[Messenger API] Synced ${chats.length} groups chats (total: ${total})`);
+                if (onPageSynced) {
+                    await onPageSynced();
+                }
+            },
+            null, // No lastSyncTime - force resync
+            1 // maxPages = 1 (only first page)
+        );
+        totalSynced += groupsResult.totalSynced;
+        if (onFolderSynced) {
+            await onFolderSynced('groups', 0);
+        }
+    } catch (err) {
+        console.error('[Messenger API] Failed to sync groups:', err);
     }
 
     // Sync each folder (first page only)
@@ -1182,6 +1289,209 @@ export async function deleteConversation(
         return data;
     } catch (error) {
         console.error('[SDC API] Failed to delete conversation:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get messenger_groups_gm data (group chat list)
+ * @param page Page number (default: 0)
+ * @param t1 Optional timestamp (default: current timestamp)
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Messenger group list data
+ */
+export async function getMessengerGroups(
+    page: number = 0,
+    t1?: number,
+    muid?: string | null
+): Promise<MessengerLatestResponse> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot fetch messenger groups.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_groups_gm');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('page', page.toString());
+    if (t1 !== undefined) {
+        url.searchParams.set('t1', t1.toString());
+    }
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8,ar;q=0.7,nl;q=0.6',
+                'origin': 'https://www.sdc.com',
+                'referer': 'https://www.sdc.com/',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Messenger Groups API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data as MessengerLatestResponse;
+    } catch (error) {
+        console.error('[SDC API] Failed to fetch messenger groups:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get messenger_chat_details_gm data (messages for a specific group)
+ * @param groupId The GroupID of the group (string)
+ * @param page Page number (default: 0)
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Chat details with messages
+ */
+export async function getMessengerGroupChatDetails(
+    groupId: string,
+    page: number = 0,
+    muid?: string | null
+): Promise<MessengerChatDetailsResponse> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot fetch group chat details.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_chat_details_gm');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('DB_ID', 'undefined');
+    url.searchParams.set('type', '1');
+    url.searchParams.set('GroupID', groupId);
+    url.searchParams.set('page', page.toString());
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8,ar;q=0.7,nl;q=0.6',
+                'origin': 'https://www.sdc.com',
+                'referer': 'https://www.sdc.com/',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Group Chat Details API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data as MessengerChatDetailsResponse;
+    } catch (error) {
+        console.error('[SDC API] Failed to fetch group chat details:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get messenger_contacts data (group members)
+ * @param groupId The GroupID of the group (string)
+ * @param targetDbId The target_db_id from group chat details (should be used as muid)
+ * @param page Page number (default: 0)
+ * @param searchMember Search query for members (default: empty string)
+ * @param muid Optional MUID fallback (will be extracted from cookies if not provided and targetDbId not provided)
+ * @returns Group contacts/members response
+ */
+export async function getMessengerGroupContacts(
+    groupId: string,
+    targetDbId?: number | null,
+    page: number = 0,
+    searchMember: string = '',
+    muid?: string | null
+): Promise<MessengerGroupContactsResponse> {
+    // Use target_db_id as muid if provided, otherwise fall back to current muid
+    const currentMuid = targetDbId ? targetDbId.toString() : (muid || getCurrentMuid());
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot fetch group contacts.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_contacts');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('page', page.toString());
+    url.searchParams.set('search_member', searchMember);
+    // Note: messenger_contacts is context-aware - it reads the group from the referer URL
+    // Set referer to the group messenger page so the API knows which group's contacts to fetch
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8,ar;q=0.7,nl;q=0.6',
+                'origin': 'https://www.sdc.com',
+                'referer': `https://www.sdc.com/react/#/messenger?id=${groupId}&type=1&db=0`,
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Group Contacts API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data as MessengerGroupContactsResponse;
+    } catch (error) {
+        console.error('[SDC API] Failed to fetch group contacts:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get messenger_info_group_gm data (group information)
+ * @param groupId The GroupID of the group (string)
+ * @param targetDbId The target_db_id from group chat details (should be used as muid)
+ * @param muid Optional MUID fallback (will be extracted from cookies if not provided and targetDbId not provided)
+ * @returns Group info response
+ */
+export async function getMessengerGroupInfo(
+    groupId: string,
+    targetDbId?: number | null,
+    muid?: string | null
+): Promise<MessengerGroupInfoResponse> {
+    // Use target_db_id as muid if provided, otherwise fall back to current muid
+    const currentMuid = targetDbId ? targetDbId.toString() : (muid || getCurrentMuid());
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot fetch group info.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_info_group_gm');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('group_Id', groupId);
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8,ar;q=0.7,nl;q=0.6',
+                'origin': 'https://www.sdc.com',
+                'referer': 'https://www.sdc.com/',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Group Info API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data as MessengerGroupInfoResponse;
+    } catch (error) {
+        console.error('[SDC API] Failed to fetch group info:', error);
         throw error;
     }
 }

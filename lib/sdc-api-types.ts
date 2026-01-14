@@ -312,9 +312,16 @@ export interface MessengerChatItem {
     isFriend: boolean;
     online: number;
     group_type: number;
-    group_id: number;
+    group_id: number | string; // Groups use string IDs like "1768208875769-8e52051e"
     blocked_profile: number;
     extra1: string;
+    // Group fields (when group_type === 1)
+    group_name?: string; // Groups have names, regular chats use account_id
+    guest_list_id?: number | string;
+    group_party_type?: number;
+    logo?: string;
+    owner?: number | string;
+    blur_primary_pic?: number;
     // Broadcast message fields (when broadcast: true or type: 100)
     type?: number;
     broadcast?: boolean;
@@ -562,5 +569,71 @@ export interface SearchGlobalV2Info {
 
 export interface SearchGlobalV2Response {
     info: SearchGlobalV2Info;
+}
+
+/**
+ * Messenger Group Types
+ */
+export interface MessengerGroupMember {
+    db_id: string;
+    account_id: string;
+    gender1: number;
+    gender2: number;
+    profile_type: number;
+    primary_photo: string;
+    location: string;
+    online: number;
+}
+
+export interface MessengerGroupContactsInfo {
+    code: number;
+    members: MessengerGroupMember[];
+    url_more?: string;
+}
+
+export interface MessengerGroupContactsResponse {
+    info: MessengerGroupContactsInfo;
+}
+
+export interface MessengerGroupUser {
+    db_id: string;
+    account_id: string;
+    owner: number;
+    gender1: number;
+    gender2: number;
+    profile_type: number;
+    location: string;
+    primary_photo: string;
+    blur_primary_pic: number;
+}
+
+export interface MessengerGroupAdmin {
+    db_id: string;
+    account_id: string;
+    owner: number;
+    gender1: number;
+    gender2: number;
+    profile_type: number;
+    location: string;
+    primary_photo: string;
+    blur_primary_pic: number;
+}
+
+export interface MessengerGroupInfoInfo {
+    code: string | number;
+    message?: string;
+    users: MessengerGroupUser[];
+    admins: MessengerGroupAdmin[];
+    owner: number;
+    db_id: string;
+    muted: string;
+    name: string;
+    guest_list_id: number | string;
+    logo: string;
+    participants: number;
+}
+
+export interface MessengerGroupInfoResponse {
+    info: MessengerGroupInfoInfo;
 }
 

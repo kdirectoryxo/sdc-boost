@@ -28,6 +28,7 @@ const emit = defineEmits<{
   'update:openDropdownMessageId': [value: number | null];
   'open-profile': [userId: number];
   'open-profile-dialog': [userId: number];
+  'open-group-dialog': [groupId: string];
   'quote-message': [message: MessengerMessage];
   'copy-message': [message: MessengerMessage];
   'delete-message': [message: MessengerMessage];
@@ -48,6 +49,12 @@ defineExpose({
 
 const isBroadcast = computed(() => {
   return props.selectedChat?.broadcast || props.selectedChat?.type === 100;
+});
+
+// Check if this is a group
+const isGroup = computed(() => {
+  if (!props.selectedChat) return false;
+  return props.selectedChat.group_type === 1 || typeof props.selectedChat.group_id === 'string';
 });
 
 // Name color based on gender (same logic as ChatListItem)
@@ -171,20 +178,29 @@ const displayDistance = computed(() => {
     <!-- Chat Header -->
     <div class="px-6 py-4 border-b border-[#333] shrink-0 flex items-center gap-4 min-w-0 relative z-50">
       <img
+        v-if="!isGroup || (selectedChat.primary_photo && selectedChat.primary_photo !== '/thumbnail/' && selectedChat.primary_photo.trim() !== '')"
         :src="`https://pictures.sdc.com/photos/${selectedChat.primary_photo}`"
-        :alt="selectedChat.account_id"
-        @click="emit('open-profile-dialog', selectedChat.db_id)"
+        :alt="isGroup ? selectedChat.group_name : selectedChat.account_id"
+        @click="isGroup ? emit('open-group-dialog', String(selectedChat.group_id)) : emit('open-profile-dialog', selectedChat.db_id)"
         class="w-10 h-10 rounded-full object-cover shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-        title="Click to view profile"
+        :title="isGroup ? 'Click to view group' : 'Click to view profile'"
+      />
+      <img
+        v-else-if="isGroup"
+        src="https://www.sdc.com/react/assets/group.8481d87a.svg"
+        :alt="selectedChat.group_name"
+        @click="emit('open-group-dialog', String(selectedChat.group_id))"
+        class="w-10 h-10 rounded-full object-cover shrink-0 cursor-pointer hover:opacity-80 transition-opacity bg-[#333] p-2"
+        title="Click to view group"
       />
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
           <h3
-            @click="emit('open-profile-dialog', selectedChat.db_id)"
+            @click="isGroup ? emit('open-group-dialog', String(selectedChat.group_id)) : emit('open-profile-dialog', selectedChat.db_id)"
             :class="['font-semibold truncate cursor-pointer hover:text-blue-400 transition-colors', nameColor]"
-            title="Click to view profile"
+            :title="isGroup ? 'Click to view group' : 'Click to view profile'"
           >
-            {{ selectedChat.account_id }}
+            {{ isGroup ? selectedChat.group_name : selectedChat.account_id }}
           </h3>
           <!-- Ages -->
           <div v-if="displayAges" class="flex items-center gap-1 shrink-0">
@@ -210,8 +226,9 @@ const displayDistance = computed(() => {
             />
           </div>
         </div>
-        <p v-if="selectedChat.online === 1 && !isBroadcast" class="text-xs text-green-500">Online</p>
-        <p v-else-if="!isBroadcast" class="text-xs text-[#999]">Offline</p>
+        <p v-if="selectedChat.online === 1 && !isBroadcast && !isGroup" class="text-xs text-green-500">Online</p>
+        <p v-else-if="!isBroadcast && !isGroup" class="text-xs text-[#999]">Offline</p>
+        <p v-else-if="isGroup" class="text-xs text-blue-400">👥 Group</p>
         <p v-else class="text-xs text-yellow-400">📢 Broadcast</p>
       </div>
       
@@ -401,6 +418,7 @@ const displayDistance = computed(() => {
           @scroll-to-quoted="(message: MessengerMessage) => emit('scroll-to-quoted', message)"
           @open-lightbox="(message: MessengerMessage, imageIndex: number, event?: Event) => emit('open-lightbox', message, imageIndex, event)"
           @open-gallery="(message: MessengerMessage) => emit('open-gallery', message)"
+          @open-profile-dialog="(userId: number) => emit('open-profile-dialog', userId)"
         />
       </div>
 

@@ -15,14 +15,21 @@ const emit = defineEmits<{
 
 const apiKey = ref('');
 const savedApiKey = ref('');
+const context = ref('');
+const savedContext = ref('');
 const loading = ref(true);
 const saving = ref(false);
 const saved = ref(false);
+const savingContext = ref(false);
+const savedContextStatus = ref(false);
 const testing = ref(false);
 const validationStatus = ref<'idle' | 'valid' | 'invalid'>('idle');
 const validationError = ref<string>('');
+const contextDialogOpen = ref(false);
+const contextDialogText = ref('');
 
 let escapeHandler: ((e: KeyboardEvent) => void) | null = null;
+let contextDialogEscapeHandler: ((e: KeyboardEvent) => void) | null = null;
 
 function handleClose() {
   validationStatus.value = 'idle';
@@ -47,6 +54,76 @@ async function loadApiKey() {
     validationError.value = '';
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadContext() {
+  try {
+    const contextValue = await getSetting('ai_chat_context');
+    const contextStr = contextValue || '';
+    context.value = contextStr;
+    savedContext.value = contextStr;
+  } catch (error) {
+    console.error('Error loading context:', error);
+    context.value = '';
+    savedContext.value = '';
+  }
+}
+
+async function saveContext() {
+  if (savingContext.value) return;
+  
+  savingContext.value = true;
+  savedContextStatus.value = false;
+  
+  try {
+    await setSetting('ai_chat_context', context.value);
+    savedContext.value = context.value;
+    savedContextStatus.value = true;
+    setTimeout(() => {
+      savedContextStatus.value = false;
+    }, 2000);
+  } catch (error) {
+    console.error('Error saving context:', error);
+  } finally {
+    savingContext.value = false;
+  }
+}
+
+function openContextDialog() {
+  contextDialogText.value = context.value;
+  contextDialogOpen.value = true;
+}
+
+function closeContextDialog() {
+  contextDialogOpen.value = false;
+  // Sync back to main context if user made changes
+  context.value = contextDialogText.value;
+}
+
+async function saveContextFromDialog() {
+  if (savingContext.value) return;
+  
+  savingContext.value = true;
+  savedContextStatus.value = false;
+  
+  try {
+    // Update main context with dialog text
+    context.value = contextDialogText.value;
+    await setSetting('ai_chat_context', contextDialogText.value);
+    savedContext.value = contextDialogText.value;
+    savedContextStatus.value = true;
+    setTimeout(() => {
+      savedContextStatus.value = false;
+    }, 2000);
+    // Close dialog after save
+    setTimeout(() => {
+      closeContextDialog();
+    }, 500);
+  } catch (error) {
+    console.error('Error saving context:', error);
+  } finally {
+    savingContext.value = false;
   }
 }
 
@@ -115,10 +192,11 @@ const hasApiKey = () => {
   return savedApiKey.value.trim().length > 0;
 };
 
-// Load API key when dialog opens
+// Load API key and context when dialog opens
 watch(() => props.modelValue, async (isOpen) => {
   if (isOpen) {
     await loadApiKey();
+    await loadContext();
   }
 }, { immediate: true });
 
@@ -126,7 +204,7 @@ watch(() => props.modelValue, async (isOpen) => {
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
     escapeHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !contextDialogOpen.value) {
         handleClose();
       }
     };
@@ -139,15 +217,36 @@ watch(() => props.modelValue, (isOpen) => {
   }
 });
 
+// Handle escape key for context dialog
+watch(() => contextDialogOpen.value, (isOpen) => {
+  if (isOpen) {
+    contextDialogEscapeHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeContextDialog();
+      }
+    };
+    document.addEventListener('keydown', contextDialogEscapeHandler);
+  } else {
+    if (contextDialogEscapeHandler) {
+      document.removeEventListener('keydown', contextDialogEscapeHandler);
+      contextDialogEscapeHandler = null;
+    }
+  }
+});
+
 onMounted(async () => {
   if (props.modelValue) {
     await loadApiKey();
+    await loadContext();
   }
 });
 
 onUnmounted(() => {
   if (escapeHandler) {
     document.removeEventListener('keydown', escapeHandler);
+  }
+  if (contextDialogEscapeHandler) {
+    document.removeEventListener('keydown', contextDialogEscapeHandler);
   }
 });
 </script>
@@ -259,6 +358,57 @@ onUnmounted(() => {
               </span>
             </div>
           </div>
+
+          <!-- Context/Preferences Section -->
+          <div class="flex flex-col gap-3">
+            <label class="flex flex-col gap-1">
+              <span class="text-sm font-medium text-white">Additional Context / Preferences</span>
+              <span class="text-xs text-[#999]">
+                Add preferences or context that you don't want to show on your profile. This will help the AI provide more personalized responses.
+              </span>
+            </label>
+            
+            <div class="flex flex-col gap-2">
+              <div class="flex items-start gap-2">
+                <textarea
+                  v-model="context"
+                  placeholder="e.g., We prefer full-swap with active couples"
+                  rows="4"
+                  class="flex-1 py-2 px-3 bg-[#2a2a2a] border border-[#333] rounded-md text-white text-sm font-sans transition-all duration-200 focus:outline-none focus:bg-[#333] focus:border-green-500 resize-y"
+                ></textarea>
+                <Button
+                  @click="openContextDialog"
+                  variant="secondary"
+                  size="sm"
+                  class="mt-0"
+                  title="Open in larger editor"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                  </svg>
+                </Button>
+              </div>
+              <div class="flex justify-end">
+                <Button
+                  @click="saveContext"
+                  :disabled="savingContext"
+                  variant="default"
+                  size="sm"
+                >
+                  {{ savingContext ? 'Saving...' : savedContextStatus ? 'Saved!' : 'Save Context' }}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -270,6 +420,81 @@ onUnmounted(() => {
           size="sm"
         >
           Close
+        </Button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context Dialog -->
+  <div
+    v-if="contextDialogOpen"
+    class="fixed inset-0 flex items-center justify-center backdrop-blur-sm z-[1000001]"
+    style="pointer-events: auto; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"
+    @click.self="closeContextDialog"
+  >
+    <div
+      class="bg-[#1a1a1a] border border-[#333] rounded-lg shadow-2xl w-[90vw] max-w-[800px] h-[80vh] max-h-[600px] overflow-hidden flex flex-col"
+      @click.stop
+    >
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-[#333]">
+        <h3 class="text-lg font-semibold text-white">Edit Context / Preferences</h3>
+        <button
+          @click="closeContextDialog"
+          class="p-1 hover:bg-[#333] rounded transition-colors"
+          title="Close"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="text-[#999] hover:text-white"
+          >
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Content -->
+      <div class="flex-1 p-6 overflow-hidden flex flex-col">
+        <div class="flex flex-col gap-3 flex-1 overflow-hidden">
+          <label class="flex flex-col gap-1">
+            <span class="text-sm font-medium text-white">Additional Context / Preferences</span>
+            <span class="text-xs text-[#999]">
+              Add preferences or context that you don't want to show on your profile. This will help the AI provide more personalized responses.
+            </span>
+          </label>
+          
+          <textarea
+            v-model="contextDialogText"
+            placeholder="e.g., We prefer full-swap with active couples"
+            class="flex-1 w-full py-3 px-4 bg-[#2a2a2a] border border-[#333] rounded-md text-white text-sm font-sans transition-all duration-200 focus:outline-none focus:bg-[#333] focus:border-green-500 resize-none"
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 border-t border-[#333] flex justify-end gap-2">
+        <Button
+          @click="closeContextDialog"
+          variant="ghost"
+          size="sm"
+        >
+          Cancel
+        </Button>
+        <Button
+          @click="saveContextFromDialog"
+          :disabled="savingContext"
+          variant="default"
+          size="sm"
+        >
+          {{ savingContext ? 'Saving...' : savedContextStatus ? 'Saved!' : 'Save' }}
         </Button>
       </div>
     </div>

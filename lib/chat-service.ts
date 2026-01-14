@@ -75,12 +75,15 @@ export function sendTypingEvent(chat: MessengerChatItem, typing: boolean): boole
     }
 
     try {
+        // Check if this is a group (group_type === 1 or string group_id)
+        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        
         websocketManager.send('typing', {
             account_id: userInfo.accountId,
             DB_ID: parseInt(userInfo.dbId),
             GroupID: chat.group_id,
             groupType: chat.group_type || 0,
-            targetID: chat.db_id,
+            targetID: isGroup ? chat.group_id : chat.db_id,
             typing: typing
         });
         return true;
@@ -133,9 +136,12 @@ export async function sendSeenEvent(chat: MessengerChatItem): Promise<boolean> {
     }
 
     try {
+        // Check if this is a group (group_type === 1 or string group_id)
+        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        
         websocketManager.send('seen', {
             db_id: parseInt(userInfo.dbId),
-            target_db_id: chat.db_id,
+            target_db_id: isGroup ? chat.group_id : chat.db_id,
             group_id: String(chat.group_id)
         });
         return true;
@@ -165,6 +171,9 @@ export function sendMessage(chat: MessengerChatItem, messageText: string): boole
     }
 
     try {
+        // Check if this is a group (group_type === 1 or string group_id)
+        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        
         // Generate tempId for pending message
         const tempId = crypto.randomUUID();
 
@@ -173,8 +182,8 @@ export function sendMessage(chat: MessengerChatItem, messageText: string): boole
             DB_ID: parseInt(userInfo.dbId),
             message: messageText.trim(),
             GroupID: chat.group_id,
-            type: 0,
-            targetID: chat.db_id,
+            type: isGroup ? 1 : 0,
+            targetID: isGroup ? chat.group_id : chat.db_id,
             sender: 0,
             q_message: '',
             q_db_id: 0,
@@ -230,6 +239,9 @@ export function sendQuotedMessage(chat: MessengerChatItem, messageText: string, 
     }
 
     try {
+        // Check if this is a group (group_type === 1 or string group_id)
+        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        
         // Generate tempId for pending message
         const tempId = crypto.randomUUID();
 
@@ -238,8 +250,8 @@ export function sendQuotedMessage(chat: MessengerChatItem, messageText: string, 
             DB_ID: parseInt(userInfo.dbId),
             message: messageText.trim(),
             GroupID: chat.group_id,
-            type: 0,
-            targetID: chat.db_id,
+            type: isGroup ? 1 : 0,
+            targetID: isGroup ? chat.group_id : chat.db_id,
             sender: 0,
             q_message: quotedMessage.message || '.',
             q_db_id: quotedMessage.db_id || parseInt(userInfo.dbId),
@@ -297,6 +309,9 @@ export function sendMessageWithImage(
     }
 
     try {
+        // Check if this is a group (group_type === 1 or string group_id)
+        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        
         // Generate tempId for pending message
         const tempId = crypto.randomUUID();
 
@@ -308,8 +323,8 @@ export function sendMessageWithImage(
             DB_ID: parseInt(userInfo.dbId),
             message: formattedMessage,
             GroupID: chat.group_id,
-            type: 0,
-            targetID: chat.db_id,
+            type: isGroup ? 1 : 0,
+            targetID: isGroup ? chat.group_id : chat.db_id,
             sender: 0,
             q_message: quotedMessage ? (quotedMessage.message || '.') : '',
             q_db_id: quotedMessage ? (quotedMessage.db_id || parseInt(userInfo.dbId)) : 0,
@@ -371,6 +386,9 @@ export function sendAlbums(
     }
 
     try {
+        // Check if this is a group (group_type === 1 or string group_id)
+        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        
         // Generate tempId for pending message
         const tempId = crypto.randomUUID();
 
@@ -386,8 +404,8 @@ export function sendAlbums(
             DB_ID: parseInt(userInfo.dbId),
             message: formattedMessage,
             GroupID: chat.group_id,
-            type: 0,
-            targetID: chat.db_id,
+            type: isGroup ? 1 : 0,
+            targetID: isGroup ? chat.group_id : chat.db_id,
             sender: 0,
             q_message: quotedMessage ? (quotedMessage.message || '.') : '',
             q_db_id: quotedMessage ? (quotedMessage.db_id || parseInt(userInfo.dbId)) : 0,

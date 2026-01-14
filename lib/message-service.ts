@@ -3,7 +3,7 @@
  * Handles message loading, fetching, and storage operations
  */
 
-import { getMessengerChatDetails } from './sdc-api';
+import { getMessengerChatDetails, getMessengerGroupChatDetails } from './sdc-api';
 import { messageStorage } from './message-storage';
 import { chatStorage } from './chat-storage';
 import type { MessengerChatItem, MessengerMessage } from './sdc-api-types';
@@ -74,12 +74,17 @@ export async function fetchAllMessages(
 
     while (hasMore) {
         try {
-            const response = await getMessengerChatDetails(
-                chat.db_id,
-                chat.group_id,
-                chat.group_type || 0,
-                page
-            );
+            // Check if this is a group (group_type === 1 or string group_id)
+            const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+            
+            const response = isGroup
+                ? await getMessengerGroupChatDetails(String(chat.group_id), page)
+                : await getMessengerChatDetails(
+                    chat.db_id,
+                    Number(chat.group_id),
+                    chat.group_type || 0,
+                    page
+                );
 
             const responseCode = response.info.code;
             if (responseCode === '200' || responseCode === 200) {
@@ -192,12 +197,17 @@ export async function refreshLatestPage(
     onUpdate?: (messages: MessengerMessage[]) => void
 ): Promise<void> {
     try {
-        const response = await getMessengerChatDetails(
-            chat.db_id,
-            chat.group_id,
-            chat.group_type || 0,
-            0
-        );
+        // Check if this is a group (group_type === 1 or string group_id)
+        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        
+        const response = isGroup
+            ? await getMessengerGroupChatDetails(String(chat.group_id), 0)
+            : await getMessengerChatDetails(
+                chat.db_id,
+                Number(chat.group_id),
+                chat.group_type || 0,
+                0
+            );
 
         const responseCode = response.info.code;
         if (responseCode === '200' || responseCode === 200) {
@@ -326,13 +336,18 @@ export async function fetchNewMessagesOnly(
     }
 
     try {
+        // Check if this is a group (group_type === 1 or string group_id)
+        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        
         // Only fetch page 0 (latest page)
-        const response = await getMessengerChatDetails(
-            chat.db_id,
-            chat.group_id,
-            chat.group_type || 0,
-            0
-        );
+        const response = isGroup
+            ? await getMessengerGroupChatDetails(String(chat.group_id), 0)
+            : await getMessengerChatDetails(
+                chat.db_id,
+                Number(chat.group_id),
+                chat.group_type || 0,
+                0
+            );
 
         const responseCode = response.info.code;
         if (responseCode === '200' || responseCode === 200) {

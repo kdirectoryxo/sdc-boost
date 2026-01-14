@@ -1,9 +1,10 @@
 <script lang="ts" setup>
 import { ref, computed, watch, nextTick, onMounted } from 'vue';
-import type { MessengerChatItem, ProfileUser, MessengerMessage } from '@/lib/sdc-api-types';
+import type { MessengerChatItem, ProfileUser, MessengerMessage, MessengerGroupUser, MessengerGroupAdmin } from '@/lib/sdc-api-types';
 import { chatWithAI } from '@/lib/ai-chat-service';
 import { profileStorage } from '@/lib/profile-storage';
 import { messageStorage } from '@/lib/message-storage';
+import { getMessengerGroupInfo, getMessengerGroupChatDetails } from '@/lib/sdc-api/messenger';
 import { marked } from 'marked';
 
 interface Props {
@@ -37,11 +38,35 @@ const profileData = ref<ProfileUser | null>(null);
 const chatMessages = ref<MessengerMessage[]>([]);
 const conversationHistory = ref<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
 
-// Session storage for conversations per chat
-const sessionConversations = ref<Map<number, SessionConversation>>(new Map());
+// Group chat support
+const isGroupChat = computed(() => {
+  if (!props.selectedChat) return false;
+  return props.selectedChat.group_type === 1 || typeof props.selectedChat.group_id === 'string';
+});
 
-// Track current chat group_id to detect chat switches
-const currentGroupId = ref<number | null>(null);
+const groupInfo = ref<{ name: string; users: MessengerGroupUser[]; admins: MessengerGroupAdmin[] } | null>(null);
+
+// Helper function to convert group_id (string or number) to number for storage
+// For string group_ids, we hash them to a number
+function getGroupIdForStorage(groupId: number | string): number {
+  if (typeof groupId === 'number') {
+    return groupId;
+  }
+  // Hash string to number (simple hash function)
+  let hash = 0;
+  for (let i = 0; i < groupId.length; i++) {
+    const char = groupId.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash);
+}
+
+// Session storage for conversations per chat (using string keys to support both number and string group_ids)
+const sessionConversations = ref<Map<string, SessionConversation>>(new Map());
+
+// Track current chat group_id to detect chat switches (can be number or string)
+const currentGroupId = ref<number | string | null>(null);
 
 // Edit mode state
 const editingMessageIndex = ref<number | null>(null);
@@ -51,16 +76,18 @@ const editingMessageText = ref('');
 const abortController = ref<AbortController | null>(null);
 
 // Save conversation to session storage
-function saveConversationToSession(groupId: number) {
-  sessionConversations.value.set(groupId, {
+function saveConversationToSession(groupId: number | string) {
+  const key = String(groupId);
+  sessionConversations.value.set(key, {
     history: [...conversationHistory.value],
     messages: [...messages.value],
   });
 }
 
 // Load conversation from session storage
-function loadConversationFromSession(groupId: number): boolean {
-  const saved = sessionConversations.value.get(groupId);
+function loadConversationFromSession(groupId: number | string): boolean {
+  const key = String(groupId);
+  const saved = sessionConversations.value.get(key);
   if (saved) {
     conversationHistory.value = [...saved.history];
     messages.value = [...saved.messages];
@@ -71,7 +98,7 @@ function loadConversationFromSession(groupId: number): boolean {
 
 // Load profile and messages when dialog opens
 watch([() => props.visible, () => props.selectedChat], async ([visible, chat]) => {
-  if (visible && chat && !chat.broadcast && chat.type !== 100 && chat.db_id > 0) {
+  if (visible && chat && !chat.broadcast && chat.type !== 100 && (chat.db_id > 0 || isGroupChat.value)) {
     // Abort any ongoing request when switching chats
     if (abortController.value) {
       abortController.value.abort();
@@ -117,6 +144,7 @@ watch([() => props.visible, () => props.selectedChat], async ([visible, chat]) =
     inputMessage.value = '';
     error.value = null;
     profileData.value = null;
+    groupInfo.value = null;
     chatMessages.value = [];
     editingMessageIndex.value = null;
     editingMessageText.value = '';
@@ -129,34 +157,81 @@ async function loadData() {
   
   try {
     // Check if messages have been synced
-    const hasBeenFetched = await messageStorage.hasChatBeenFetched(props.selectedChat.group_id);
+    const storageGroupId = getGroupIdForStorage(props.selectedChat.group_id);
+    const hasBeenFetched = await messageStorage.hasChatBeenFetched(storageGroupId);
     if (!hasBeenFetched) {
       error.value = 'Chat messages not synced. Please sync messages for this chat first via the sync dialog.';
       return;
     }
     
-    // Load profile
-    const profile = await profileStorage.getProfile(props.selectedChat.db_id);
-    if (profile) {
-      profileData.value = profile;
-    } else {
-      error.value = 'Profile data not synced. Please sync profile data via the sync dialog.';
-      return;
-    }
-    
     // Load chat messages
-    const msgs = await messageStorage.getMessages(props.selectedChat.group_id);
+    const msgs = await messageStorage.getMessages(storageGroupId);
     chatMessages.value = msgs;
     
-    // Add welcome message only if this is a fresh conversation (no messages yet)
-    // Don't add if we loaded from session (messages already exist)
-    if (messages.value.length === 0 && conversationHistory.value.length === 0) {
-      const welcomeMsg = {
-        role: 'assistant' as const,
-        content: `Hello! I can help you analyze the profile and chat history with ${profileData.value.account_id}. What would you like to know?`,
-        timestamp: new Date(),
-      };
-      messages.value.push(welcomeMsg);
+    // Handle group chats vs individual chats
+    if (isGroupChat.value) {
+      // For group chats, fetch group info
+      const groupId = typeof props.selectedChat.group_id === 'string' 
+        ? props.selectedChat.group_id 
+        : String(props.selectedChat.group_id);
+      
+      // First, fetch group chat details to get target_db_id
+      const chatDetailsResponse = await getMessengerGroupChatDetails(groupId, 0);
+      
+      if (chatDetailsResponse.info.code !== '200' && chatDetailsResponse.info.code !== 200) {
+        error.value = chatDetailsResponse.info.message || 'Failed to load group chat details';
+        return;
+      }
+      
+      const targetDbId = chatDetailsResponse.info.target_db_id;
+      
+      if (!targetDbId) {
+        error.value = 'Failed to get target_db_id from group chat details';
+        return;
+      }
+      
+      // Fetch group info using target_db_id as muid
+      const infoResponse = await getMessengerGroupInfo(groupId, targetDbId);
+      
+      if (infoResponse.info.code === '200' || infoResponse.info.code === 200) {
+        groupInfo.value = {
+          name: infoResponse.info.name,
+          users: infoResponse.info.users,
+          admins: infoResponse.info.admins,
+        };
+      } else {
+        error.value = infoResponse.info.message || 'Failed to load group info';
+        return;
+      }
+      
+      // Add welcome message only if this is a fresh conversation (no messages yet)
+      if (messages.value.length === 0 && conversationHistory.value.length === 0) {
+        const welcomeMsg = {
+          role: 'assistant' as const,
+          content: `Hello! I can help you analyze this group chat and its participants. What would you like to know?`,
+          timestamp: new Date(),
+        };
+        messages.value.push(welcomeMsg);
+      }
+    } else {
+      // For individual chats, load profile
+      const profile = await profileStorage.getProfile(props.selectedChat.db_id);
+      if (profile) {
+        profileData.value = profile;
+      } else {
+        error.value = 'Profile data not synced. Please sync profile data via the sync dialog.';
+        return;
+      }
+      
+      // Add welcome message only if this is a fresh conversation (no messages yet)
+      if (messages.value.length === 0 && conversationHistory.value.length === 0) {
+        const welcomeMsg = {
+          role: 'assistant' as const,
+          content: `Hello! I can help you analyze the profile and chat history with ${profileData.value.account_id}. What would you like to know?`,
+          timestamp: new Date(),
+        };
+        messages.value.push(welcomeMsg);
+      }
     }
   } catch (err) {
     console.error('[AIChatDialog] Failed to load data:', err);
@@ -165,7 +240,7 @@ async function loadData() {
 }
 
 async function handleSendMessage() {
-  if (!inputMessage.value.trim() || isLoading.value || !profileData.value) {
+  if (!inputMessage.value.trim() || isLoading.value || (!profileData.value && !isGroupChat.value)) {
     return;
   }
   
@@ -206,7 +281,16 @@ async function handleSendMessage() {
       profileData.value,
       chatMessages.value,
       conversationHistory.value,
-      abortController.value.signal
+      abortController.value.signal,
+      isGroupChat.value && groupInfo.value
+        ? {
+            name: groupInfo.value.name,
+            participants: [
+              ...groupInfo.value.admins.map(a => ({ account_id: a.account_id, db_id: a.db_id })),
+              ...groupInfo.value.users.map(u => ({ account_id: u.account_id, db_id: u.db_id })),
+            ],
+          }
+        : null
     );
     
     // Add AI response to UI
@@ -279,11 +363,18 @@ function handleResetChat() {
   
   // Clear from session
   if (props.selectedChat) {
-    sessionConversations.value.delete(props.selectedChat.group_id);
+    sessionConversations.value.delete(String(props.selectedChat.group_id));
   }
   
   // Re-add welcome message
-  if (profileData.value) {
+  if (isGroupChat.value && groupInfo.value) {
+    const welcomeMsg = {
+      role: 'assistant' as const,
+      content: `Hello! I can help you analyze this group chat and its participants. What would you like to know?`,
+      timestamp: new Date(),
+    };
+    messages.value.push(welcomeMsg);
+  } else if (profileData.value) {
     const welcomeMsg = {
       role: 'assistant' as const,
       content: `Hello! I can help you analyze the profile and chat history with ${profileData.value.account_id}. What would you like to know?`,
@@ -310,7 +401,7 @@ function handleCancelEdit() {
 }
 
 async function handleSaveEdit(index: number) {
-  if (!editingMessageText.value.trim() || !profileData.value) {
+  if (!editingMessageText.value.trim() || (!profileData.value && !isGroupChat.value)) {
     return;
   }
   
@@ -433,8 +524,11 @@ onMounted(() => {
           <div>
             <h2 class="text-xl font-semibold text-white">
               AI Chat
-              <span v-if="selectedChat && !selectedChat.broadcast" class="text-sm text-[#999] font-normal">
+              <span v-if="selectedChat && !selectedChat.broadcast && !isGroupChat" class="text-sm text-[#999] font-normal">
                 with {{ selectedChat.account_id }}
+              </span>
+              <span v-else-if="selectedChat && isGroupChat && groupInfo" class="text-sm text-[#999] font-normal">
+                for {{ groupInfo.name }}
               </span>
             </h2>
             <p v-if="error" class="text-xs text-red-400 mt-1">{{ error }}</p>
@@ -494,10 +588,10 @@ onMounted(() => {
         class="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4 min-w-0"
       >
         <!-- Loading State -->
-        <div v-if="!profileData && !error" class="flex items-center justify-center h-full">
+        <div v-if="(!profileData && !isGroupChat) && (!groupInfo && isGroupChat) && !error" class="flex items-center justify-center h-full">
           <div class="flex flex-col items-center gap-4">
             <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <div class="text-[#999] text-sm">Loading profile and messages...</div>
+            <div class="text-[#999] text-sm">{{ isGroupChat ? 'Loading group info and messages...' : 'Loading profile and messages...' }}</div>
           </div>
         </div>
 
@@ -613,8 +707,8 @@ onMounted(() => {
           <textarea
             v-model="inputMessage"
             @keydown="handleKeydown"
-            :disabled="isLoading || !profileData || !!error"
-            placeholder="Ask me anything about this profile and chat history..."
+            :disabled="isLoading || (!profileData && !isGroupChat) || (isGroupChat && !groupInfo) || !!error"
+            :placeholder="isGroupChat ? 'Ask me anything about this group chat and its participants...' : 'Ask me anything about this profile and chat history...'"
             rows="1"
             class="flex-1 bg-[#0f0f0f] border border-[#333] rounded-lg px-4 py-2 text-white placeholder-[#666] focus:outline-none focus:border-blue-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
             style="min-height: 40px; max-height: 120px;"
@@ -649,7 +743,7 @@ onMounted(() => {
           <button
             v-else
             @click="handleSendMessage"
-            :disabled="!inputMessage.trim() || !profileData || !!error"
+            :disabled="!inputMessage.trim() || (!profileData && !isGroupChat) || (isGroupChat && !groupInfo) || !!error"
             class="p-2 bg-blue-500 hover:bg-blue-600 disabled:bg-[#333] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors shrink-0"
             title="Send message"
           >

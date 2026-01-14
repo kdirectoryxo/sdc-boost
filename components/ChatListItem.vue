@@ -25,11 +25,16 @@ const emit = defineEmits<{
 }>();
 
 const { togglePinChat, toggleMarkUnread, deleteChat } = useChatPin();
-const openDropdownId = ref<number | null>(null);
+const openDropdownId = ref<number | string | null>(null);
 
-// Fetch profile data for ages and distances (skip for broadcasts)
+// Check if this is a group
+const isGroup = computed(() => {
+  return props.chat.group_type === 1 || typeof props.chat.group_id === 'string';
+});
+
+// Fetch profile data for ages and distances (skip for broadcasts and groups)
 const shouldFetchProfile = computed(() => {
-  return !props.chat.broadcast && props.chat.type !== 100 && props.chat.db_id > 0;
+  return !props.chat.broadcast && props.chat.type !== 100 && props.chat.db_id > 0 && !isGroup.value;
 });
 
 const { profileData } = useChatProfile(computed(() => shouldFetchProfile.value ? props.chat.db_id : null));
@@ -107,7 +112,7 @@ function handleToggleMarkUnread() {
 }
 
 function handleDropdownToggle(open: boolean) {
-  openDropdownId.value = open ? props.chat.group_id : null;
+  openDropdownId.value = open ? (props.chat.group_id as number | string) : null;
 }
 
 function handleOpenTags(close: () => void) {
@@ -164,24 +169,31 @@ const displayDistance = computed(() => {
 
 <template>
   <div
-    :class="[
-      'px-4 py-3 cursor-pointer transition-colors hover:bg-[#1a1a1a] group relative',
-      selected ? 'bg-[#1a1a1a]' : '',
-      openDropdownId === chat.group_id ? 'z-50' : 'z-auto'
-    ]"
+      :class="[
+        'px-4 py-3 cursor-pointer transition-colors hover:bg-[#1a1a1a] group relative',
+        selected ? 'bg-[#1a1a1a]' : '',
+        openDropdownId === (chat.group_id as number | string) ? 'z-50' : 'z-auto'
+      ]"
     @click="handleClick"
   >
     <div class="flex items-start gap-3">
       <!-- Avatar -->
       <div class="relative shrink-0">
         <img
+          v-if="!isGroup || (chat.primary_photo && chat.primary_photo !== '/thumbnail/' && chat.primary_photo.trim() !== '')"
           :src="`https://pictures.sdc.com/photos/${chat.primary_photo}`"
-          :alt="chat.account_id"
+          :alt="isGroup ? chat.group_name : chat.account_id"
           class="w-12 h-12 rounded-full object-cover"
+        />
+        <img
+          v-else-if="isGroup"
+          src="https://www.sdc.com/react/assets/group.8481d87a.svg"
+          :alt="chat.group_name"
+          class="w-12 h-12 rounded-full object-cover bg-[#333] p-2"
         />
         <!-- Online Indicator -->
         <div
-          v-if="chat.online === 1 && !chat.broadcast"
+          v-if="chat.online === 1 && !chat.broadcast && !isGroup"
           class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#0f0f0f] rounded-full"
         />
       </div>
@@ -191,7 +203,7 @@ const displayDistance = computed(() => {
         <div class="flex items-center justify-between mb-1">
           <div class="flex items-center gap-2 min-w-0 flex-1">
             <h3 :class="['font-semibold truncate', nameColor]">
-              {{ chat.account_id }}
+              {{ isGroup ? chat.group_name : chat.account_id }}
             </h3>
             <!-- Ages -->
             <div v-if="displayAges" class="flex items-center gap-1 shrink-0">
@@ -255,9 +267,9 @@ const displayDistance = computed(() => {
             </svg>
 
             <!-- Dropdown Menu -->
-            <div @click.stop class="w-4 h-4 flex items-center justify-center relative" :class="{ 'z-51': openDropdownId === chat.group_id }">
+            <div @click.stop class="w-4 h-4 flex items-center justify-center relative" :class="{ 'z-51': openDropdownId === (chat.group_id as number | string) }">
               <Dropdown
-                :model-value="openDropdownId === chat.group_id"
+                :model-value="openDropdownId === (chat.group_id as number | string)"
                 @update:model-value="handleDropdownToggle"
                 placement="bottom"
                 alignment="end"

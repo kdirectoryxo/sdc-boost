@@ -13,6 +13,7 @@ import { useChatSync } from '@/lib/composables/chat/useChatSync';
 import { useChatSelection } from '@/lib/composables/chat/useChatSelection';
 import { useChatDialogLifecycle } from '@/lib/composables/chat/useChatDialogLifecycle';
 import { useProfileDialogs } from '@/lib/composables/chat/useProfileDialogs';
+import { useGroupDialogs } from '@/lib/composables/chat/useGroupDialogs';
 import ChatDialogHeader from '@/components/chat/ChatDialogHeader.vue';
 import ChatFoldersSidebar from '@/components/chat/ChatFoldersSidebar.vue';
 import ChatListSidebar from '@/components/chat/ChatListSidebar.vue';
@@ -25,6 +26,7 @@ import SyncChoiceDialog from '@/components/chat/SyncChoiceDialog.vue';
 import VideoLightbox from '@/components/chat/VideoLightbox.vue';
 import NewChatSearchDialog from '@/components/chat/NewChatSearchDialog.vue';
 import ProfileDialog from '@/components/chat/ProfileDialog.vue';
+import GroupDialog from '@/components/chat/GroupDialog.vue';
 import ChatDialogSettings from '@/components/chat/ChatDialogSettings.vue';
 import AIChatDialog from '@/components/chat/AIChatDialog.vue';
 import type { GalleryPhoto, MessengerChatItem } from '@/lib/sdc-api-types';
@@ -266,6 +268,7 @@ const showNewChatDialog = ref(false);
 
 // Profile dialogs management
 const { profileDialogs, openProfileDialog, closeProfileDialog } = useProfileDialogs();
+const { groupDialogs, openGroupDialog, closeGroupDialog } = useGroupDialogs();
 
 // Track full profile sync status
 const fullProfileSyncDone = ref(false);
@@ -422,6 +425,14 @@ function handleCloseProfileDialog(dialogId: string) {
 function handleOpenProfileFromDialog(userId: number) {
   openProfileDialog(userId);
 }
+
+function handleOpenGroupDialog(groupId: string) {
+  openGroupDialog(groupId);
+}
+
+function handleCloseGroupDialog(dialogId: string) {
+  closeGroupDialog(dialogId);
+}
 </script>
 
 <template>
@@ -528,6 +539,7 @@ function handleOpenProfileFromDialog(userId: number) {
             :message-search-query="messageSearchQuery"
             @update:open-dropdown-message-id="openDropdownMessageId = $event"
             @open-profile-dialog="handleOpenProfileDialog"
+            @open-group-dialog="handleOpenGroupDialog"
             @quote-message="handleQuoteMessageWrapper"
             @copy-message="handleCopyMessageWrapper"
             @delete-message="handleDeleteMessageWrapper"
@@ -692,6 +704,18 @@ function handleOpenProfileFromDialog(userId: number) {
     :stack-level="dialog.stackLevel"
     :dialog-id="dialog.id"
     @close="handleCloseProfileDialog(dialog.id)"
+    @open-profile="handleOpenProfileFromDialog"
+  />
+  
+  <!-- Group Dialogs (stacked) -->
+  <GroupDialog
+    v-for="dialog in groupDialogs"
+    :key="dialog.id"
+    :visible="true"
+    :group-id="dialog.groupId"
+    :stack-level="dialog.stackLevel"
+    :dialog-id="dialog.id"
+    @close="handleCloseGroupDialog(dialog.id)"
     @open-profile="handleOpenProfileFromDialog"
   />
   

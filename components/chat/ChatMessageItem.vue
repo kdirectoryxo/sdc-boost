@@ -24,6 +24,7 @@ const emit = defineEmits<{
   'scroll-to-quoted': [message: MessengerMessage];
   'open-lightbox': [message: MessengerMessage, imageIndex: number, event?: Event];
   'open-gallery': [message: MessengerMessage];
+  'open-profile-dialog': [userId: number];
 }>();
 
 const parsedMessage = computed(() => parseImageMessage(props.message.message));
@@ -36,6 +37,12 @@ const quotedGalleryMessage = computed(() => {
     return parseGalleryMessage(props.message.q_message);
   }
   return null;
+});
+const quotedImageMessage = computed(() => {
+  if (props.message.is_quote && props.message.q_message) {
+    return parseImageMessage(props.message.q_message);
+  }
+  return { imageIds: [], text: '' };
 });
 
 function handleOpenGallery() {
@@ -102,10 +109,61 @@ const messageId = computed(() => {
     ? `message-${props.message.message_id}`
     : `message-opt_${props.index}_${props.message.date2}`;
 });
+
+// Check if this is a group chat
+const isGroupChat = computed(() => {
+  if (!props.selectedChat) return false;
+  return props.selectedChat.group_type === 1 || typeof props.selectedChat.group_id === 'string';
+});
+
+// Name color based on gender (same logic as ChatMessagesArea)
+const senderNameColor = computed(() => {
+  if (props.message.gender1 === 1 && props.message.gender2 === 2) {
+    return 'text-pink-400'; // Pink for couples with female
+  }
+  return 'text-purple-400'; // Purple default
+});
+
+function handleOpenProfile() {
+  if (props.message.db_id && props.message.db_id > 0) {
+    emit('open-profile-dialog', props.message.db_id);
+  }
+}
+
+// Check if this is a system join message (sender === 2, message is just a db_id)
+const isSystemJoinMessage = computed(() => {
+  if (props.message.sender !== 2) return false;
+  // Check if message is just a number (db_id)
+  const messageText = props.message.message.trim();
+  return /^\d+$/.test(messageText);
+});
 </script>
 
 <template>
+  <!-- System Join Message (centered, different styling) -->
   <div
+    v-if="isSystemJoinMessage"
+    :id="messageId"
+    :data-message-id="message.message_id"
+    class="flex justify-center items-center py-2"
+  >
+    <div class="px-4 py-1.5 bg-[#1a1a1a] border border-[#333] rounded-full">
+      <span class="text-xs text-[#999]">
+        <span
+          @click.stop="handleOpenProfile"
+          :class="['font-semibold cursor-pointer hover:text-blue-400 transition-colors', senderNameColor]"
+          :title="`Click to view ${message.account_id}'s profile`"
+        >
+          {{ message.account_id }}
+        </span>
+        <span class="text-[#666]"> doet mee met de groep</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- Regular Message -->
+  <div
+    v-else
     :id="messageId"
     :data-message-id="message.message_id"
     :class="[
@@ -114,9 +172,9 @@ const messageId = computed(() => {
       isHighlighted ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#1a1a1a] rounded-lg p-1' : ''
     ]"
   >
-    <!-- Avatar (only for other user) -->
+    <!-- Avatar (only for other user, hidden in group chats) -->
     <img
-      v-if="!isOwnMessage(message) && selectedChat"
+      v-if="!isOwnMessage(message) && selectedChat && !isGroupChat"
       :src="`https://pictures.sdc.com/photos/${selectedChat.primary_photo}`"
       :alt="message.account_id"
       class="w-8 h-8 rounded-full object-cover shrink-0"
@@ -129,6 +187,20 @@ const messageId = computed(() => {
         isOwnMessage(message) ? 'items-end ml-auto max-w-[70%]' : 'items-start max-w-[70%]'
       ]"
     >
+      <!-- Sender Name (only in group chats, only for other users) -->
+      <div
+        v-if="isGroupChat && !isOwnMessage(message)"
+        class="px-1 mb-0.5"
+      >
+        <span
+          @click.stop="handleOpenProfile"
+          :class="['text-xs font-semibold cursor-pointer hover:text-blue-400 transition-colors', senderNameColor]"
+          :title="`Click to view ${message.account_id}'s profile`"
+        >
+          {{ message.account_id }}
+        </span>
+      </div>
+      
       <!-- Quoted Message -->
       <div
         v-if="message.is_quote && message.q_message"
@@ -158,6 +230,25 @@ const messageId = computed(() => {
             <template v-else>
               {{ quotedGalleryMessage.galleryName }}
             </template>
+          </div>
+        </div>
+        <!-- Quoted Image -->
+        <div v-else-if="quotedImageMessage.imageIds.length > 0" class="space-y-1">
+          <div class="flex gap-1.5">
+            <img
+              v-for="(imageId, idx) in quotedImageMessage.imageIds.slice(0, 2)"
+              :key="idx"
+              :src="getImageUrl(imageId, message.q_db_id || undefined)"
+              :alt="`Quoted image ${idx + 1}`"
+              class="w-12 h-12 rounded object-cover shrink-0"
+              @error="(e) => { (e.target as HTMLImageElement).style.display = 'none'; }"
+            />
+            <div v-if="quotedImageMessage.imageIds.length > 2" class="w-12 h-12 rounded bg-[#1a1a1a] flex items-center justify-center text-xs text-[#999] shrink-0">
+              +{{ quotedImageMessage.imageIds.length - 2 }}
+            </div>
+          </div>
+          <div v-if="quotedImageMessage.text" class="text-xs line-clamp-1 wrap-break-word text-[#999]">
+            {{ quotedImageMessage.text }}
           </div>
         </div>
         <!-- Quoted Regular Message -->

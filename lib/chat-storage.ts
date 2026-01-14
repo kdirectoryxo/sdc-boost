@@ -480,6 +480,14 @@ class ChatStorage {
     }
 
     /**
+     * Get last sync time for groups
+     * @returns Last sync time as ISO date string, or null if not found
+     */
+    async getGroupsLastSyncTime(): Promise<string | null> {
+        return this.getLastSyncTime('groups');
+    }
+
+    /**
      * Clear sync time for a specific key
      * @param key The sync key ('inbox', 'archives', or 'folder_${folderId}')
      */

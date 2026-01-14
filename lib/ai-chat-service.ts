@@ -158,6 +158,52 @@ export function formatProfileForAI(profile: ProfileUser): string {
 }
 
 /**
+ * Format group participants for AI context
+ * Loads full profiles for each participant and formats them
+ */
+export async function formatGroupParticipantsForAI(
+  groupName: string,
+  participants: Array<{ account_id: string; db_id: string | number }>
+): Promise<string> {
+  const parts: string[] = [];
+  parts.push(`Group: ${groupName}`);
+  parts.push('');
+  parts.push('Participants:');
+  parts.push('');
+  
+  // Load and format each participant's profile
+  for (const participant of participants) {
+    const dbId = typeof participant.db_id === 'string' ? parseInt(participant.db_id) : participant.db_id;
+    
+    if (!dbId || dbId <= 0) {
+      // If no valid db_id, just include basic info
+      parts.push(`- ${participant.account_id} (profile not available)`);
+      continue;
+    }
+    
+    try {
+      const profile = await profileStorage.getProfile(dbId);
+      if (profile) {
+        // Format full profile
+        const profileFormatted = formatProfileForAI(profile);
+        parts.push(`- ${profileFormatted}`);
+      } else {
+        // Profile not synced, include basic info
+        parts.push(`- ${participant.account_id} (profile not synced)`);
+      }
+    } catch (err) {
+      // Error loading profile, include basic info
+      console.warn(`[formatGroupParticipantsForAI] Failed to load profile for ${participant.account_id}:`, err);
+      parts.push(`- ${participant.account_id} (profile unavailable)`);
+    }
+    
+    parts.push(''); // Empty line between participants
+  }
+  
+  return parts.join('\n');
+}
+
+/**
  * Compress chat history by removing HTML, extra whitespace, and using short sender format
  */
 export function compressChatHistory(messages: MessengerMessage[], accountName: string): string {
@@ -208,6 +254,63 @@ export function compressChatHistory(messages: MessengerMessage[], accountName: s
     
     // Format message with short sender identifier
     const sender = msg.sender === 0 ? 'Me' : accountName;
+    lines.push(`${sender}: ${messageText}`);
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * Compress chat history for group chats with multiple participants
+ * Uses message.account_id for each message sender
+ */
+export function compressChatHistoryForGroup(messages: MessengerMessage[]): string {
+  if (messages.length === 0) {
+    return 'No messages yet.';
+  }
+  
+  const lines: string[] = [];
+  lines.push('Group Chat History:');
+  lines.push(''); // Empty line for readability
+  
+  let lastDate: string | null = null;
+  
+  for (const msg of messages) {
+    // Extract text from message, handling different message types
+    let messageText = '';
+    
+    // Check if it's an image message (type 6)
+    if (msg.message.startsWith('[6|') && msg.message.includes('-|-')) {
+      const parsed = parseImageMessage(msg.message);
+      messageText = parsed.text || '[Image]';
+    }
+    // Check if it's a video message (type 8)
+    else if (msg.message.startsWith('[8|') && msg.message.includes('-|-')) {
+      const parsed = parseVideoMessage(msg.message);
+      messageText = parsed.text || '[Video]';
+    }
+    // Regular message - strip HTML
+    else {
+      messageText = stripHtml(msg.message).trim();
+    }
+    
+    // Skip empty messages
+    if (!messageText) {
+      continue;
+    }
+    
+    // Remove extra whitespace/newlines (compress to single spaces)
+    messageText = messageText.replace(/\s+/g, ' ').trim();
+    
+    // Format date if it changed (only show date changes, not every message)
+    const messageDate = new Date(msg.date2 * 1000).toLocaleDateString();
+    if (messageDate !== lastDate) {
+      lines.push(`[${messageDate}]`);
+      lastDate = messageDate;
+    }
+    
+    // Format message with sender's account_id (or "Me" for current user)
+    const sender = msg.sender === 0 ? 'Me' : (msg.account_id || 'Unknown');
     lines.push(`${sender}: ${messageText}`);
   }
   
@@ -296,10 +399,11 @@ async function retryWithBackoff<T>(
  */
 export async function chatWithAI(
   userMessage: string,
-  profile: ProfileUser,
+  profile: ProfileUser | null,
   messages: MessengerMessage[],
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
-  abortSignal?: AbortSignal
+  abortSignal?: AbortSignal,
+  groupInfo?: { name: string; participants: Array<{ account_id: string; db_id: string | number }> } | null
 ): Promise<string> {
   const apiKey = await getSetting('openrouter_api_key') || undefined;
   
@@ -307,9 +411,6 @@ export async function chatWithAI(
     throw new Error('OpenRouter API key not configured. Please set it in settings.');
   }
 
-  // Format profile data for the profile being analyzed
-  const profileContext = formatProfileForAI(profile);
-  
   // Try to load current user's profile
   let currentUserProfileContext = '';
   try {
@@ -325,18 +426,81 @@ export async function chatWithAI(
     console.warn('[ai-chat-service] Could not load current user profile:', err);
   }
   
-  // Compress chat history
-  const chatHistory = compressChatHistory(messages, profile.account_id);
+  // Load additional context/preferences
+  let additionalContext = '';
+  try {
+    const contextValue = await getSetting('ai_chat_context');
+    if (contextValue && typeof contextValue === 'string' && contextValue.trim()) {
+      additionalContext = contextValue.trim();
+    }
+  } catch (err) {
+    // Non-blocking: if context isn't available, continue without it
+    console.warn('[ai-chat-service] Could not load additional context:', err);
+  }
   
-  // Build system prompt
-  const yourProfileSection = currentUserProfileContext 
-    ? `Your Profile (the person asking questions):
+  // Build system prompt based on whether it's a group chat or individual chat
+  let systemPrompt = '';
+  
+  if (groupInfo) {
+    // Group chat mode
+    const participantsContext = await formatGroupParticipantsForAI(groupInfo.name, groupInfo.participants);
+    const chatHistory = compressChatHistoryForGroup(messages);
+    
+    const yourProfileSection = currentUserProfileContext 
+      ? `Your Profile (the person asking questions):
 ${currentUserProfileContext}
+${additionalContext ? `\nAdditional Preferences:\n${additionalContext}` : ''}
 
 `
-    : '';
-  
-  const systemPrompt = `You are an AI assistant helping analyze a profile and chat history from SDC.com (a social networking platform).
+      : additionalContext
+      ? `Additional Preferences:
+${additionalContext}
+
+`
+      : '';
+    
+    systemPrompt = `You are an AI assistant helping analyze a GROUP CHAT and its participants from SDC.com (a social networking platform).
+
+${yourProfileSection}${participantsContext}
+
+Chat History:
+${chatHistory}
+
+IMPORTANT CONTEXT:
+- "Me" in the chat history refers to YOU (the current user asking questions)
+- Each message shows the sender's account_id
+- When analyzing the chat, consider all participants' contributions
+- The group chat may have multiple active participants
+
+Please help answer questions about this group chat and its participants. Be concise and helpful.
+
+IMPORTANT: Format your responses using Markdown syntax. Use:
+- **bold** for emphasis
+- *italic* for subtle emphasis
+- Bullet points (- or *) for lists
+- Code blocks (\`\`\`) for code if needed
+- Headers (# ## ###) for sections if appropriate
+
+Keep responses clear and well-formatted.`;
+  } else if (profile) {
+    // Individual chat mode
+    const profileContext = formatProfileForAI(profile);
+    const chatHistory = compressChatHistory(messages, profile.account_id);
+    
+    const yourProfileSection = currentUserProfileContext 
+      ? `Your Profile (the person asking questions):
+${currentUserProfileContext}
+${additionalContext ? `\nAdditional Preferences:\n${additionalContext}` : ''}
+
+`
+      : additionalContext
+      ? `Additional Preferences:
+${additionalContext}
+
+`
+      : '';
+    
+    systemPrompt = `You are an AI assistant helping analyze a profile and chat history from SDC.com (a social networking platform).
 
 ${yourProfileSection}Profile Information (the profile being analyzed):
 ${profileContext}
@@ -360,6 +524,9 @@ IMPORTANT: Format your responses using Markdown syntax. Use:
 - Headers (# ## ###) for sections if appropriate
 
 Keep responses clear and well-formatted.`;
+  } else {
+    throw new Error('Either profile or groupInfo must be provided');
+  }
 
   try {
     const client = new OpenRouter({

@@ -550,7 +550,7 @@ const isGender2Real = computed(() => {
     class="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
     :style="{
       pointerEvents: 'auto',
-      zIndex: 10000001 + (stackLevel * 10),
+      zIndex: 10000011 + (stackLevel * 10), // Higher base z-index than GroupDialog to ensure it appears above
       position: 'fixed',
       top: 0,
       left: 0,
