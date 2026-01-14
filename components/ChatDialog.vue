@@ -84,6 +84,7 @@ const {
   hasActiveFilters,
   activeFilterCount,
   clearAllFilters,
+  clearAllSorts,
   clearChatSearch,
   toggleSortByOnline,
   toggleSortByDistance,
@@ -517,6 +518,7 @@ function handleCloseGroupDialog(dialogId: string) {
           @chat-click="handleChatClick"
           @chat-open-tags="handleOpenTags"
           @clear-filters="clearAllFilters"
+          @clear-sort="clearAllSorts"
           @clear-search="clearChatSearch"
           @new-chat="handleNewChat"
         />

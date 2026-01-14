@@ -381,6 +381,15 @@ export const useChatFilters = createGlobalState(() => {
   }
   
   /**
+   * Clear all active sorts
+   */
+  function clearAllSorts(): void {
+    sortByOnline.value = null;
+    sortByDistance.value = null;
+    disablePinnedSort.value = false;
+  }
+  
+  /**
    * Check if any sort is active
    */
   const hasActiveSort = computed(() => {
@@ -412,6 +421,7 @@ export const useChatFilters = createGlobalState(() => {
     updateFilteredChats,
     toggleFilter,
     clearAllFilters,
+    clearAllSorts,
     clearChatSearch,
     toggleSortByOnline,
     toggleSortByDistance,

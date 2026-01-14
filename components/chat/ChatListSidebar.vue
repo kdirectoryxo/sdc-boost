@@ -58,6 +58,7 @@ const emit = defineEmits<{
   'chat-click': [chat: MessengerChatItem];
   'chat-open-tags': [chat: MessengerChatItem];
   'clear-filters': [];
+  'clear-sort': [];
   'clear-search': [];
   'new-chat': [];
 }>();
@@ -79,6 +80,12 @@ const allTags = computed(() => {
 function handleClearFilters() {
   emit('clear-filters');
   emit('update:isFilterDropdownOpen', false);
+}
+
+function handleClearSort(e: Event) {
+  e.stopPropagation();
+  emit('clear-sort');
+  emit('update:isSortDropdownOpen', false);
 }
 </script>
 
@@ -151,89 +158,135 @@ function handleClearFilters() {
                   <path d="M7 12h10"></path>
                   <path d="M10 18h4"></path>
                 </svg>
+                <!-- Clear icon (top-right) -->
+                <button
+                  v-if="hasActiveSort"
+                  @click.stop="handleClearSort"
+                  class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center z-20 transition-colors"
+                  title="Clear sort"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
               </button>
             </template>
           <template #content="{ close }">
-            <div class="p-2">
-              <!-- Sort by Online -->
-              <div class="px-3 py-1 text-xs text-[#666] uppercase tracking-wide mb-1">Sort by Online</div>
-              <button
-                @click="emit('toggle-sort-online')"
-                class="w-full flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors text-left"
-              >
-                <div class="flex-1 text-white text-sm">
-                  <div v-if="sortByOnline === 'asc'" class="flex items-center gap-2">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
-                      <path d="M3 6h18"></path>
-                      <path d="M7 12h10"></path>
-                      <path d="M10 18h4"></path>
-                    </svg>
-                    <span>Ascending (Online first)</span>
-                  </div>
-                  <div v-else-if="sortByOnline === 'desc'" class="flex items-center gap-2">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
-                      <path d="M3 18h18"></path>
-                      <path d="M7 12h10"></path>
-                      <path d="M10 6h4"></path>
-                    </svg>
-                    <span>Descending (Offline first)</span>
-                  </div>
-                  <div v-else class="flex items-center gap-2">
-                    <span>Disable</span>
-                  </div>
-                </div>
-                <svg v-if="sortByOnline !== null" class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-              </button>
-              
-              <!-- Sort by Distance -->
-              <div class="border-t border-[#333] mt-2 pt-2">
-                <div class="px-3 py-1 text-xs text-[#666] uppercase tracking-wide mb-1">Sort by Distance</div>
+            <div class="flex flex-col max-h-[350px]">
+              <!-- Header with clear button -->
+              <div class="flex items-center justify-between px-3 py-2 border-b border-[#333] bg-[#151515] sticky top-0 z-10">
+                <span class="text-xs font-medium text-[#999] uppercase tracking-wider">Sort</span>
                 <button
-                  @click="emit('toggle-sort-distance')"
-                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors text-left"
+                  v-if="hasActiveSort"
+                  @click="handleClearSort"
+                  class="text-xs text-red-400 hover:text-red-300 transition-colors"
                 >
-                  <div class="flex-1 text-white text-sm">
-                    <div v-if="sortByDistance === 'asc'" class="flex items-center gap-2">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
+                  Clear all
+                </button>
+              </div>
+              
+              <!-- Scrollable content -->
+              <div class="overflow-y-auto flex-1 py-1">
+                <!-- Sort by Online -->
+                <div class="px-3 py-1.5 text-[10px] font-medium text-[#666] uppercase tracking-wider">Online Status</div>
+                <div class="px-1">
+                  <button
+                    @click="emit('toggle-sort-online')"
+                    :class="[
+                      'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
+                      sortByOnline !== null ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                    ]"
+                  >
+                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', sortByOnline !== null ? 'bg-blue-500' : 'bg-[#333]']">
+                      <svg v-if="sortByOnline !== null" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </div>
+                    <div class="flex items-center gap-2 flex-1">
+                      <svg v-if="sortByOnline === 'asc'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
                         <path d="M3 6h18"></path>
                         <path d="M7 12h10"></path>
                         <path d="M10 18h4"></path>
                       </svg>
-                      <span>Ascending (Closest first, 0 km shown)</span>
-                    </div>
-                    <div v-else-if="sortByDistance === 'desc'" class="flex items-center gap-2">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
+                      <svg v-else-if="sortByOnline === 'desc'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
                         <path d="M3 18h18"></path>
                         <path d="M7 12h10"></path>
                         <path d="M10 6h4"></path>
                       </svg>
-                      <span>Descending (Farthest first, 0 km shown)</span>
+                      <div class="w-3.5 h-3.5 rounded-full bg-green-500 opacity-60" v-else></div>
+                      <span class="text-sm">
+                        {{ sortByOnline === 'asc' ? 'Online first' : sortByOnline === 'desc' ? 'Offline first' : 'Online status' }}
+                      </span>
                     </div>
-                    <div v-else class="flex items-center gap-2">
-                      <span>Disable</span>
-                    </div>
+                  </button>
+                </div>
+                
+                <!-- Sort by Distance -->
+                <div class="mt-1 pt-1 border-t border-[#2a2a2a]">
+                  <div class="px-3 py-1.5 text-[10px] font-medium text-[#666] uppercase tracking-wider">Distance</div>
+                  <div class="px-1">
+                    <button
+                      @click="emit('toggle-sort-distance')"
+                      :class="[
+                        'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
+                        sortByDistance !== null ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                      ]"
+                    >
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', sortByDistance !== null ? 'bg-blue-500' : 'bg-[#333]']">
+                        <svg v-if="sortByDistance !== null" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      </div>
+                      <div class="flex items-center gap-2 flex-1">
+                        <svg v-if="sortByDistance === 'asc'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
+                          <path d="M3 6h18"></path>
+                          <path d="M7 12h10"></path>
+                          <path d="M10 18h4"></path>
+                        </svg>
+                        <svg v-else-if="sortByDistance === 'desc'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
+                          <path d="M3 18h18"></path>
+                          <path d="M7 12h10"></path>
+                          <path d="M10 6h4"></path>
+                        </svg>
+                        <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
+                          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+                          <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                        <span class="text-sm">
+                          {{ sortByDistance === 'asc' ? 'Closest first' : sortByDistance === 'desc' ? 'Farthest first' : 'Distance' }}
+                        </span>
+                      </div>
+                    </button>
                   </div>
-                  <svg v-if="sortByDistance !== null" class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-              
-              <!-- Disable Pinned Sort -->
-              <div class="border-t border-[#333] mt-2 pt-2">
-                <button
-                  @click="emit('toggle-disable-pinned-sort')"
-                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded hover:bg-[#2a2a2a] cursor-pointer transition-colors text-left"
-                >
-                  <div class="flex-1 text-white text-sm">
-                    <span>{{ disablePinnedSort ? 'Enable pinned sort' : 'Disable pinned sort' }}</span>
+                </div>
+                
+                <!-- Pinned Sort Options -->
+                <div class="mt-1 pt-1 border-t border-[#2a2a2a]">
+                  <div class="px-3 py-1.5 text-[10px] font-medium text-[#666] uppercase tracking-wider">Options</div>
+                  <div class="px-1">
+                    <button
+                      @click="emit('toggle-disable-pinned-sort')"
+                      :class="[
+                        'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
+                        disablePinnedSort ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                      ]"
+                    >
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', disablePinnedSort ? 'bg-blue-500' : 'bg-[#333]']">
+                        <svg v-if="disablePinnedSort" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      </div>
+                      <div class="flex items-center gap-2 flex-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60">
+                          <path d="M12 17v5"></path>
+                          <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"></path>
+                        </svg>
+                        <span class="text-sm">Ignore pinned order</span>
+                      </div>
+                    </button>
                   </div>
-                  <svg v-if="disablePinnedSort" class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                </button>
+                </div>
               </div>
             </div>
           </template>
@@ -270,6 +323,18 @@ function handleClearFilters() {
                 >
                   {{ activeFilterCount }}
                 </span>
+                <!-- Clear icon (top-right) -->
+                <button
+                  v-if="hasActiveFilters"
+                  @click.stop="handleClearFilters"
+                  class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center z-20 transition-colors"
+                  title="Clear filters"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
               </button>
             </template>
           <template #content="{ close }">
