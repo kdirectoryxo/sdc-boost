@@ -257,7 +257,8 @@ export async function getNewsfeed(
     t1?: number,
     remembered: boolean = false,
     last_key: string = '',
-    time_zone?: number
+    time_zone?: number,
+    signal?: AbortSignal
 ): Promise<NewsfeedResponse> {
     const currentMuid = muid || getCurrentMuid();
 
@@ -287,6 +288,7 @@ export async function getNewsfeed(
                 'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8,ar;q=0.7,nl;q=0.6',
             },
             credentials: 'include',
+            signal,
         });
 
         if (!response.ok) {
@@ -318,7 +320,8 @@ export async function getAdminFeed(
     filter_f: string = '',
     muid?: string | null,
     remembered: boolean = false,
-    client_token: string = '0'
+    client_token: string = '0',
+    signal?: AbortSignal
 ): Promise<AdminFeedResponse> {
     const currentMuid = muid || getCurrentMuid();
 
@@ -343,6 +346,7 @@ export async function getAdminFeed(
                 'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8,ar;q=0.7,nl;q=0.6',
             },
             credentials: 'include',
+            signal,
         });
 
         if (!response.ok) {

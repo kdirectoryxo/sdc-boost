@@ -10,29 +10,22 @@ interface Props {
 const props = defineProps<Props>();
 
 const receiver = computed(() => props.item.receiver);
-const party = computed(() => props.item.party);
+const extraData = computed(() => props.item.extra_data);
 
 const photoUrl = computed(() => {
   if (receiver.value?.primary_photo) {
     if (receiver.value.primary_photo.startsWith('http')) {
       return receiver.value.primary_photo;
     }
+    if (receiver.value.primary_photo === '/thumbnail/') {
+      return null;
+    }
     return `https://pictures.sdc.com/photos/${receiver.value.primary_photo}`;
   }
   return null;
 });
 
-const partyPhotoUrl = computed(() => {
-  if (party.value?.primary_photo) {
-    if (party.value.primary_photo.startsWith('http')) {
-      return party.value.primary_photo;
-    }
-    return `https://pictures.sdc.com/photos/${party.value.primary_photo}`;
-  }
-  return null;
-});
-
-// Parse age string (format: "38|48" or similar)
+// Parse age string (format: "48|50" or similar)
 const parseAge = () => {
   if (!receiver.value?.age) return { first: null, second: null };
   const parts = receiver.value.age.split('|');
@@ -45,7 +38,6 @@ const parseAge = () => {
 const ages = computed(() => parseAge());
 
 // Check if second person age is real (not a placeholder)
-// Gender2 is not real if age is > 100, undefined, or < 18
 const isGender2Real = computed(() => {
   if (!ages.value.second) return false;
   const age = parseInt(ages.value.second, 10);
@@ -62,7 +54,7 @@ const formatDistance = (km: number | undefined) => {
   return `${km} km`;
 };
 
-// Parse interests from summary_int (6 characters: Couple M/F, Couple F/F, Couple M/M, Single F, Single M, Transgender)
+// Parse interests from summary_int
 const parseInterests = (interests: string | undefined) => {
   if (!interests || interests.length < 6) {
     return {
@@ -91,21 +83,11 @@ const receiverInterests = computed(() => {
   return parseInterests(interestsStr);
 });
 
-const partyInterests = computed(() => {
-  // Party interests are determined by filter_couple, filter_female, filter_male, filter_trans
-  return {
-    coupleMaleFemale: party.value?.filter_couple === 1,
-    singleFemale: party.value?.filter_female === 1,
-    singleMale: party.value?.filter_male === 1,
-    transgender: party.value?.filter_trans === 1,
-  };
-});
-
-// Get receiver interests icons
+// Get interests icons - only show couple icons if gender2 is real, otherwise filter them out
 const receiverInterestsIcons = computed(() => {
   const icons: Array<{ type: string; url: string; width: number; height: number }> = [];
   
-  if (receiverInterests.value.coupleMaleFemale) {
+  if (isGender2Real.value && receiverInterests.value.coupleMaleFemale) {
     icons.push({
       type: 'couple',
       url: 'https://www.sdc.com/react/assets/couple_male_female_icon.a2db86e4.svg',
@@ -114,74 +96,58 @@ const receiverInterestsIcons = computed(() => {
     });
   }
   
-  if (receiverInterests.value.singleFemale) {
-    icons.push({
-      type: 'single-female',
-      url: 'https://www.sdc.com/react/assets/single_female_icon.e150c7be.svg',
-      width: 24,
-      height: 20,
-    });
-  }
-  
-  if (receiverInterests.value.singleMale) {
-    icons.push({
-      type: 'single-male',
-      url: 'https://www.sdc.com/react/assets/single_male_icon.6eca46f8.svg',
-      width: 24,
-      height: 20,
-    });
-  }
-  
-  return icons;
-});
-
-// Get party welcome interests icons
-const partyInterestsIcons = computed(() => {
-  const icons: Array<{ type: string; url: string; width: number; height: number }> = [];
-  
-  if (partyInterests.value.coupleMaleFemale) {
-    icons.push({
-      type: 'couple',
-      url: 'https://www.sdc.com/react/assets/couple_male_female_icon.a2db86e4.svg',
-      width: 14,
-      height: 20,
-    });
-  }
-  
-  if (partyInterests.value.singleFemale) {
-    icons.push({
-      type: 'single-female',
-      url: 'https://www.sdc.com/react/assets/single_female_icon.e150c7be.svg',
-      width: 24,
-      height: 20,
-    });
-  }
-  
-  if (partyInterests.value.singleMale) {
-    icons.push({
-      type: 'single-male',
-      url: 'https://www.sdc.com/react/assets/single_male_icon.6eca46f8.svg',
-      width: 24,
-      height: 20,
-    });
-  }
-  
-  if (partyInterests.value.transgender) {
-    icons.push({
-      type: 'transgender',
-      url: 'https://www.sdc.com/react/assets/transgender_icon.e29c4d6d.svg',
-      width: 24,
-      height: 20,
-    });
+  if (!isGender2Real.value) {
+    if (receiverInterests.value.singleFemale) {
+      icons.push({
+        type: 'single-female',
+        url: 'https://www.sdc.com/react/assets/single_female_icon.e150c7be.svg',
+        width: 24,
+        height: 20,
+      });
+    }
+    
+    if (receiverInterests.value.singleMale) {
+      icons.push({
+        type: 'single-male',
+        url: 'https://www.sdc.com/react/assets/single_male_icon.6eca46f8.svg',
+        width: 20,
+        height: 20,
+      });
+    }
   }
   
   return icons;
 });
 
-const handleRemoveFromGuestList = () => {
-  // TODO: Implement API call to remove from guest list
-  console.log('Remove from guest list', party.value?.agenda_id);
-};
+// Get travel plan description - prefer extra_data.description, fallback to body
+const travelDescription = computed(() => {
+  if (extraData.value?.description) {
+    return extraData.value.description.trim();
+  }
+  if (extraData.value?.text_description) {
+    return extraData.value.text_description.trim();
+  }
+  // Remove location from end of body if present
+  const body = props.item.body || '';
+  // Remove HTML tags and trailing location
+  return body.replace(/<[^>]*>/g, '').trim();
+});
+
+// Get travel dates
+const travelDates = computed(() => {
+  if (extraData.value?.date_from && extraData.value?.date_until) {
+    return `${extraData.value.date_from} - ${extraData.value.date_until}`;
+  }
+  if (extraData.value?.date_from) {
+    return extraData.value.date_from;
+  }
+  return '';
+});
+
+// Get travel location
+const travelLocation = computed(() => {
+  return extraData.value?.location || receiver.value?.location || '';
+});
 </script>
 
 <template>
@@ -189,14 +155,14 @@ const handleRemoveFromGuestList = () => {
     <!-- Header -->
     <div class="newsfeed-card-header">
       <p class="newsfeed-card-header-text">
-        Lid is toegevoegd aan een gastenlijst
+        {{ receiver?.account_id }} heeft reisplan geplaatst
       </p>
       <p class="newsfeed-card-header-time">{{ item.timed }}</p>
     </div>
 
     <!-- Content -->
     <div class="newsfeed-card-content">
-      <!-- Left: Member Profile -->
+      <!-- Left: Profile Info -->
       <div class="newsfeed-card-section">
         <div class="newsfeed-card-profile">
           <img
@@ -220,6 +186,20 @@ const handleRemoveFromGuestList = () => {
                   title="Web-gebruiker"
                 />
                 <img 
+                  v-if="receiver?.is_app_user" 
+                  src="https://www.sdc.com/react/assets/mobile_user_icon.07eafea0.svg" 
+                  alt="is-app-user" 
+                  class="newsfeed-card-device-icon"
+                  title="App-gebruiker"
+                />
+                <img 
+                  v-if="receiver?.speed" 
+                  src="https://www.sdc.com/react/assets/speed_white.3176d40b.svg" 
+                  alt="is-speed-date" 
+                  class="newsfeed-card-device-icon"
+                  title="Speed Date"
+                />
+                <img 
                   v-if="receiver?.online === 1" 
                   src="https://www.sdc.com/react/assets/messenger_online_icon.0a87dd19.svg" 
                   alt="user-is-online" 
@@ -229,23 +209,23 @@ const handleRemoveFromGuestList = () => {
               </div>
             </div>
             
-            <!-- Age with colors - only show second if real -->
-            <div v-if="ages.first" class="newsfeed-card-age">
+            <!-- Age with colors -->
+            <div v-if="ages.first || (ages.second && isGender2Real)" class="newsfeed-card-age">
               <span 
+                v-if="ages.first" 
                 class="newsfeed-card-age-first"
                 :style="{ color: getAgeColor(receiver?.gender1) }"
               >
                 {{ ages.first }}
               </span>
-              <template v-if="isGender2Real">
-                <span class="newsfeed-card-age-separator"> | </span>
-                <span 
-                  class="newsfeed-card-age-second"
-                  :style="{ color: getAgeColor(receiver?.gender2) }"
-                >
-                  {{ ages.second }}
-                </span>
-              </template>
+              <span v-if="ages.first && ages.second && isGender2Real" class="newsfeed-card-age-separator"> | </span>
+              <span 
+                v-if="ages.second && isGender2Real" 
+                class="newsfeed-card-age-second"
+                :style="{ color: getAgeColor(receiver?.gender2) }"
+              >
+                {{ ages.second }}
+              </span>
             </div>
 
             <!-- Stats with icons -->
@@ -253,6 +233,14 @@ const handleRemoveFromGuestList = () => {
               <div v-if="receiver?.photo_count" class="newsfeed-card-stat">
                 <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="newsfeed-card-stat-icon" />
                 <span>{{ receiver.photo_count }}</span>
+              </div>
+              <div v-if="receiver?.video_count" class="newsfeed-card-stat">
+                <img src="https://www.sdc.com/react/assets/videos_white_icon.67fc13b6.svg" alt="Video's" class="newsfeed-card-stat-icon" />
+                <span>{{ receiver.video_count }}</span>
+              </div>
+              <div v-if="receiver?.valid_count" class="newsfeed-card-stat">
+                <img src="https://www.sdc.com/react/assets/validate_grid_card.d90f25d9.svg" alt="Validaties" class="newsfeed-card-stat-icon" />
+                <span>{{ receiver.valid_count }}</span>
               </div>
               <div v-if="receiver?.likes_count" class="newsfeed-card-stat">
                 <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="newsfeed-card-stat-icon" />
@@ -276,7 +264,7 @@ const handleRemoveFromGuestList = () => {
             </div>
 
             <!-- Location -->
-            <div v-if="receiver?.location" class="newsfeed-card-profile-location">
+            <div v-if="receiver?.location && receiver.location !== ', USA'" class="newsfeed-card-profile-location">
               <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="newsfeed-card-location-icon" />
               <span>{{ receiver.location }}</span>
               <span v-if="item.location_how_far" class="newsfeed-card-profile-location-distance">
@@ -287,56 +275,36 @@ const handleRemoveFromGuestList = () => {
         </div>
       </div>
 
-      <!-- Right: Party Event -->
+      <!-- Right: Travel Plan Info -->
       <div class="newsfeed-card-section">
-        <div class="newsfeed-card-party-container">
-          <div class="newsfeed-card-party-info">
-            <p class="newsfeed-card-party-type">{{ party?.event_type === 1 ? 'Publieke Party' : 'Privé Party' }}</p>
-            <p class="newsfeed-card-party-title">{{ party?.title }}</p>
-            <p class="newsfeed-card-party-author">
-              door <span class="newsfeed-card-party-author-name">{{ party?.accountid }}</span>
-            </p>
-            <p class="newsfeed-card-party-date">{{ party?.date_str }}</p>
-            
-            <!-- Welcome Interests -->
-            <div v-if="partyInterestsIcons.length > 0" class="newsfeed-card-party-welcome">
-              <p class="newsfeed-card-party-welcome-label">Welkom</p>
-              <div class="newsfeed-card-party-welcome-icons">
-                <img 
-                  v-for="(icon, index) in partyInterestsIcons" 
-                  :key="index"
-                  :src="icon.url" 
-                  :alt="icon.type"
-                  class="newsfeed-card-interests-icon"
-                  :style="{ width: `${icon.width}px`, height: `${icon.height}px` }"
-                />
-              </div>
-            </div>
-
-            <!-- Location and Distance -->
-            <div v-if="party?.location" class="newsfeed-card-party-location">
-              <div class="newsfeed-card-party-location-text">
-                <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="newsfeed-card-location-icon-small" />
-                <span>{{ party.location }}</span>
-              </div>
-              <span v-if="party?.distance" class="newsfeed-card-party-distance">
-                {{ formatDistance(party.distance) }}
+        <div class="newsfeed-card-travel-info">
+          <div class="newsfeed-card-travel-header">
+            <img 
+              src="https://www.sdc.com/react/assets/travelplans_plane.ab1f2629.svg" 
+              alt="plane" 
+              class="newsfeed-card-travel-plane-icon"
+            />
+            <div class="newsfeed-card-travel-location-dates">
+              <span class="newsfeed-card-travel-location">{{ travelLocation }}</span>
+              <span v-if="travelDates" class="newsfeed-card-travel-dates">
+                | <span class="newsfeed-card-travel-dates-bold">{{ travelDates }}</span>
               </span>
             </div>
-
-            <!-- Remove Button -->
-            <!-- <div class="newsfeed-card-party-actions">
-              <button class="newsfeed-card-remove-button" @click="handleRemoveFromGuestList">
-                <img src="https://www.sdc.com/react/assets/remove_white_icon.f1e5b75d.svg" alt="remove_me_from_guest_list" class="newsfeed-card-remove-icon" />
-                <span>verwijder mij</span>
-              </button>
-            </div> -->
           </div>
           
-          <!-- Party Icon -->
-          <div class="newsfeed-card-party-icon-wrapper">
-            <img src="https://www.sdc.com/react/assets/parties_blue_icon.2df43137.svg" alt="party" class="newsfeed-card-party-icon" />
+          <!-- Travel Description -->
+          <div v-if="travelDescription" class="newsfeed-card-travel-description">
+            <p class="newsfeed-card-travel-description-text">{{ travelDescription }}</p>
           </div>
+        </div>
+        
+        <!-- Travel Icon -->
+        <div class="newsfeed-card-travel-icon-wrapper">
+          <img 
+            src="https://www.sdc.com/react/assets/travel_blue_icon.1c6fa1d6.svg" 
+            alt="travel" 
+            class="newsfeed-card-travel-icon"
+          />
         </div>
       </div>
     </div>
@@ -347,7 +315,7 @@ const handleRemoveFromGuestList = () => {
 .newsfeed-card {
   background-color: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-left: 3px solid rgba(255, 241, 165, 0.4);
+  border-left: 3px solid rgba(59, 130, 246, 0.4);
   border-radius: 10px;
   overflow: hidden;
   transition: all 0.2s ease;
@@ -365,11 +333,11 @@ const handleRemoveFromGuestList = () => {
 .newsfeed-card:hover {
   background-color: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.1);
-  border-left-color: rgba(255, 241, 165, 0.6);
+  border-left-color: rgba(59, 130, 246, 0.6);
 }
 
 .newsfeed-card-header {
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
@@ -380,13 +348,13 @@ const handleRemoveFromGuestList = () => {
 .newsfeed-card-header-text {
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: -0.01em;
 }
 
 .newsfeed-card-header-time {
   color: #6b7280;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
 }
 
@@ -406,10 +374,9 @@ const handleRemoveFromGuestList = () => {
 .newsfeed-card-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
-/* Left Side: Profile */
 .newsfeed-card-profile {
   display: flex;
   align-items: flex-start;
@@ -421,7 +388,7 @@ const handleRemoveFromGuestList = () => {
   height: 52px;
   border-radius: 8px;
   object-fit: cover;
-  border: 2px solid rgba(255, 241, 165, 0.6);
+  border: 2px solid rgba(59, 130, 246, 0.6);
   flex-shrink: 0;
 }
 
@@ -429,8 +396,8 @@ const handleRemoveFromGuestList = () => {
   width: 52px;
   height: 52px;
   border-radius: 8px;
-  background: linear-gradient(135deg, rgba(255, 241, 165, 0.15) 0%, rgba(255, 241, 165, 0.05) 100%);
-  border: 2px solid rgba(255, 241, 165, 0.6);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%);
+  border: 2px solid rgba(59, 130, 246, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -438,22 +405,20 @@ const handleRemoveFromGuestList = () => {
 }
 
 .newsfeed-card-profile-placeholder span {
-  color: #fbbf24;
+  color: #60a5fa;
   font-size: 20px;
   font-weight: 600;
 }
 
 .newsfeed-card-profile-info {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
 .newsfeed-card-profile-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 4px;
 }
 
 .newsfeed-card-profile-name {
@@ -467,6 +432,7 @@ const handleRemoveFromGuestList = () => {
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-left: 6px;
 }
 
 .newsfeed-card-device-icon {
@@ -483,8 +449,7 @@ const handleRemoveFromGuestList = () => {
 
 .newsfeed-card-age {
   font-size: 11px;
-  display: inline-block;
-  font-weight: 500;
+  margin-top: 4px;
 }
 
 .newsfeed-card-age-first {
@@ -500,55 +465,11 @@ const handleRemoveFromGuestList = () => {
   font-weight: 600;
 }
 
-.newsfeed-card-interests {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.newsfeed-card-interests-label {
-  font-size: 10px;
-  color: #6b7280;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0;
-}
-
-.newsfeed-card-interests-icons {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.newsfeed-card-interests-icon {
-  display: inline-block;
-}
-
-.newsfeed-card-profile-location {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #9ca3af;
-}
-
-.newsfeed-card-location-icon {
-  width: 12px;
-  height: 12px;
-  opacity: 0.7;
-}
-
-.newsfeed-card-profile-location-distance {
-  margin-left: 4px;
-  color: #6b7280;
-}
-
 .newsfeed-card-profile-stats {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .newsfeed-card-stat {
@@ -565,163 +486,135 @@ const handleRemoveFromGuestList = () => {
   opacity: 0.8;
 }
 
-/* Right Side: Party */
-.newsfeed-card-party-container {
-  position: relative;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.03) 100%);
-  border: 1px solid rgba(59, 130, 246, 0.15);
-  border-radius: 6px;
-  padding: 10px;
-  min-height: 120px;
-}
-
-.newsfeed-card-party-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.newsfeed-card-party-type {
-  font-size: 10px;
-  color: #6b7280;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0;
-}
-
-.newsfeed-card-party-title {
-  color: white;
-  font-weight: 600;
-  font-size: 12px;
-  margin: 0;
-  letter-spacing: -0.01em;
-  line-height: 1.4;
-}
-
-.newsfeed-card-party-author {
-  font-size: 10px;
-  color: #9ca3af;
-  margin: 0;
-}
-
-.newsfeed-card-party-author-name {
-  color: #fbbf24;
-  font-size: 10px;
-  font-weight: 500;
-  overflow-wrap: break-word;
-}
-
-.newsfeed-card-party-date {
-  font-size: 10px;
-  color: #9ca3af;
-  margin: 0;
-  font-weight: 500;
-}
-
-.newsfeed-card-party-welcome {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.newsfeed-card-interests {
   margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.newsfeed-card-party-welcome-label {
+.newsfeed-card-interests-label {
   font-size: 10px;
   color: #6b7280;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin: 0;
+  margin-bottom: 4px;
 }
 
-.newsfeed-card-party-welcome-icons {
+.newsfeed-card-interests-icons {
   display: flex;
   align-items: center;
   gap: 5px;
 }
 
-.newsfeed-card-party-location {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+.newsfeed-card-interests-icon {
+  display: inline-block;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
-.newsfeed-card-party-location-text {
+.newsfeed-card-profile-location {
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-top: 6px;
   font-size: 10px;
   color: #9ca3af;
 }
 
-.newsfeed-card-location-icon-small {
+.newsfeed-card-location-icon {
   width: 12px;
   height: 12px;
   opacity: 0.7;
 }
 
-.newsfeed-card-party-distance {
-  font-size: 10px;
+.newsfeed-card-profile-location-distance {
+  margin-left: 4px;
   color: #6b7280;
-  font-weight: 500;
 }
 
-.newsfeed-card-party-actions {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+.newsfeed-card-travel-info {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.03) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
 }
 
-.newsfeed-card-remove-button {
+.newsfeed-card-travel-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background-color: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  gap: 8px;
+  padding-right: 40px;
+}
+
+.newsfeed-card-travel-plane-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.65;
+  filter: brightness(0) saturate(100%) invert(100%);
+  transition: opacity 0.2s ease;
+}
+
+.newsfeed-card-travel-location-dates {
   font-size: 11px;
-  font-weight: 500;
-  padding: 6px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  width: 100%;
-  justify-content: center;
+  color: white;
+  flex: 1;
 }
 
-.newsfeed-card-remove-button:hover {
-  background-color: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
+.newsfeed-card-travel-location {
+  color: white;
 }
 
-.newsfeed-card-remove-icon {
-  width: 12px;
-  height: 12px;
+.newsfeed-card-travel-dates {
+  color: white;
 }
 
-.newsfeed-card-party-icon-wrapper {
+.newsfeed-card-travel-dates-bold {
+  font-weight: 600;
+}
+
+.newsfeed-card-travel-description {
+  margin-top: 4px;
+}
+
+.newsfeed-card-travel-description-text {
+  font-size: 11px;
+  color: #d1d5db;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.newsfeed-card-travel-icon-wrapper {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 20px;
-  height: 20px;
+  top: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(59, 130, 246, 0.15);
-  border-radius: 4px;
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: rgba(59, 130, 246, 0.08);
+  border-radius: 5px;
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  transition: all 0.2s ease;
 }
 
-.newsfeed-card-party-icon {
-  width: 12px;
-  height: 12px;
+.newsfeed-card-travel-icon-wrapper:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.newsfeed-card-travel-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.55;
+  transition: opacity 0.2s ease;
+}
+
+.newsfeed-card-travel-icon-wrapper:hover .newsfeed-card-travel-icon {
+  opacity: 0.75;
 }
 </style>

@@ -19,9 +19,9 @@ const activityFilterOpen = ref(false);
 // Content type filter options (first dropdown) - "Algemeen" (General area)
 const contentFilters = [
   { key: 'group_post_blog', label: 'Groepen / Blogs', icon: 'users' },
-  { key: 'speed_area', label: 'Speed Date (Algemeen)', icon: 'zap' },
-  { key: 'travelplans_area', label: 'Reisplannen (Algemeen)', icon: 'map' },
-  { key: 'parties', label: "Party's & Events", icon: 'party' },
+  { key: 'speed_area', label: 'Speed Date', icon: 'zap' },
+  { key: 'travelplans_area', label: 'Reisplannen', icon: 'map' },
+  { key: 'my_parties', label: "Party's & Events", icon: 'party' },
 ];
 
 // Activity filter options (second dropdown) - "Vrienden" (Friends area)
@@ -33,6 +33,7 @@ const activityFilters = [
   { key: 'birthday', label: 'Verjaardag', icon: 'cake' },
   { key: 'speedating', label: 'Speed Date (Vrienden)', icon: 'zap' },
   { key: 'travelplans', label: 'Reisplannen (Vrienden)', icon: 'map' },
+  { key: 'parties', label: "Party's & Events", icon: 'party' },
   { key: 'member_services', label: 'Ledenservice', icon: 'info' },
   { key: 'friends_new', label: 'Nieuwe vrienden / volgers', icon: 'users' },
 ];
@@ -67,6 +68,51 @@ const activeContentCount = computed(() =>
 const activeActivityCount = computed(() => 
   activityFilters.filter(f => isActivityFilterActive(f.key)).length
 );
+
+// Check if all filters are selected
+const allContentFiltersSelected = computed(() => 
+  contentFilters.every(f => isContentFilterActive(f.key))
+);
+
+const allActivityFiltersSelected = computed(() => 
+  activityFilters.every(f => isActivityFilterActive(f.key))
+);
+
+// Select all content filters
+const selectAllContentFilters = () => {
+  const newFilters = { ...props.filters };
+  contentFilters.forEach(filter => {
+    (newFilters as any)[filter.key] = true;
+  });
+  emit('filters-change', newFilters);
+};
+
+// Clear all content filters
+const clearAllContentFilters = () => {
+  const newFilters = { ...props.filters };
+  contentFilters.forEach(filter => {
+    (newFilters as any)[filter.key] = false;
+  });
+  emit('filters-change', newFilters);
+};
+
+// Select all activity filters
+const selectAllActivityFilters = () => {
+  const newFilters = { ...props.filters };
+  activityFilters.forEach(filter => {
+    (newFilters as any)[filter.key] = true;
+  });
+  emit('filters-change', newFilters);
+};
+
+// Clear all activity filters
+const clearAllActivityFilters = () => {
+  const newFilters = { ...props.filters };
+  activityFilters.forEach(filter => {
+    (newFilters as any)[filter.key] = false;
+  });
+  emit('filters-change', newFilters);
+};
 </script>
 
 <template>
@@ -93,6 +139,22 @@ const activeActivityCount = computed(() =>
           <div class="filter-dropdown">
             <div class="filter-dropdown-header">
               <span>Algemeen</span>
+              <div class="filter-dropdown-actions">
+                <button 
+                  class="filter-action-button"
+                  @click.stop="clearAllContentFilters"
+                  :disabled="activeContentCount === 0"
+                >
+                  Wis alles
+                </button>
+                <button 
+                  class="filter-action-button"
+                  @click.stop="selectAllContentFilters"
+                  :disabled="allContentFiltersSelected"
+                >
+                  Selecteer alles
+                </button>
+              </div>
             </div>
             <div class="filter-dropdown-items">
               <div 
@@ -136,6 +198,22 @@ const activeActivityCount = computed(() =>
           <div class="filter-dropdown">
             <div class="filter-dropdown-header">
               <span>Vrienden</span>
+              <div class="filter-dropdown-actions">
+                <button 
+                  class="filter-action-button"
+                  @click.stop="clearAllActivityFilters"
+                  :disabled="activeActivityCount === 0"
+                >
+                  Wis alles
+                </button>
+                <button 
+                  class="filter-action-button"
+                  @click.stop="selectAllActivityFilters"
+                  :disabled="allActivityFiltersSelected"
+                >
+                  Selecteer alles
+                </button>
+              </div>
             </div>
             <div class="filter-dropdown-items filter-dropdown-items-scrollable">
               <div 
@@ -243,6 +321,40 @@ const activeActivityCount = computed(() =>
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.filter-dropdown-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.filter-action-button {
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 500;
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.filter-action-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e5e7eb;
+}
+
+.filter-action-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .filter-dropdown-items {

@@ -96,7 +96,7 @@ export class NewsfeedModule extends BaseModule {
         button.className = 'MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeMedium css-1ewrq4d';
         button.setAttribute('tabindex', '0');
         button.setAttribute('type', 'button');
-        button.setAttribute('title', 'SDC Feed');
+        button.setAttribute('title', 'Feed');
         button.style.cssText = `
             font-family: Roboto, sans-serif, serif, monospace !important;
             -webkit-text-size-adjust: 100%;
@@ -119,14 +119,20 @@ export class NewsfeedModule extends BaseModule {
             cursor: pointer;
             user-select: none;
             text-align: center;
-            font-size: 1.5rem;
-            color: rgba(0, 0, 0, 0.54);
-            width: 24px;
-            height: 24px;
+            width: 22px;
+            height: 22px;
+            opacity: 0.9;
+            transition: opacity 0.2s ease, transform 0.2s ease;
         `;
         
-        // Create SVG as data URL (news feed icon - similar to the sidebar icon)
-        const svgContent = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19" cy="7" r="3" fill="white"/></svg>`;
+        // Create SVG as data URL (newspaper/document style icon)
+        const svgContent = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="3" width="18" height="18" rx="2" stroke="white" stroke-width="2" fill="none"/>
+            <line x1="7" y1="7" x2="12" y2="7" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <line x1="7" y1="11" x2="17" y2="11" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <line x1="7" y1="15" x2="17" y2="15" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <rect x="14" y="6" width="3" height="3" rx="0.5" fill="white"/>
+        </svg>`;
         icon.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
         
         // Create counter badge
@@ -167,14 +173,17 @@ export class NewsfeedModule extends BaseModule {
         // Create label
         const label = document.createElement('label');
         label.className = 'nav-bar-label-newsfeed';
-        label.textContent = 'SDC Feed';
+        label.textContent = 'Feed';
         label.style.cssText = `
-            font-family: Roboto, sans-serif, serif, monospace !important;
+            font-family: Roboto, sans-serif !important;
             -webkit-text-size-adjust: 100%;
             text-align: center;
-            font-size: 12px;
-            color: #fff;
-            margin-top: -8px;
+            font-size: 11px;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.85);
+            margin-top: -6px;
+            letter-spacing: 0.01em;
+            cursor: pointer;
         `;
 
         newsfeedButtonContainer.appendChild(button);
@@ -182,6 +191,16 @@ export class NewsfeedModule extends BaseModule {
 
         // Insert after the last button found
         insertAfter.parentNode?.insertBefore(newsfeedButtonContainer, insertAfter.nextSibling);
+
+        // Add hover effects
+        button.addEventListener('mouseenter', () => {
+            icon.style.opacity = '1';
+            icon.style.transform = 'scale(1.1)';
+        });
+        button.addEventListener('mouseleave', () => {
+            icon.style.opacity = '0.9';
+            icon.style.transform = 'scale(1)';
+        });
 
         // Add click handler
         button.addEventListener('click', (e) => {

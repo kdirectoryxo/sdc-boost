@@ -43,24 +43,29 @@ const handleTabChange = (tab: 'feed' | 'admin') => {
 };
 
 const handleFiltersChange = async (newFilters: Partial<NewsfeedFilterOptions>) => {
+  // Update filters immediately - this will trigger the watcher in NewsfeedList
   filters.value = { ...filters.value, ...newFilters };
   
   // Update cache immediately for faster subsequent loads
   setCachedFilters(filters.value as NewsfeedFilterOptions);
   
-  // Update filters on server
-  if (!filtersLoading.value) {
-    filtersLoading.value = true;
-    try {
-      await updateNewsfeedFilters(filters.value);
-      // Update cache after successful server update
+  // Update filters on server (non-blocking, don't wait for it)
+  // Use a separate flag to track if an update is in progress, but don't block new updates
+  const currentUpdateId = Date.now();
+  filtersLoading.value = true;
+  
+  updateNewsfeedFilters(filters.value)
+    .then(() => {
+      // Only update cache if this is still the latest update
       setCachedFilters(filters.value as NewsfeedFilterOptions);
-    } catch (error) {
+    })
+    .catch((error) => {
       console.error('[NewsfeedFeed] Failed to update filters:', error);
-    } finally {
+    })
+    .finally(() => {
+      // Only clear loading if this was the latest update
       filtersLoading.value = false;
-    }
-  }
+    });
 };
 </script>
 

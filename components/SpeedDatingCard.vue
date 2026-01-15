@@ -122,6 +122,8 @@ const profileInterests = computed(() => {
 });
 
 // Interests for right side (MET section) - use extra_data.interests
+// For action 8, interests is in extra_data.interests
+// For action 904, interests might be in extra_data.interests or elsewhere
 const metInterests = computed(() => {
   const interestsStr = extraData.value?.interests || '';
   return parseInterests(interestsStr);
@@ -212,18 +214,49 @@ const decodeHtmlEntities = (text: string) => {
   return textarea.value;
 };
 
+// Check if this is action 8 (Vrienden speed dating) vs 904 (Algemeen speed dating)
+const isAction8 = computed(() => props.item.action === 8);
+
 // Get message content - prefer body, but if PlaceToMeet exists and is different, show both
+// For action 8, use personal_text from extra_data
 const messageContent = computed(() => {
-  // If PlaceToMeet exists and is different from body, use PlaceToMeet
-  // Otherwise use body
   let content = '';
-  if (extraData.value?.PlaceToMeet && extraData.value.PlaceToMeet !== props.item.body) {
+  
+  // For action 8, use personal_text
+  if (isAction8.value && extraData.value?.personal_text) {
+    content = extraData.value.personal_text;
+  } else if (extraData.value?.PlaceToMeet && extraData.value.PlaceToMeet !== props.item.body) {
     content = extraData.value.PlaceToMeet;
   } else {
     content = props.item.body || '';
   }
   // Decode HTML entities
   return decodeHtmlEntities(content);
+});
+
+// Get date string - for action 8, use date_list from extra_data
+const speedDatingDate = computed(() => {
+  if (isAction8.value && extraData.value?.date_list) {
+    // date_list format: "Jan 17,2026 | " - remove trailing " | "
+    return extraData.value.date_list.replace(/\s*\|\s*$/, '').trim();
+  }
+  return availableDates.value;
+});
+
+// Get location - for action 8, use location from extra_data
+const speedDatingLocation = computed(() => {
+  if (isAction8.value && extraData.value?.location) {
+    return extraData.value.location;
+  }
+  return extraData.value?.location || '';
+});
+
+// Get distance - for action 8, use how_far from extra_data
+const speedDatingDistance = computed(() => {
+  if (isAction8.value && extraData.value?.how_far !== undefined) {
+    return extraData.value.how_far;
+  }
+  return extraData.value?.distance;
 });
 </script>
 
@@ -364,9 +397,14 @@ const messageContent = computed(() => {
       <div class="newsfeed-card-section">
         <div class="newsfeed-card-party-info">
           <p class="newsfeed-card-party-type">Privé locatie</p>
-          <div v-if="availableDates" class="newsfeed-card-party-title-row">
-            <p class="newsfeed-card-party-title">Beschikbaar</p>
-            <p class="newsfeed-card-party-date-inline">{{ availableDates }}</p>
+          <div v-if="speedDatingDate" class="newsfeed-card-party-title-row">
+            <p class="newsfeed-card-party-title">{{ isAction8 ? 'WANNEER:' : 'Beschikbaar' }}</p>
+            <p class="newsfeed-card-party-date-inline">
+              {{ speedDatingDate }}
+              <span v-if="isAction8 && speedDatingLocation" style="color: #6b7280; margin-left: 4px;">
+                at {{ speedDatingLocation }}
+              </span>
+            </p>
           </div>
           
           <!-- Message Content (only show once) -->
@@ -374,14 +412,14 @@ const messageContent = computed(() => {
             <p class="newsfeed-card-message-text">{{ messageContent }}</p>
           </div>
 
-          <!-- Location and Distance -->
-          <div v-if="extraData?.location" class="newsfeed-card-party-location">
+          <!-- Location and Distance (for action 904, not action 8) -->
+          <div v-if="!isAction8 && speedDatingLocation" class="newsfeed-card-party-location">
             <div class="newsfeed-card-party-location-text">
               <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="newsfeed-card-location-icon-small" />
-              <span>{{ extraData.location }}</span>
+              <span>{{ speedDatingLocation }}</span>
             </div>
-            <span v-if="extraData?.distance" class="newsfeed-card-party-distance">
-              {{ formatDistance(extraData.distance) }}
+            <span v-if="speedDatingDistance !== undefined" class="newsfeed-card-party-distance">
+              {{ formatDistance(speedDatingDistance) }}
             </span>
           </div>
 
@@ -683,7 +721,6 @@ const messageContent = computed(() => {
   color: #e5e7eb;
   font-size: 11px;
   line-height: 1.5;
-  white-space: pre-wrap;
 }
 
 .newsfeed-card-party-location {

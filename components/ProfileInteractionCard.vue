@@ -20,9 +20,10 @@ const receiver = computed(() => props.item.receiver);
 const getActionInfo = () => {
   switch (props.item.action) {
     case 3:
-      // Like received: sender liked receiver
+      // Like received: receiver liked sender (from profile owner's perspective)
+      // API returns: sender = profile owner, receiver = the one who liked
       return {
-        title: `${sender.value?.account_id || 'Iemand'} heeft ${receiver.value?.account_id || 'jou'} een like gegeven`,
+        title: `${receiver.value?.account_id || 'Iemand'} heeft ${sender.value?.account_id || 'jouw profiel'} een like gegeven`,
         icon: '❤️',
         type: 'like'
       };
@@ -53,20 +54,27 @@ const getActionInfo = () => {
 const actionInfo = computed(() => getActionInfo());
 
 // For validation (action 21), the roles are reversed: receiver validated sender
-// For like (action 3), sender liked receiver
+// For like (action 3), receiver liked sender (from profile owner's perspective)
+//   API returns: sender = profile owner, receiver = the one who liked
 // For match (action 22), both liked each other
 const primaryProfile = computed(() => {
   if (actionInfo.value.type === 'validation') {
     return receiver.value; // The one who validated
   }
-  return sender.value; // The one who liked
+  if (actionInfo.value.type === 'like') {
+    return receiver.value; // The one who liked (receiver in API response)
+  }
+  return sender.value; // For match, use sender
 });
 
 const secondaryProfile = computed(() => {
   if (actionInfo.value.type === 'validation') {
     return sender.value; // The one who was validated
   }
-  return receiver.value; // The one who was liked
+  if (actionInfo.value.type === 'like') {
+    return sender.value; // The one who was liked (sender in API response = profile owner)
+  }
+  return receiver.value; // For match, use receiver
 });
 
 const primaryPhotoUrl = computed(() => {

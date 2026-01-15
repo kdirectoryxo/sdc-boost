@@ -7,6 +7,9 @@ import SpeedDatingCard from './SpeedDatingCard.vue';
 import AdminNotificationCard from './AdminNotificationCard.vue';
 import GuestListCard from './GuestListCard.vue';
 import ProfileInteractionCard from './ProfileInteractionCard.vue';
+import BirthdayCard from './BirthdayCard.vue';
+import TravelPlanCard from './TravelPlanCard.vue';
+import GroupBlogCard from './GroupBlogCard.vue';
 import ComingSoonCard from './ComingSoonCard.vue';
 
 interface Props {
@@ -24,6 +27,7 @@ const currentPage = ref(0);
 const lastKey = ref('');
 const observerTarget = ref<HTMLElement | null>(null);
 const observer = ref<IntersectionObserver | null>(null);
+const abortController = ref<AbortController | null>(null);
 
 // Convert filter options to filter strings
 // Based on SDC source code classes Q7 (Vrienden/filter_f) and Z7 (Algemeen/filter)
@@ -39,16 +43,13 @@ const getFilterStrings = () => {
   if (props.filters.group_post_blog) filter.push('300'); // Groepen / Blogs (groupsAndBlogs)
   if (props.filters.speed_area) filter.push('904'); // Speed Date (Algemeen) (speedDate)
   if (props.filters.travelplans_area) filter.push('200'); // Reisplannen (Algemeen) (travelPlans)
-  if (props.filters.parties) {
-    // Parties includes multiple IDs: [400, 500, 600, 25, 28, 29] (partiesAndEvents)
-    filter.push('400', '500', '600', '25', '28', '29');
-  }
+  if (props.filters.my_parties) filter.push('26', '100'); // Party's & Events (Algemeen) - my parties and party announcements
   if (props.filters.viewed_me) filter.push('24'); // Viewed me
 
   // Activity filters (second dropdown - "Vrienden") -> filter_f param
   // Based on Q7 class mapping
   if (props.filters.likes_sent) filter_f.push('3'); // Likes gegeven (likesGiven)
-  if (props.filters.group_joined) filter_f.push('17', '18'); // Groepslid geworden (joinedGroup)
+  if (props.filters.group_joined) filter_f.push('17', '18', '38'); // Groepslid geworden (joinedGroup) - includes actions 17, 18, and 38
   if (props.filters.photos_videos) filter_f.push('5', '6'); // Foto's & Video's (photosAndVideos)
   if (props.filters.validations) filter_f.push('21'); // Validaties (validations)
   if (props.filters.birthday) filter_f.push('23'); // Verjaardag (birthdays)
@@ -69,7 +70,14 @@ const getFilterStrings = () => {
 };
 
 const loadFeed = async (page: number = 0, append: boolean = false) => {
-  if (loading.value) return;
+  // Cancel any in-flight request
+  if (abortController.value) {
+    abortController.value.abort();
+  }
+
+  // Create new abort controller for this request
+  const controller = new AbortController();
+  abortController.value = controller;
 
   loading.value = true;
   error.value = null;
@@ -86,8 +94,14 @@ const loadFeed = async (page: number = 0, append: boolean = false) => {
         Date.now(),
         false,
         append ? lastKey.value : '',
-        new Date().getTimezoneOffset() * -1
+        new Date().getTimezoneOffset() * -1,
+        controller.signal
       );
+
+      // Check if request was aborted
+      if (controller.signal.aborted) {
+        return;
+      }
 
       if (append) {
         items.value = [...items.value, ...response.info.newsfeed];
@@ -105,8 +119,14 @@ const loadFeed = async (page: number = 0, append: boolean = false) => {
         filterStrings.filter_f,
         undefined,
         false,
-        '0'
+        '0',
+        controller.signal
       );
+
+      // Check if request was aborted
+      if (controller.signal.aborted) {
+        return;
+      }
 
       if (append) {
         items.value = [...items.value, ...response.info.newsfeed];
@@ -118,10 +138,21 @@ const loadFeed = async (page: number = 0, append: boolean = false) => {
       currentPage.value = page;
     }
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to load feed';
-    console.error('[NewsfeedList] Error loading feed:', err);
+    // Ignore abort errors
+    if (err instanceof Error && err.name === 'AbortError') {
+      return;
+    }
+    // Only set error if request wasn't aborted
+    if (!controller.signal.aborted) {
+      error.value = err instanceof Error ? err.message : 'Failed to load feed';
+      console.error('[NewsfeedList] Error loading feed:', err);
+    }
   } finally {
-    loading.value = false;
+    // Only clear loading if this request wasn't aborted
+    if (!controller.signal.aborted) {
+      loading.value = false;
+      abortController.value = null;
+    }
   }
 };
 
@@ -162,14 +193,23 @@ watch(() => props.activeTab, () => {
   loadFeed(0, false);
 });
 
-// Watch for filter changes
+// Watch for filter changes - use immediate flush to ensure rapid changes are handled
 watch(() => props.filters, () => {
+  // Cancel any in-flight request immediately
+  if (abortController.value) {
+    abortController.value.abort();
+    abortController.value = null;
+  }
+  
   items.value = [];
   currentPage.value = 0;
   lastKey.value = '';
   hasMore.value = true;
+  loading.value = false; // Reset loading state to allow new request
+  
+  // Trigger new fetch with latest filters
   loadFeed(0, false);
-}, { deep: true });
+}, { deep: true, flush: 'sync' });
 
 onMounted(async () => {
   // Load initial feed
@@ -247,12 +287,18 @@ watch(observerTarget, () => {
       <template v-for="(item, index) in items" :key="item.action_id">
         <!-- Guest List Card: action 600 -->
         <GuestListCard v-if="item.action === 600" :item="item" :index="index" />
+        <!-- Birthday Card: action 906 -->
+        <BirthdayCard v-else-if="item.action === 906" :item="item" :index="index" />
         <!-- Profile Interaction Cards: actions 3 (like), 21 (validation), 22 (follow) - only for regular feed -->
         <ProfileInteractionCard v-else-if="activeTab === 'feed' && (item.action === 3 || item.action === 21 || item.action === 22)" :item="item" :index="index" />
         <!-- Party Event Card: action 14 with valid party object (has party_id or title) -->
         <PartyEventCard v-else-if="item.action === 14 && item.party && (item.party.party_id || item.party.title)" :item="item" :index="index" />
-        <!-- Speed Dating Card: action 904 -->
-        <SpeedDatingCard v-else-if="item.action === 904" :item="item" :index="index" />
+        <!-- Speed Dating Card: actions 8 (Vrienden) and 904 (Algemeen) -->
+        <SpeedDatingCard v-else-if="item.action === 8 || item.action === 904" :item="item" :index="index" />
+        <!-- Travel Plan Card: action 200 -->
+        <TravelPlanCard v-else-if="item.action === 200" :item="item" :index="index" />
+        <!-- Group Blog Card: action 300 (group/blog posts), action 18 & 38 (group joins), and action 100 (party announcements) -->
+        <GroupBlogCard v-else-if="item.action === 300 || item.action === 18 || item.action === 38 || item.action === 100" :item="item" :index="index" />
         <!-- Admin Notification Card: admin-specific actions (2, 3, 21, 14 without party) or admin tab fallback -->
         <AdminNotificationCard v-else-if="activeTab === 'admin' || item.action === 2 || item.action === 3 || item.action === 21 || (item.action === 14 && !item.party)" :item="item" :index="index" />
         <!-- Coming Soon Card: unsupported actions in regular feed -->
