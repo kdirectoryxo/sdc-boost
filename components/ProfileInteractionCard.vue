@@ -4,6 +4,7 @@ import type { NewsfeedItem } from '@/lib/sdc-api/newsfeed';
 
 interface Props {
   item: NewsfeedItem;
+  index?: number;
 }
 
 const props = defineProps<Props>();
@@ -102,10 +103,24 @@ const parseAge = (ageStr: string | undefined) => {
   };
 };
 
+// Check if second person age is real (not a placeholder)
+// Gender2 is not real if age is > 100, undefined, or < 18
+const isSecondAgeReal = (ageSecond: string | null) => {
+  if (!ageSecond) return false;
+  const age = parseInt(ageSecond, 10);
+  return !isNaN(age) && age >= 18 && age <= 100;
+};
+
 const primaryAges = computed(() => parseAge(primaryProfile.value?.age));
 const secondaryAges = computed(() => parseAge(secondaryProfile.value?.age));
 const senderAges = computed(() => parseAge(sender.value?.age));
 const receiverAges = computed(() => parseAge(receiver.value?.age));
+
+// Check if each profile has a real second person
+const isPrimaryGender2Real = computed(() => isSecondAgeReal(primaryAges.value.second));
+const isSecondaryGender2Real = computed(() => isSecondAgeReal(secondaryAges.value.second));
+const isSenderGender2Real = computed(() => isSecondAgeReal(senderAges.value.second));
+const isReceiverGender2Real = computed(() => isSecondAgeReal(receiverAges.value.second));
 
 // Get age color based on gender (1 = female = pink, 0 = male = blue)
 const getAgeColor = (gender: number | undefined) => {
@@ -119,7 +134,7 @@ const formatDistance = (km: number | undefined) => {
 </script>
 
 <template>
-  <div class="profile-interaction-card">
+  <div :class="['profile-interaction-card', `profile-interaction-card-${props.index !== undefined && props.index % 2 === 0 ? 'even' : 'odd'}`]">
     <!-- Header -->
     <div class="profile-interaction-card-header">
       <div class="profile-interaction-card-header-content">
@@ -131,9 +146,10 @@ const formatDistance = (km: number | undefined) => {
 
     <!-- Content -->
     <div class="profile-interaction-card-content">
-      <!-- For mutual match (action 22), show both profiles side by side -->
-      <template v-if="actionInfo.type === 'match'">
-        <div class="profile-interaction-card-profiles-grid">
+      <!-- All profile types use 2-column grid layout -->
+      <div class="profile-interaction-card-profiles-grid">
+        <!-- For match: show sender and receiver -->
+        <template v-if="actionInfo.type === 'match'">
           <!-- Sender Profile -->
           <div class="profile-interaction-card-profile-section">
             <div class="profile-interaction-card-profile-label">{{ sender?.account_id || 'Gebruiker 1' }}</div>
@@ -150,23 +166,23 @@ const formatDistance = (km: number | undefined) => {
               <div class="profile-interaction-card-profile-info">
                 <p class="profile-interaction-card-profile-name">{{ sender?.account_id || 'Onbekend' }}</p>
                 
-                <!-- Age with colors -->
-                <div v-if="senderAges.first || senderAges.second" class="profile-interaction-card-age">
+                <!-- Age with colors - only show second if real -->
+                <div v-if="senderAges.first" class="profile-interaction-card-age">
                   <span 
-                    v-if="senderAges.first" 
                     class="profile-interaction-card-age-first"
                     :style="{ color: getAgeColor(sender?.gender1) }"
                   >
                     {{ senderAges.first }}
                   </span>
-                  <span v-if="senderAges.first && senderAges.second" class="profile-interaction-card-age-separator"> | </span>
-                  <span 
-                    v-if="senderAges.second" 
-                    class="profile-interaction-card-age-second"
-                    :style="{ color: getAgeColor(sender?.gender2) }"
-                  >
-                    {{ senderAges.second }}
-                  </span>
+                  <template v-if="isSenderGender2Real">
+                    <span class="profile-interaction-card-age-separator"> | </span>
+                    <span 
+                      class="profile-interaction-card-age-second"
+                      :style="{ color: getAgeColor(sender?.gender2) }"
+                    >
+                      {{ senderAges.second }}
+                    </span>
+                  </template>
                 </div>
 
                 <!-- Location -->
@@ -194,23 +210,23 @@ const formatDistance = (km: number | undefined) => {
               <div class="profile-interaction-card-profile-info">
                 <p class="profile-interaction-card-profile-name">{{ receiver?.account_id || 'Onbekend' }}</p>
                 
-                <!-- Age with colors -->
-                <div v-if="receiverAges.first || receiverAges.second" class="profile-interaction-card-age">
+                <!-- Age with colors - only show second if real -->
+                <div v-if="receiverAges.first" class="profile-interaction-card-age">
                   <span 
-                    v-if="receiverAges.first" 
                     class="profile-interaction-card-age-first"
                     :style="{ color: getAgeColor(receiver?.gender1) }"
                   >
                     {{ receiverAges.first }}
                   </span>
-                  <span v-if="receiverAges.first && receiverAges.second" class="profile-interaction-card-age-separator"> | </span>
-                  <span 
-                    v-if="receiverAges.second" 
-                    class="profile-interaction-card-age-second"
-                    :style="{ color: getAgeColor(receiver?.gender2) }"
-                  >
-                    {{ receiverAges.second }}
-                  </span>
+                  <template v-if="isReceiverGender2Real">
+                    <span class="profile-interaction-card-age-separator"> | </span>
+                    <span 
+                      class="profile-interaction-card-age-second"
+                      :style="{ color: getAgeColor(receiver?.gender2) }"
+                    >
+                      {{ receiverAges.second }}
+                    </span>
+                  </template>
                 </div>
 
                 <!-- Location -->
@@ -224,150 +240,168 @@ const formatDistance = (km: number | undefined) => {
               </div>
             </div>
           </div>
-        </div>
-      </template>
+        </template>
 
-      <!-- For like and validation, show primary and secondary profiles -->
-      <template v-else>
-        <!-- Primary Profile (who did the action) -->
-        <div class="profile-interaction-card-profile-section">
-          <div class="profile-interaction-card-profile-label">{{ primaryProfile?.account_id || 'Iemand' }}</div>
-          <div class="profile-interaction-card-profile">
-            <img
-              v-if="primaryPhotoUrl"
-              :src="primaryPhotoUrl"
-              :alt="primaryProfile?.account_id"
-              class="profile-interaction-card-profile-img"
-            />
-            <div v-else class="profile-interaction-card-profile-placeholder">
-              <span>{{ primaryProfile?.account_id?.charAt(0) || '?' }}</span>
-            </div>
-            <div class="profile-interaction-card-profile-info">
-              <p class="profile-interaction-card-profile-name">{{ primaryProfile?.account_id || 'Onbekend' }}</p>
-              
-              <!-- Age with colors -->
-              <div v-if="primaryAges.first || primaryAges.second" class="profile-interaction-card-age">
-                <span 
-                  v-if="primaryAges.first" 
-                  class="profile-interaction-card-age-first"
-                  :style="{ color: getAgeColor(primaryProfile?.gender1) }"
-                >
-                  {{ primaryAges.first }}
-                </span>
-                <span v-if="primaryAges.first && primaryAges.second" class="profile-interaction-card-age-separator"> | </span>
-                <span 
-                  v-if="primaryAges.second" 
-                  class="profile-interaction-card-age-second"
-                  :style="{ color: getAgeColor(primaryProfile?.gender2) }"
-                >
-                  {{ primaryAges.second }}
-                </span>
+        <!-- For like and validation: show primary and secondary profiles side by side -->
+        <template v-else>
+          <!-- Primary Profile (who did the action) -->
+          <div class="profile-interaction-card-profile-section">
+            <div class="profile-interaction-card-profile-label">{{ primaryProfile?.account_id || 'Iemand' }}</div>
+            <div class="profile-interaction-card-profile">
+              <img
+                v-if="primaryPhotoUrl"
+                :src="primaryPhotoUrl"
+                :alt="primaryProfile?.account_id"
+                class="profile-interaction-card-profile-img"
+              />
+              <div v-else class="profile-interaction-card-profile-placeholder">
+                <span>{{ primaryProfile?.account_id?.charAt(0) || '?' }}</span>
               </div>
-
-              <!-- Location -->
-              <div v-if="primaryProfile?.location && primaryProfile.location !== ', USA'" class="profile-interaction-card-profile-location">
-                <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="profile-interaction-card-location-icon" />
-                <span>{{ primaryProfile.location }}</span>
-              </div>
-
-              <!-- Stats -->
-              <div class="profile-interaction-card-profile-stats">
-                <div v-if="primaryProfile?.photo_count" class="profile-interaction-card-stat">
-                  <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="profile-interaction-card-stat-icon" />
-                  <span>{{ primaryProfile.photo_count }}</span>
+              <div class="profile-interaction-card-profile-info">
+                <p class="profile-interaction-card-profile-name">{{ primaryProfile?.account_id || 'Onbekend' }}</p>
+                
+                <!-- Age with colors - only show second if real -->
+                <div v-if="primaryAges.first" class="profile-interaction-card-age">
+                  <span 
+                    class="profile-interaction-card-age-first"
+                    :style="{ color: getAgeColor(primaryProfile?.gender1) }"
+                  >
+                    {{ primaryAges.first }}
+                  </span>
+                  <template v-if="isPrimaryGender2Real">
+                    <span class="profile-interaction-card-age-separator"> | </span>
+                    <span 
+                      class="profile-interaction-card-age-second"
+                      :style="{ color: getAgeColor(primaryProfile?.gender2) }"
+                    >
+                      {{ primaryAges.second }}
+                    </span>
+                  </template>
                 </div>
-                <div v-if="primaryProfile?.likes_count" class="profile-interaction-card-stat">
-                  <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="profile-interaction-card-stat-icon" />
-                  <span>{{ primaryProfile.likes_count }}</span>
+
+                <!-- Location -->
+                <div v-if="primaryProfile?.location && primaryProfile.location !== ', USA'" class="profile-interaction-card-profile-location">
+                  <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="profile-interaction-card-location-icon" />
+                  <span>{{ primaryProfile.location }}</span>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Secondary Profile (who received the action) -->
-        <div class="profile-interaction-card-profile-section">
-          <div class="profile-interaction-card-profile-label">{{ secondaryProfile?.account_id || 'Jij' }}</div>
-          <div class="profile-interaction-card-profile">
-            <img
-              v-if="secondaryPhotoUrl"
-              :src="secondaryPhotoUrl"
-              :alt="secondaryProfile?.account_id"
-              class="profile-interaction-card-profile-img"
-            />
-            <div v-else class="profile-interaction-card-profile-placeholder">
-              <span>{{ secondaryProfile?.account_id?.charAt(0) || '?' }}</span>
-            </div>
-            <div class="profile-interaction-card-profile-info">
-              <p class="profile-interaction-card-profile-name">{{ secondaryProfile?.account_id || 'Jij' }}</p>
-              
-              <!-- Age with colors -->
-              <div v-if="secondaryAges.first || secondaryAges.second" class="profile-interaction-card-age">
-                <span 
-                  v-if="secondaryAges.first" 
-                  class="profile-interaction-card-age-first"
-                  :style="{ color: getAgeColor(secondaryProfile?.gender1) }"
-                >
-                  {{ secondaryAges.first }}
-                </span>
-                <span v-if="secondaryAges.first && secondaryAges.second" class="profile-interaction-card-age-separator"> | </span>
-                <span 
-                  v-if="secondaryAges.second" 
-                  class="profile-interaction-card-age-second"
-                  :style="{ color: getAgeColor(secondaryProfile?.gender2) }"
-                >
-                  {{ secondaryAges.second }}
-                </span>
-              </div>
-
-              <!-- Location -->
-              <div v-if="secondaryProfile?.location" class="profile-interaction-card-profile-location">
-                <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="profile-interaction-card-location-icon" />
-                <span>{{ secondaryProfile.location }}</span>
-                <span v-if="item.location_how_far && actionInfo.type !== 'validation'" class="profile-interaction-card-profile-location-distance">
-                  {{ formatDistance(item.location_how_far) }}
-                </span>
-              </div>
-
-              <!-- Stats -->
-              <div class="profile-interaction-card-profile-stats">
-                <div v-if="secondaryProfile?.photo_count" class="profile-interaction-card-stat">
-                  <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="profile-interaction-card-stat-icon" />
-                  <span>{{ secondaryProfile.photo_count }}</span>
-                </div>
-                <div v-if="secondaryProfile?.likes_count" class="profile-interaction-card-stat">
-                  <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="profile-interaction-card-stat-icon" />
-                  <span>{{ secondaryProfile.likes_count }}</span>
+                <!-- Stats -->
+                <div class="profile-interaction-card-profile-stats">
+                  <div v-if="primaryProfile?.photo_count" class="profile-interaction-card-stat">
+                    <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="profile-interaction-card-stat-icon" />
+                    <span>{{ primaryProfile.photo_count }}</span>
+                  </div>
+                  <div v-if="primaryProfile?.likes_count" class="profile-interaction-card-stat">
+                    <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="profile-interaction-card-stat-icon" />
+                    <span>{{ primaryProfile.likes_count }}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Validation Subject (for action 21) -->
-        <div v-if="actionInfo.type === 'validation' && actionInfo.subject" class="profile-interaction-card-validation-subject">
-          <p class="profile-interaction-card-validation-label">Bericht:</p>
-          <p class="profile-interaction-card-validation-text">{{ actionInfo.subject }}</p>
-        </div>
-      </template>
+          <!-- Secondary Profile (who received the action) -->
+          <div class="profile-interaction-card-profile-section">
+            <div class="profile-interaction-card-profile-label">{{ secondaryProfile?.account_id || 'Jij' }}</div>
+            <div class="profile-interaction-card-profile">
+              <img
+                v-if="secondaryPhotoUrl"
+                :src="secondaryPhotoUrl"
+                :alt="secondaryProfile?.account_id"
+                class="profile-interaction-card-profile-img"
+              />
+              <div v-else class="profile-interaction-card-profile-placeholder">
+                <span>{{ secondaryProfile?.account_id?.charAt(0) || '?' }}</span>
+              </div>
+              <div class="profile-interaction-card-profile-info">
+                <p class="profile-interaction-card-profile-name">{{ secondaryProfile?.account_id || 'Jij' }}</p>
+                
+                <!-- Age with colors - only show second if real -->
+                <div v-if="secondaryAges.first" class="profile-interaction-card-age">
+                  <span 
+                    class="profile-interaction-card-age-first"
+                    :style="{ color: getAgeColor(secondaryProfile?.gender1) }"
+                  >
+                    {{ secondaryAges.first }}
+                  </span>
+                  <template v-if="isSecondaryGender2Real">
+                    <span class="profile-interaction-card-age-separator"> | </span>
+                    <span 
+                      class="profile-interaction-card-age-second"
+                      :style="{ color: getAgeColor(secondaryProfile?.gender2) }"
+                    >
+                      {{ secondaryAges.second }}
+                    </span>
+                  </template>
+                </div>
+
+                <!-- Location -->
+                <div v-if="secondaryProfile?.location" class="profile-interaction-card-profile-location">
+                  <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="profile-interaction-card-location-icon" />
+                  <span>{{ secondaryProfile.location }}</span>
+                  <span v-if="item.location_how_far && actionInfo.type !== 'validation'" class="profile-interaction-card-profile-location-distance">
+                    {{ formatDistance(item.location_how_far) }}
+                  </span>
+                </div>
+
+                <!-- Stats -->
+                <div class="profile-interaction-card-profile-stats">
+                  <div v-if="secondaryProfile?.photo_count" class="profile-interaction-card-stat">
+                    <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="profile-interaction-card-stat-icon" />
+                    <span>{{ secondaryProfile.photo_count }}</span>
+                  </div>
+                  <div v-if="secondaryProfile?.likes_count" class="profile-interaction-card-stat">
+                    <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="profile-interaction-card-stat-icon" />
+                    <span>{{ secondaryProfile.likes_count }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Validation Subject (for action 21) - shown below the grid -->
+      <div v-if="actionInfo.type === 'validation' && actionInfo.subject" class="profile-interaction-card-validation-subject">
+        <p class="profile-interaction-card-validation-label">Bericht:</p>
+        <p class="profile-interaction-card-validation-text">{{ actionInfo.subject }}</p>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .profile-interaction-card {
-  background-color: #1f1f1f;
-  border-radius: 8px;
-  border: 1px solid #333;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 3px solid rgba(168, 85, 247, 0.4);
+  border-radius: 10px;
   overflow: hidden;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.profile-interaction-card-even {
+  background-color: rgba(255, 255, 255, 0.025);
+}
+
+.profile-interaction-card-odd {
+  background-color: rgba(255, 255, 255, 0.035);
+}
+
+.profile-interaction-card:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  border-left-color: rgba(168, 85, 247, 0.6);
 }
 
 .profile-interaction-card-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #333;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .profile-interaction-card-header-content {
@@ -377,72 +411,79 @@ const formatDistance = (km: number | undefined) => {
 }
 
 .profile-interaction-card-header-icon {
-  font-size: 18px;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .profile-interaction-card-header-text {
   color: white;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .profile-interaction-card-header-time {
-  color: #9ca3af;
-  font-size: 12px;
+  color: #6b7280;
+  font-size: 11px;
   margin: 0;
+  font-weight: 500;
 }
 
 .profile-interaction-card-content {
-  padding: 16px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .profile-interaction-card-profiles-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
-@media (min-width: 768px) {
+@media (max-width: 600px) {
   .profile-interaction-card-profiles-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 }
 
 .profile-interaction-card-profile-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .profile-interaction-card-profile-label {
-  font-size: 12px;
-  color: #9ca3af;
-  font-weight: 500;
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .profile-interaction-card-profile {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
 }
 
 .profile-interaction-card-profile-img {
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   border-radius: 8px;
   object-fit: cover;
   flex-shrink: 0;
+  border: 2px solid rgba(168, 85, 247, 0.6);
 }
 
 .profile-interaction-card-profile-placeholder {
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   border-radius: 8px;
-  background-color: #2a2a2a;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%);
+  border: 2px solid rgba(168, 85, 247, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -450,8 +491,8 @@ const formatDistance = (km: number | undefined) => {
 }
 
 .profile-interaction-card-profile-placeholder span {
-  color: #9ca3af;
-  font-size: 24px;
+  color: #60a5fa;
+  font-size: 20px;
   font-weight: 600;
 }
 
@@ -459,87 +500,100 @@ const formatDistance = (km: number | undefined) => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .profile-interaction-card-profile-name {
   color: white;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .profile-interaction-card-age {
-  font-size: 12px;
+  font-size: 11px;
   display: inline-block;
+  font-weight: 500;
 }
 
 .profile-interaction-card-age-first {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .profile-interaction-card-age-separator {
-  color: white;
-  margin: 0 2px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0 3px;
 }
 
 .profile-interaction-card-age-second {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .profile-interaction-card-profile-location {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 10px;
   color: #9ca3af;
 }
 
 .profile-interaction-card-location-icon {
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
+  opacity: 0.7;
 }
 
 .profile-interaction-card-profile-location-distance {
   margin-left: 4px;
+  color: #6b7280;
 }
 
 .profile-interaction-card-profile-stats {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin-top: 4px;
 }
 
 .profile-interaction-card-stat {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  gap: 3px;
+  font-size: 10px;
   color: #9ca3af;
 }
 
 .profile-interaction-card-stat-icon {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
 }
 
 .profile-interaction-card-validation-subject {
   margin-top: 8px;
-  padding-top: 16px;
-  border-top: 1px solid #333;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .profile-interaction-card-validation-label {
-  font-size: 12px;
-  color: #9ca3af;
-  margin: 0 0 4px 0;
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 6px 0;
 }
 
 .profile-interaction-card-validation-text {
-  color: white;
-  font-size: 14px;
+  color: #e5e7eb;
+  font-size: 11px;
   margin: 0;
   font-style: italic;
+  line-height: 1.5;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border-left: 2px solid rgba(59, 130, 246, 0.4);
 }
 </style>

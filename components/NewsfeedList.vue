@@ -26,32 +26,45 @@ const observerTarget = ref<HTMLElement | null>(null);
 const observer = ref<IntersectionObserver | null>(null);
 
 // Convert filter options to filter strings
-// Based on the API call example: filter=3,22,300,904,200,903,906,20&filter_f=17,18,5,6,21,23,8,9,14,13,20
+// Based on SDC source code classes Q7 (Vrienden/filter_f) and Z7 (Algemeen/filter)
 const getFilterStrings = () => {
   const filter: string[] = [];
   const filter_f: string[] = [];
 
-  // Content type filters (first dropdown) -> filter param
-  if (props.filters.group_post_blog) filter.push('3'); // Groepen / Blogs
-  if (props.filters.speedating) filter.push('904'); // Speed Date
-  if (props.filters.travelplans) filter.push('22'); // Reisplannen
-  if (props.filters.parties) filter.push('14'); // Party's & Events
+  // Content type filters (first dropdown - "Algemeen") -> filter param
+  // Based on Z7 class: always include base values [3, 22, 903, 906, 20]
+  filter.push('3', '22', '903', '906', '20');
+  
+  // Then add specific filters based on props
+  if (props.filters.group_post_blog) filter.push('300'); // Groepen / Blogs (groupsAndBlogs)
+  if (props.filters.speed_area) filter.push('904'); // Speed Date (Algemeen) (speedDate)
+  if (props.filters.travelplans_area) filter.push('200'); // Reisplannen (Algemeen) (travelPlans)
+  if (props.filters.parties) {
+    // Parties includes multiple IDs: [400, 500, 600, 25, 28, 29] (partiesAndEvents)
+    filter.push('400', '500', '600', '25', '28', '29');
+  }
+  if (props.filters.viewed_me) filter.push('24'); // Viewed me
 
-  // Activity filters (second dropdown) -> filter_f param
-  if (props.filters.likes_sent) filter_f.push('17'); // Likes gegeven
-  if (props.filters.group_joined) filter_f.push('18'); // Groepslid geworden
-  if (props.filters.photos_videos) filter_f.push('5'); // Foto's & Video's
-  if (props.filters.validations) filter_f.push('6'); // Validaties
-  if (props.filters.birthday) filter_f.push('21'); // Verjaardag
-  if (props.filters.speedating) filter_f.push('9'); // Speed Date (in activity filters)
-  if (props.filters.travelplans) filter_f.push('13'); // Reisplannen (in activity filters)
-  if (props.filters.parties) filter_f.push('14'); // Party's & Events (in activity filters)
-  if (props.filters.member_services) filter_f.push('23'); // Ledenservice
-  if (props.filters.friends_new) filter_f.push('8'); // Nieuwe vrienden / volgers
-
+  // Activity filters (second dropdown - "Vrienden") -> filter_f param
+  // Based on Q7 class mapping
+  if (props.filters.likes_sent) filter_f.push('3'); // Likes gegeven (likesGiven)
+  if (props.filters.group_joined) filter_f.push('17', '18'); // Groepslid geworden (joinedGroup)
+  if (props.filters.photos_videos) filter_f.push('5', '6'); // Foto's & Video's (photosAndVideos)
+  if (props.filters.validations) filter_f.push('21'); // Validaties (validations)
+  if (props.filters.birthday) filter_f.push('23'); // Verjaardag (birthdays)
+  if (props.filters.speedating) filter_f.push('8'); // Speed Date (Vrienden) (speedDate)
+  if (props.filters.travelplans) filter_f.push('9'); // Reisplannen (Vrienden) (travelPlans)
+  if (props.filters.parties) filter_f.push('14'); // Party's & Events (partiesAndEvents)
+  if (props.filters.member_services) filter_f.push('13'); // Ledenservice (memberServices)
+  if (props.filters.friends_new) filter_f.push('20'); // Nieuwe vrienden / volgers (newFriendsAndFollowers)
+  
+  // Remove duplicates and sort
+  const uniqueFilter = [...new Set(filter)].sort((a, b) => parseInt(a) - parseInt(b));
+  const uniqueFilterF = [...new Set(filter_f)].sort((a, b) => parseInt(a) - parseInt(b));
+  
   return {
-    filter: filter.join(','),
-    filter_f: filter_f.join(',')
+    filter: uniqueFilter.join(','),
+    filter_f: uniqueFilterF.join(',')
   };
 };
 
@@ -133,7 +146,7 @@ const setupObserver = () => {
       }
     },
     {
-      rootMargin: '200px', // Start loading 200px before reaching bottom
+      rootMargin: '1000px', // Start loading 1 page ahead (~1000px before reaching bottom)
     }
   );
 
@@ -186,40 +199,71 @@ watch(observerTarget, () => {
   <div class="newsfeed-list">
     <!-- Error State -->
     <div v-if="error" class="newsfeed-error">
+      <div class="newsfeed-error-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <p class="newsfeed-error-title">Something went wrong</p>
       <p class="newsfeed-error-text">{{ error }}</p>
     </div>
 
     <!-- Loading State (Initial) -->
-    <div v-if="loading && items.length === 0" class="newsfeed-loading">
-      <p>Loading feed...</p>
+    <div v-else-if="loading && items.length === 0" class="newsfeed-loading">
+      <div class="newsfeed-loading-skeleton">
+        <div v-for="i in 6" :key="i" class="skeleton-card">
+          <div class="skeleton-header">
+            <div class="skeleton-avatar"></div>
+            <div class="skeleton-text-group">
+              <div class="skeleton-line skeleton-line-short"></div>
+              <div class="skeleton-line skeleton-line-shorter"></div>
+            </div>
+          </div>
+          <div class="skeleton-content">
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line skeleton-line-medium"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Empty State -->
     <div v-else-if="!loading && items.length === 0" class="newsfeed-empty">
-      <p>No items found</p>
+      <div class="newsfeed-empty-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 11a9 9 0 0 1 9 9" />
+          <path d="M4 4a16 16 0 0 1 16 16" />
+          <circle cx="5" cy="19" r="1" />
+        </svg>
+      </div>
+      <p class="newsfeed-empty-title">No activity yet</p>
+      <p class="newsfeed-empty-text">When there's new activity, it will show up here</p>
     </div>
 
     <!-- Feed Items -->
     <div v-else class="newsfeed-items">
-      <template v-for="item in items" :key="item.action_id">
+      <template v-for="(item, index) in items" :key="item.action_id">
         <!-- Guest List Card: action 600 -->
-        <GuestListCard v-if="item.action === 600" :item="item" />
+        <GuestListCard v-if="item.action === 600" :item="item" :index="index" />
         <!-- Profile Interaction Cards: actions 3 (like), 21 (validation), 22 (follow) - only for regular feed -->
-        <ProfileInteractionCard v-else-if="activeTab === 'feed' && (item.action === 3 || item.action === 21 || item.action === 22)" :item="item" />
+        <ProfileInteractionCard v-else-if="activeTab === 'feed' && (item.action === 3 || item.action === 21 || item.action === 22)" :item="item" :index="index" />
         <!-- Party Event Card: action 14 with valid party object (has party_id or title) -->
-        <PartyEventCard v-else-if="item.action === 14 && item.party && (item.party.party_id || item.party.title)" :item="item" />
+        <PartyEventCard v-else-if="item.action === 14 && item.party && (item.party.party_id || item.party.title)" :item="item" :index="index" />
         <!-- Speed Dating Card: action 904 -->
-        <SpeedDatingCard v-else-if="item.action === 904" :item="item" />
+        <SpeedDatingCard v-else-if="item.action === 904" :item="item" :index="index" />
         <!-- Admin Notification Card: admin-specific actions (2, 3, 21, 14 without party) or admin tab fallback -->
-        <AdminNotificationCard v-else-if="activeTab === 'admin' || item.action === 2 || item.action === 3 || item.action === 21 || (item.action === 14 && !item.party)" :item="item" />
+        <AdminNotificationCard v-else-if="activeTab === 'admin' || item.action === 2 || item.action === 3 || item.action === 21 || (item.action === 14 && !item.party)" :item="item" :index="index" />
         <!-- Coming Soon Card: unsupported actions in regular feed -->
-        <ComingSoonCard v-else :item="item" />
+        <ComingSoonCard v-else :item="item" :index="index" />
       </template>
     </div>
 
     <!-- Loading More Indicator -->
     <div v-if="loading && items.length > 0" class="newsfeed-loading-more">
-      <p>Loading more...</p>
+      <div class="loading-more-spinner"></div>
+      <span>Loading more...</span>
     </div>
 
     <!-- Observer Target for Infinite Scroll -->
@@ -229,50 +273,198 @@ watch(observerTarget, () => {
 
 <style scoped>
 .newsfeed-list {
-  max-width: 896px;
-  margin: 0 auto;
-  padding: 24px 16px;
+  width: 100%;
+  max-width: 100%;
+  padding: 12px 16px 24px;
 }
 
+/* Error State */
 .newsfeed-error {
-  background-color: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 32px 16px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.newsfeed-error-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.15);
+  border-radius: 50%;
+  color: #f87171;
+  margin-bottom: 12px;
+}
+
+.newsfeed-error-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.newsfeed-error-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f87171;
+  margin-bottom: 6px;
 }
 
 .newsfeed-error-text {
-  color: #f87171;
-  font-size: 14px;
+  color: #fca5a5;
+  font-size: 12px;
 }
 
+/* Loading State - Skeleton */
 .newsfeed-loading {
-  text-align: center;
-  padding: 48px 0;
-  color: #9ca3af;
+  padding: 4px 0;
 }
 
+.newsfeed-loading-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.skeleton-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.skeleton-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-text-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-line-short {
+  width: 40%;
+}
+
+.skeleton-line-shorter {
+  width: 25%;
+  height: 10px;
+}
+
+.skeleton-line-medium {
+  width: 70%;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Empty State */
 .newsfeed-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  padding: 48px 0;
-  color: #9ca3af;
+  padding: 40px 16px;
 }
 
+.newsfeed-empty-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 50%;
+  color: #4b5563;
+  margin-bottom: 14px;
+}
+
+.newsfeed-empty-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.newsfeed-empty-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #9ca3af;
+  margin-bottom: 6px;
+}
+
+.newsfeed-empty-text {
+  color: #6b7280;
+  font-size: 12px;
+  max-width: 260px;
+}
+
+/* Feed Items */
 .newsfeed-items {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 }
 
+/* Loading More Indicator */
 .newsfeed-loading-more {
-  text-align: center;
-  padding: 24px 0;
-  color: #9ca3af;
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 0;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.loading-more-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .newsfeed-observer-target {
-  height: 4px;
+  height: 1px;
 }
 </style>

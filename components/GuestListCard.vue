@@ -4,6 +4,7 @@ import type { NewsfeedItem } from '@/lib/sdc-api/newsfeed';
 
 interface Props {
   item: NewsfeedItem;
+  index?: number;
 }
 
 const props = defineProps<Props>();
@@ -42,6 +43,14 @@ const parseAge = () => {
 };
 
 const ages = computed(() => parseAge());
+
+// Check if second person age is real (not a placeholder)
+// Gender2 is not real if age is > 100, undefined, or < 18
+const isGender2Real = computed(() => {
+  if (!ages.value.second) return false;
+  const age = parseInt(ages.value.second, 10);
+  return !isNaN(age) && age >= 18 && age <= 100;
+});
 
 // Get age color based on gender (1 = female = pink, 0 = male = blue)
 const getAgeColor = (gender: number | undefined) => {
@@ -176,7 +185,7 @@ const handleRemoveFromGuestList = () => {
 </script>
 
 <template>
-  <div class="newsfeed-card">
+  <div :class="['newsfeed-card', `newsfeed-card-${props.index !== undefined && props.index % 2 === 0 ? 'even' : 'odd'}`]">
     <!-- Header -->
     <div class="newsfeed-card-header">
       <p class="newsfeed-card-header-text">
@@ -189,27 +198,16 @@ const handleRemoveFromGuestList = () => {
     <div class="newsfeed-card-content">
       <!-- Left: Member Profile -->
       <div class="newsfeed-card-section">
-        <div class="newsfeed-card-profile-container">
-          <div class="newsfeed-card-profile-photo-wrapper">
-            <img
-              v-if="photoUrl"
-              :src="photoUrl"
-              :alt="receiver?.account_id"
-              class="newsfeed-card-profile-photo"
-            />
-            <!-- Stats overlay -->
-            <div class="newsfeed-card-profile-stats-overlay">
-              <div class="newsfeed-card-stat-overlay">
-                <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="newsfeed-card-stat-icon-overlay" />
-                <span>{{ receiver?.photo_count || 0 }}</span>
-              </div>
-              <div class="newsfeed-card-stat-overlay">
-                <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="newsfeed-card-stat-icon-overlay" />
-                <span>{{ receiver?.likes_count || 0 }}</span>
-              </div>
-            </div>
+        <div class="newsfeed-card-profile">
+          <img
+            v-if="photoUrl"
+            :src="photoUrl"
+            :alt="receiver?.account_id"
+            class="newsfeed-card-profile-img"
+          />
+          <div v-else class="newsfeed-card-profile-placeholder">
+            <span>{{ receiver?.account_id?.charAt(0) || '?' }}</span>
           </div>
-          
           <div class="newsfeed-card-profile-info">
             <div class="newsfeed-card-profile-header">
               <p class="newsfeed-card-profile-name">{{ receiver?.account_id }}</p>
@@ -231,23 +229,35 @@ const handleRemoveFromGuestList = () => {
               </div>
             </div>
             
-            <!-- Age with colors -->
-            <div v-if="ages.first || ages.second" class="newsfeed-card-age">
+            <!-- Age with colors - only show second if real -->
+            <div v-if="ages.first" class="newsfeed-card-age">
               <span 
-                v-if="ages.first" 
                 class="newsfeed-card-age-first"
                 :style="{ color: getAgeColor(receiver?.gender1) }"
               >
                 {{ ages.first }}
               </span>
-              <span v-if="ages.first && ages.second" class="newsfeed-card-age-separator"> | </span>
-              <span 
-                v-if="ages.second" 
-                class="newsfeed-card-age-second"
-                :style="{ color: getAgeColor(receiver?.gender2) }"
-              >
-                {{ ages.second }}
-              </span>
+              <template v-if="isGender2Real">
+                <span class="newsfeed-card-age-separator"> | </span>
+                <span 
+                  class="newsfeed-card-age-second"
+                  :style="{ color: getAgeColor(receiver?.gender2) }"
+                >
+                  {{ ages.second }}
+                </span>
+              </template>
+            </div>
+
+            <!-- Stats with icons -->
+            <div class="newsfeed-card-profile-stats">
+              <div v-if="receiver?.photo_count" class="newsfeed-card-stat">
+                <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="newsfeed-card-stat-icon" />
+                <span>{{ receiver.photo_count }}</span>
+              </div>
+              <div v-if="receiver?.likes_count" class="newsfeed-card-stat">
+                <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="newsfeed-card-stat-icon" />
+                <span>{{ receiver.likes_count }}</span>
+              </div>
             </div>
 
             <!-- Interests -->
@@ -335,36 +345,56 @@ const handleRemoveFromGuestList = () => {
 
 <style scoped>
 .newsfeed-card {
-  background-color: #1f1f1f;
-  border-radius: 8px;
-  border: 1px solid #333;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 3px solid rgba(255, 241, 165, 0.4);
+  border-radius: 10px;
   overflow: hidden;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.newsfeed-card-even {
+  background-color: rgba(255, 255, 255, 0.025);
+}
+
+.newsfeed-card-odd {
+  background-color: rgba(255, 255, 255, 0.035);
+}
+
+.newsfeed-card:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  border-left-color: rgba(255, 241, 165, 0.6);
 }
 
 .newsfeed-card-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #333;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .newsfeed-card-header-text {
   color: white;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
+  letter-spacing: -0.01em;
 }
 
 .newsfeed-card-header-time {
-  color: #9ca3af;
-  font-size: 12px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .newsfeed-card-content {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
-  padding: 16px;
+  gap: 10px;
+  padding: 10px 12px;
 }
 
 @media (min-width: 768px) {
@@ -376,61 +406,48 @@ const handleRemoveFromGuestList = () => {
 .newsfeed-card-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 /* Left Side: Profile */
-.newsfeed-card-profile-container {
+.newsfeed-card-profile {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 10px;
 }
 
-.newsfeed-card-profile-photo-wrapper {
-  position: relative;
-  width: 100%;
-  max-width: 100%;
-}
-
-.newsfeed-card-profile-photo {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  max-height: 580px;
-  object-fit: cover;
+.newsfeed-card-profile-img {
+  width: 52px;
+  height: 52px;
   border-radius: 8px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 241, 165, 0.6);
+  flex-shrink: 0;
 }
 
-.newsfeed-card-profile-stats-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
-  padding: 12px;
+.newsfeed-card-profile-placeholder {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255, 241, 165, 0.15) 0%, rgba(255, 241, 165, 0.05) 100%);
+  border: 2px solid rgba(255, 241, 165, 0.6);
   display: flex;
   align-items: center;
-  gap: 16px;
-  border-radius: 0 0 8px 8px;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.newsfeed-card-stat-overlay {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: white;
-}
-
-.newsfeed-card-stat-icon-overlay {
-  width: 20px;
-  height: 22px;
+.newsfeed-card-profile-placeholder span {
+  color: #fbbf24;
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .newsfeed-card-profile-info {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .newsfeed-card-profile-header {
@@ -443,6 +460,7 @@ const handleRemoveFromGuestList = () => {
   color: white;
   font-weight: 600;
   font-size: 12px;
+  letter-spacing: -0.01em;
 }
 
 .newsfeed-card-device-icons {
@@ -452,27 +470,34 @@ const handleRemoveFromGuestList = () => {
 }
 
 .newsfeed-card-device-icon {
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 14px;
   cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.newsfeed-card-device-icon:hover {
+  opacity: 1;
 }
 
 .newsfeed-card-age {
-  font-size: 12px;
+  font-size: 11px;
   display: inline-block;
+  font-weight: 500;
 }
 
 .newsfeed-card-age-first {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .newsfeed-card-age-separator {
-  color: white;
-  margin: 0 2px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0 3px;
 }
 
 .newsfeed-card-age-second {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .newsfeed-card-interests {
@@ -482,15 +507,18 @@ const handleRemoveFromGuestList = () => {
 }
 
 .newsfeed-card-interests-label {
-  font-size: 12px;
-  color: #9ca3af;
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   margin: 0;
 }
 
 .newsfeed-card-interests-icons {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .newsfeed-card-interests-icon {
@@ -501,144 +529,199 @@ const handleRemoveFromGuestList = () => {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 10px;
   color: #9ca3af;
 }
 
 .newsfeed-card-location-icon {
-  width: 20px;
-  height: 20px;
+  width: 12px;
+  height: 12px;
+  opacity: 0.7;
 }
 
 .newsfeed-card-profile-location-distance {
-  margin-left: 8px;
+  margin-left: 4px;
+  color: #6b7280;
+}
+
+.newsfeed-card-profile-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.newsfeed-card-stat {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.newsfeed-card-stat-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
 }
 
 /* Right Side: Party */
 .newsfeed-card-party-container {
   position: relative;
-  background-color: #2a2a2a;
-  border-radius: 8px;
-  padding: 12px;
-  min-height: 200px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.03) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 6px;
+  padding: 10px;
+  min-height: 120px;
 }
 
 .newsfeed-card-party-info {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .newsfeed-card-party-type {
-  font-size: 12px;
-  color: #9ca3af;
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   margin: 0;
 }
 
 .newsfeed-card-party-title {
   color: white;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
   margin: 0;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
 }
 
 .newsfeed-card-party-author {
-  font-size: 12px;
+  font-size: 10px;
   color: #9ca3af;
   margin: 0;
 }
 
 .newsfeed-card-party-author-name {
-  color: rgb(255, 241, 165);
-  font-size: 12px;
+  color: #fbbf24;
+  font-size: 10px;
+  font-weight: 500;
   overflow-wrap: break-word;
 }
 
 .newsfeed-card-party-date {
-  font-size: 12px;
+  font-size: 10px;
   color: #9ca3af;
   margin: 0;
+  font-weight: 500;
 }
 
 .newsfeed-card-party-welcome {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .newsfeed-card-party-welcome-label {
-  font-size: 12px;
-  color: #9ca3af;
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   margin: 0;
 }
 
 .newsfeed-card-party-welcome-icons {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .newsfeed-card-party-location {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 12px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .newsfeed-card-party-location-text {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 10px;
   color: #9ca3af;
 }
 
 .newsfeed-card-location-icon-small {
-  width: 18px;
-  height: 18px;
+  width: 12px;
+  height: 12px;
+  opacity: 0.7;
 }
 
 .newsfeed-card-party-distance {
-  font-size: 12px;
-  color: #9ca3af;
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 500;
 }
 
 .newsfeed-card-party-actions {
-  margin-top: 12px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .newsfeed-card-remove-button {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background-color: transparent;
-  border: none;
-  color: white;
-  font-size: 14px;
-  padding: 8px 12px;
-  border-radius: 4px;
+  gap: 6px;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 5px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
+  width: 100%;
+  justify-content: center;
 }
 
 .newsfeed-card-remove-button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
 }
 
 .newsfeed-card-remove-icon {
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
 }
 
 .newsfeed-card-party-icon-wrapper {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(59, 130, 246, 0.15);
+  border-radius: 4px;
+  border: 1px solid rgba(59, 130, 246, 0.25);
 }
 
 .newsfeed-card-party-icon {
-  width: 24px;
-  height: 24px;
+  width: 12px;
+  height: 12px;
 }
 </style>

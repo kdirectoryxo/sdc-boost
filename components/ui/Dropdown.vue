@@ -162,7 +162,15 @@ const positionClasses = computed(() => {
   return classes.join(' ');
 });
 
-const zIndexClass = computed(() => `z-[${props.zIndex}]`);
+const zIndexClass = computed(() => {
+  // Use inline style for z-index to ensure it's applied correctly
+  return '';
+});
+
+const zIndexStyle = computed(() => ({
+  zIndex: props.zIndex,
+  position: 'absolute' as const,
+}));
 </script>
 
 <template>
@@ -179,9 +187,9 @@ const zIndexClass = computed(() => `z-[${props.zIndex}]`);
       :class="[
         positionClasses,
         width,
-        'bg-[#1a1a1a] border border-[#333] rounded-lg shadow-lg overflow-hidden',
-        zIndexClass
+        'bg-[#1a1a1a] border border-[#333] rounded-lg shadow-lg overflow-hidden'
       ]"
+      :style="zIndexStyle"
       @click.stop
     >
       <slot name="content" :close="close" />

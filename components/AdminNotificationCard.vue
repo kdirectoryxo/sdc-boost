@@ -5,6 +5,7 @@ import { getCurrentMuid } from '@/lib/sdc-api/utils';
 
 interface Props {
   item: NewsfeedItem;
+  index?: number;
 }
 
 const props = defineProps<Props>();
@@ -168,7 +169,7 @@ const handleReply = async () => {
 </script>
 
 <template>
-  <div class="admin-notification-card-wrapper">
+  <div :class="['admin-notification-card-wrapper', `admin-notification-card-${props.index !== undefined && props.index % 2 === 0 ? 'even' : 'odd'}`]">
     <div class="admin-notification-card">
       <!-- Icon -->
       <div class="admin-notification-card-icon">
@@ -219,22 +220,47 @@ const handleReply = async () => {
 
 <style scoped>
 .admin-notification-card-wrapper {
-  background-color: #1f1f1f;
-  border-radius: 8px;
-  border: 1px solid #333;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 3px solid rgba(59, 130, 246, 0.4);
+  border-radius: 10px;
   overflow: hidden;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.admin-notification-card-even {
+  background-color: rgba(255, 255, 255, 0.025);
+}
+
+.admin-notification-card-odd {
+  background-color: rgba(255, 255, 255, 0.035);
+}
+
+.admin-notification-card-wrapper:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  border-left-color: rgba(59, 130, 246, 0.6);
 }
 
 .admin-notification-card {
-  padding: 16px;
+  padding: 12px 14px;
   display: flex;
   align-items: flex-start;
-  gap: 16px;
+  gap: 12px;
 }
 
 .admin-notification-card-icon {
-  font-size: 24px;
+  font-size: 18px;
   flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .admin-notification-card-content {
@@ -246,59 +272,69 @@ const handleReply = async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  gap: 10px;
 }
 
 .admin-notification-card-title {
   color: white;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
+  letter-spacing: -0.01em;
+  flex: 1;
 }
 
 .admin-notification-card-time {
-  color: #9ca3af;
-  font-size: 12px;
+  color: #6b7280;
+  font-size: 11px;
   flex-shrink: 0;
-  margin-left: 16px;
+  font-weight: 500;
 }
 
 .admin-notification-card-body {
   color: #d1d5db;
-  font-size: 14px;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .admin-notification-card-status {
   margin-top: 8px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  border-radius: 4px;
 }
 
 .admin-notification-card-status-text {
-  font-size: 12px;
+  font-size: 10px;
   color: #4ade80;
+  font-weight: 500;
 }
 
 .admin-notification-card-reply {
   flex-shrink: 0;
-  background-color: #3b82f6;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   border: none;
   border-radius: 6px;
   color: white;
   cursor: pointer;
-  padding: 8px 12px;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
-  min-width: 40px;
-  height: 36px;
+  transition: all 0.2s ease;
+  min-width: 32px;
+  height: 32px;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
 }
 
 .admin-notification-card-reply:hover:not(:disabled) {
-  background-color: #2563eb;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .admin-notification-card-reply:active:not(:disabled) {
@@ -308,12 +344,12 @@ const handleReply = async () => {
 .admin-notification-card-reply:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  background-color: #1e40af;
+  background: rgba(30, 64, 175, 0.5);
 }
 
 .admin-notification-card-reply svg {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
 }
 
 .admin-notification-card-reply-loading {
@@ -337,6 +373,7 @@ const handleReply = async () => {
 .admin-notification-prose a {
   color: #60a5fa;
   text-decoration: underline;
+  transition: color 0.2s ease;
 }
 
 .admin-notification-prose a:hover {
@@ -344,7 +381,7 @@ const handleReply = async () => {
 }
 
 .admin-notification-prose b {
-  color: #9ca3af;
+  color: #e5e7eb;
   font-weight: 600;
 }
 

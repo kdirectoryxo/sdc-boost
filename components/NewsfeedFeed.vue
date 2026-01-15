@@ -57,7 +57,6 @@ const handleFiltersChange = async (newFilters: Partial<NewsfeedFilterOptions>) =
       setCachedFilters(filters.value as NewsfeedFilterOptions);
     } catch (error) {
       console.error('[NewsfeedFeed] Failed to update filters:', error);
-      // Optionally show error toast
     } finally {
       filtersLoading.value = false;
     }
@@ -67,39 +66,93 @@ const handleFiltersChange = async (newFilters: Partial<NewsfeedFilterOptions>) =
 
 <template>
   <div class="newsfeed-container">
-    <NewsfeedHeader 
-      :active-tab="activeTab"
-      :filters="filters"
-      @filters-change="handleFiltersChange"
-    />
-    <NewsfeedTabs 
-      :active-tab="activeTab"
-      @tab-change="handleTabChange"
-    />
-    <NewsfeedList 
-      v-if="filtersReady"
-      :active-tab="activeTab"
-      :filters="filters"
-    />
-    <div v-else class="newsfeed-loading-filters">
-      <p>Loading filters...</p>
+    <!-- Tabs and Filters Section -->
+    <div class="newsfeed-controls">
+      <NewsfeedTabs 
+        :active-tab="activeTab"
+        @tab-change="handleTabChange"
+      />
+      <NewsfeedHeader 
+        :active-tab="activeTab"
+        :filters="filters"
+        @filters-change="handleFiltersChange"
+      />
+    </div>
+    
+    <!-- Feed Content -->
+    <div class="newsfeed-content">
+      <NewsfeedList 
+        v-if="filtersReady"
+        :active-tab="activeTab"
+        :filters="filters"
+      />
+      <div v-else class="newsfeed-loading-filters">
+        <div class="loading-spinner"></div>
+        <p>Loading filters...</p>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .newsfeed-container {
-  background-color: #262B2F;
+  background-color: #1a1d21;
   display: flex;
   flex-direction: column;
   height: 100%;
 }
 
+.newsfeed-controls {
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.newsfeed-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Custom scrollbar */
+.newsfeed-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.newsfeed-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.newsfeed-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+.newsfeed-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .newsfeed-loading-filters {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px;
-  color: #9ca3af;
+  padding: 64px 24px;
+  gap: 16px;
+  color: #6b7280;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

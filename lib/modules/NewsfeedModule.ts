@@ -1,6 +1,7 @@
 import { BaseModule } from './BaseModule';
 import type { ModuleConfigOption } from './types';
 import { navigationWatcher } from './utils/NavigationWatcher';
+import { countersManager } from '../counters-manager';
 
 /**
  * Module to add a Newsfeed button to the navbar that opens a Vue-based dialog
@@ -8,8 +9,10 @@ import { navigationWatcher } from './utils/NavigationWatcher';
  */
 export class NewsfeedModule extends BaseModule {
     private newsfeedButton: HTMLElement | null = null;
+    private counterBadge: HTMLElement | null = null;
     private bodyObserver: MutationObserver | null = null;
     private unsubscribeNavigation: (() => void) | null = null;
+    private unsubscribeCounters: (() => void) | null = null;
     private hiddenSidebarElements: Set<HTMLElement> = new Set();
 
     constructor() {
@@ -30,11 +33,13 @@ export class NewsfeedModule extends BaseModule {
         this.setupNavigationListener();
         this.hideSidebarFeedItem();
         this.setupSidebarObserver();
+        this.setupCounterSubscription();
     }
 
     async cleanup(): Promise<void> {
         this.removeNewsfeedButton();
         this.cleanupObserver();
+        this.cleanupCounterSubscription();
         if (this.bodyObserver) {
             this.bodyObserver.disconnect();
             this.bodyObserver = null;
@@ -101,6 +106,7 @@ export class NewsfeedModule extends BaseModule {
             margin-left: 4px !important;
             box-sizing: border-box;
             flex-direction: row;
+            position: relative;
         `;
         
         // Create the icon (news feed icon SVG)
@@ -123,12 +129,40 @@ export class NewsfeedModule extends BaseModule {
         const svgContent = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19" cy="7" r="3" fill="white"/></svg>`;
         icon.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
         
+        // Create counter badge
+        const badge = document.createElement('span');
+        badge.className = 'sdc-boost-newsfeed-badge';
+        badge.style.cssText = `
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background-color: #f44336;
+            color: white;
+            border-radius: 10px;
+            min-width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 0 4px;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            line-height: 1;
+        `;
+        badge.textContent = '0';
+        badge.style.display = 'none'; // Hidden by default
+        
         // Create ripple span
         const ripple = document.createElement('span');
         ripple.className = 'MuiTouchRipple-root css-w0pj6f';
         
         button.appendChild(icon);
+        button.appendChild(badge);
         button.appendChild(ripple);
+        
+        this.counterBadge = badge;
 
         // Create label
         const label = document.createElement('label');
@@ -194,6 +228,8 @@ export class NewsfeedModule extends BaseModule {
             if (!document.querySelector('.sdc-boost-newsfeed-button')) {
                 // Re-inject if it was removed
                 this.injectNewsfeedButton();
+                // Re-subscribe to counters after re-injection
+                this.setupCounterSubscription();
             }
             
             // Also check if the navbar container itself was replaced
@@ -201,7 +237,10 @@ export class NewsfeedModule extends BaseModule {
                 mutation.removedNodes.forEach((node) => {
                     if (node instanceof Element && node.querySelector?.('.sdc-boost-newsfeed-button')) {
                         // Our button's container was removed, re-inject
-                        setTimeout(() => this.injectNewsfeedButton(), 100);
+                        setTimeout(() => {
+                            this.injectNewsfeedButton();
+                            this.setupCounterSubscription();
+                        }, 100);
                     }
                 });
             });
@@ -226,7 +265,10 @@ export class NewsfeedModule extends BaseModule {
                         const navbar = node.querySelector?.('.nav-bar-right-buttons') || 
                                      (node.classList?.contains('nav-bar-right-buttons') ? node : null);
                         if (navbar && !document.querySelector('.sdc-boost-newsfeed-button')) {
-                            setTimeout(() => this.injectNewsfeedButton(), 100);
+                            setTimeout(() => {
+                                this.injectNewsfeedButton();
+                                this.setupCounterSubscription();
+                            }, 100);
                         }
                     }
                 });
@@ -248,10 +290,12 @@ export class NewsfeedModule extends BaseModule {
             if (this.newsfeedButton) {
                 this.newsfeedButton.remove();
                 this.newsfeedButton = null;
+                this.counterBadge = null;
             }
             // Wait a bit for DOM to update, then re-inject
             setTimeout(() => {
                 this.injectNewsfeedButton();
+                this.setupCounterSubscription();
             }, 300);
         };
 
@@ -313,5 +357,58 @@ export class NewsfeedModule extends BaseModule {
                 }
             });
         }, 1000);
+    }
+
+    /**
+     * Set up subscription to counter updates
+     */
+    private setupCounterSubscription(): void {
+        // Clean up existing subscription
+        this.cleanupCounterSubscription();
+
+        // Subscribe to counter updates for feed_counter
+        const unsubscribeUpdate = countersManager.onUpdate((counters: any) => {
+            const feedCount = counters.feed_counter || 0;
+            this.updateCounterBadge(feedCount);
+        });
+
+        // Store unsubscribe function
+        this.unsubscribeCounters = unsubscribeUpdate;
+    }
+
+    /**
+     * Update the counter badge display
+     */
+    private updateCounterBadge(count: number): void {
+        if (!this.counterBadge) {
+            // Try to find the badge if it was recreated
+            const button = document.querySelector('.sdc-boost-newsfeed-button');
+            if (button) {
+                this.counterBadge = button.querySelector('.sdc-boost-newsfeed-badge') as HTMLElement;
+            }
+        }
+
+        if (!this.counterBadge) {
+            return;
+        }
+
+        if (count > 0) {
+            // Show badge with count (limit display to 99+)
+            this.counterBadge.textContent = count > 99 ? '99+' : count.toString();
+            this.counterBadge.style.display = 'flex';
+        } else {
+            // Hide badge when count is 0
+            this.counterBadge.style.display = 'none';
+        }
+    }
+
+    /**
+     * Clean up counter subscription
+     */
+    private cleanupCounterSubscription(): void {
+        if (this.unsubscribeCounters) {
+            this.unsubscribeCounters();
+            this.unsubscribeCounters = null;
+        }
     }
 }

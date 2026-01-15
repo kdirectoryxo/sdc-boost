@@ -4,6 +4,7 @@ import type { NewsfeedItem } from '@/lib/sdc-api/newsfeed';
 
 interface Props {
   item: NewsfeedItem;
+  index?: number;
 }
 
 const props = defineProps<Props>();
@@ -200,19 +201,34 @@ const metInterestsIcons = computed(() => {
   return icons;
 });
 
+// Decode HTML entities (handles both &#39; and &#39 without semicolon)
+const decodeHtmlEntities = (text: string) => {
+  if (!text) return '';
+  // First fix incomplete entities (like &#39 without semicolon)
+  let fixed = text.replace(/&#(\d+)(?!;)/g, '&#$1;');
+  // Then decode using textarea method
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = fixed;
+  return textarea.value;
+};
+
 // Get message content - prefer body, but if PlaceToMeet exists and is different, show both
 const messageContent = computed(() => {
   // If PlaceToMeet exists and is different from body, use PlaceToMeet
   // Otherwise use body
+  let content = '';
   if (extraData.value?.PlaceToMeet && extraData.value.PlaceToMeet !== props.item.body) {
-    return extraData.value.PlaceToMeet;
+    content = extraData.value.PlaceToMeet;
+  } else {
+    content = props.item.body || '';
   }
-  return props.item.body || '';
+  // Decode HTML entities
+  return decodeHtmlEntities(content);
 });
 </script>
 
 <template>
-  <div class="newsfeed-card">
+  <div :class="['newsfeed-card', `newsfeed-card-${props.index !== undefined && props.index % 2 === 0 ? 'even' : 'odd'}`]">
     <!-- Header -->
     <div class="newsfeed-card-header">
       <p class="newsfeed-card-header-text">
@@ -348,9 +364,10 @@ const messageContent = computed(() => {
       <div class="newsfeed-card-section">
         <div class="newsfeed-card-party-info">
           <p class="newsfeed-card-party-type">Privé locatie</p>
-          <p v-if="availableDates" class="newsfeed-card-party-title">
-            {{ availableDates }}
-          </p>
+          <div v-if="availableDates" class="newsfeed-card-party-title-row">
+            <p class="newsfeed-card-party-title">Beschikbaar</p>
+            <p class="newsfeed-card-party-date-inline">{{ availableDates }}</p>
+          </div>
           
           <!-- Message Content (only show once) -->
           <div v-if="messageContent" class="newsfeed-card-message">
@@ -390,36 +407,56 @@ const messageContent = computed(() => {
 
 <style scoped>
 .newsfeed-card {
-  background-color: #1f1f1f;
-  border-radius: 8px;
-  border: 1px solid #333;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 3px solid rgba(168, 85, 247, 0.4);
+  border-radius: 10px;
   overflow: hidden;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.newsfeed-card-even {
+  background-color: rgba(255, 255, 255, 0.025);
+}
+
+.newsfeed-card-odd {
+  background-color: rgba(255, 255, 255, 0.035);
+}
+
+.newsfeed-card:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  border-left-color: rgba(168, 85, 247, 0.6);
 }
 
 .newsfeed-card-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #333;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .newsfeed-card-header-text {
   color: white;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
+  letter-spacing: -0.01em;
 }
 
 .newsfeed-card-header-time {
-  color: #9ca3af;
-  font-size: 12px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .newsfeed-card-content {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
-  padding: 16px;
+  gap: 12px;
+  padding: 12px 14px;
 }
 
 @media (min-width: 768px) {
@@ -431,20 +468,22 @@ const messageContent = computed(() => {
 .newsfeed-card-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .newsfeed-card-profile {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
 }
 
 .newsfeed-card-profile-img {
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   border-radius: 8px;
   object-fit: cover;
+  border: 2px solid rgba(168, 85, 247, 0.6);
+  flex-shrink: 0;
 }
 
 .newsfeed-card-profile-info {
@@ -454,153 +493,195 @@ const messageContent = computed(() => {
 .newsfeed-card-profile-name {
   color: white;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
   margin-bottom: 4px;
+  letter-spacing: -0.01em;
 }
 
 .newsfeed-card-age {
-  font-size: 12px;
+  font-size: 11px;
   margin-top: 4px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .newsfeed-card-age-row {
   display: inline-block;
-  white-space: nowrap; /* Prevent age from wrapping */
+  white-space: nowrap;
 }
 
 .newsfeed-card-age-first {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .newsfeed-card-age-separator {
-  color: white;
-  margin: 0 2px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0 3px;
 }
 
 .newsfeed-card-age-second {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .newsfeed-card-birthday-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .newsfeed-card-birthday-icon {
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
 }
 
 .newsfeed-card-device-icons {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-top: 8px;
+  margin-top: 6px;
   float: right;
 }
 
 .newsfeed-card-device-icon {
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 14px;
   cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.newsfeed-card-device-icon:hover {
+  opacity: 1;
 }
 
 .newsfeed-card-profile-stats {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-top: 8px;
+  gap: 10px;
+  margin-top: 6px;
 }
 
 .newsfeed-card-stat {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  gap: 3px;
+  font-size: 10px;
   color: #9ca3af;
 }
 
 .newsfeed-card-stat-icon {
-  width: 20px;
-  height: 22px;
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
 }
 
 .newsfeed-card-profile-location {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-top: 8px;
-  font-size: 12px;
+  margin-top: 6px;
+  font-size: 10px;
   color: #9ca3af;
 }
 
 .newsfeed-card-location-icon {
-  width: 20px;
-  height: 20px;
+  width: 12px;
+  height: 12px;
+  opacity: 0.7;
 }
 
 .newsfeed-card-location-icon-small {
-  width: 18px;
-  height: 18px;
+  width: 12px;
+  height: 12px;
+  opacity: 0.7;
 }
 
 .newsfeed-card-profile-location-distance {
-  margin-left: 8px;
+  margin-left: 4px;
+  color: #6b7280;
 }
 
 .newsfeed-card-interests {
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .newsfeed-card-interests-label {
-  font-size: 12px;
-  color: #9ca3af;
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   margin-bottom: 4px;
 }
 
 .newsfeed-card-interests-icons {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .newsfeed-card-interests-icon {
   display: inline-block;
-  object-fit: contain; /* Maintain aspect ratio when resizing */
-  flex-shrink: 0; /* Prevent icons from shrinking */
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .newsfeed-card-party-info {
-  background-color: #2a2a2a;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.03) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.15);
   border-radius: 8px;
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .newsfeed-card-party-type {
-  font-size: 12px;
-  color: #9ca3af;
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.newsfeed-card-party-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .newsfeed-card-party-title {
   color: white;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+  flex: 1;
+  min-width: 0;
+}
+
+.newsfeed-card-party-date-inline {
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .newsfeed-card-message {
-  margin-top: 12px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border-left: 2px solid rgba(59, 130, 246, 0.4);
 }
 
 .newsfeed-card-message-text {
-  color: white;
-  font-size: 14px;
+  color: #e5e7eb;
+  font-size: 11px;
   line-height: 1.5;
   white-space: pre-wrap;
 }
@@ -609,37 +690,45 @@ const messageContent = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 12px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .newsfeed-card-party-location-text {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 10px;
   color: #9ca3af;
 }
 
 .newsfeed-card-party-distance {
-  font-size: 12px;
-  color: #9ca3af;
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 500;
 }
 
 .newsfeed-card-party-interests {
-  margin-top: 12px;
+  margin-top: 8px;
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .newsfeed-card-party-interests-label {
-  font-size: 12px;
-  color: #9ca3af;
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .newsfeed-card-party-interests-icons {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 </style>

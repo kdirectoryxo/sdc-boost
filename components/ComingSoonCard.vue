@@ -3,6 +3,7 @@ import type { NewsfeedItem } from '@/lib/sdc-api/newsfeed';
 
 interface Props {
   item: NewsfeedItem;
+  index?: number;
 }
 
 const props = defineProps<Props>();
@@ -53,7 +54,7 @@ const actionLabel = getActionLabel();
 </script>
 
 <template>
-  <div class="coming-soon-card">
+  <div :class="['coming-soon-card', `coming-soon-card-${props.index !== undefined && props.index % 2 === 0 ? 'even' : 'odd'}`]">
     <!-- Header -->
     <div class="coming-soon-card-header">
       <div class="coming-soon-card-header-content">
@@ -86,18 +87,36 @@ const actionLabel = getActionLabel();
 
 <style scoped>
 .coming-soon-card {
-  background-color: #1f1f1f;
-  border-radius: 8px;
-  border: 1px solid #333;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 3px solid rgba(107, 114, 128, 0.4);
+  border-radius: 10px;
   overflow: hidden;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.coming-soon-card-even {
+  background-color: rgba(255, 255, 255, 0.025);
+}
+
+.coming-soon-card-odd {
+  background-color: rgba(255, 255, 255, 0.035);
+}
+
+.coming-soon-card:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  border-left-color: rgba(107, 114, 128, 0.6);
 }
 
 .coming-soon-card-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #333;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .coming-soon-card-header-content {
@@ -107,24 +126,27 @@ const actionLabel = getActionLabel();
 }
 
 .coming-soon-card-header-icon {
-  font-size: 18px;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .coming-soon-card-header-text {
   color: white;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .coming-soon-card-header-time {
-  color: #9ca3af;
-  font-size: 12px;
+  color: #6b7280;
+  font-size: 11px;
   margin: 0;
+  font-weight: 500;
 }
 
 .coming-soon-card-content {
-  padding: 48px 24px;
+  padding: 32px 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -132,26 +154,28 @@ const actionLabel = getActionLabel();
 
 .coming-soon-card-placeholder {
   text-align: center;
-  max-width: 400px;
+  max-width: 320px;
 }
 
 .coming-soon-card-icon-large {
-  font-size: 48px;
-  margin-bottom: 16px;
-  opacity: 0.7;
+  font-size: 36px;
+  margin-bottom: 12px;
+  opacity: 0.6;
+  filter: grayscale(0.3);
 }
 
 .coming-soon-card-title {
   color: white;
   font-weight: 600;
-  font-size: 18px;
-  margin: 0 0 8px 0;
+  font-size: 14px;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.01em;
 }
 
 .coming-soon-card-description {
   color: #9ca3af;
-  font-size: 14px;
-  margin: 0 0 24px 0;
+  font-size: 11px;
+  margin: 0 0 16px 0;
   line-height: 1.5;
 }
 
@@ -160,22 +184,28 @@ const actionLabel = getActionLabel();
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
 }
 
 .coming-soon-card-detail-label {
   color: #6b7280;
-  font-size: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   margin: 0;
 }
 
 .coming-soon-card-detail-value {
   color: #9ca3af;
-  font-size: 12px;
-  font-family: monospace;
+  font-size: 10px;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
   margin: 0;
-  background-color: #2a2a2a;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 4px 8px;
   border-radius: 4px;
+  font-weight: 500;
 }
 </style>
