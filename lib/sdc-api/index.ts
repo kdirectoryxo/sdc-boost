@@ -74,6 +74,22 @@ export {
 // Re-export counters functions
 export { getCounters } from './counters';
 
+// Re-export newsfeed functions
+export {
+    getNewsfeedFilters,
+    updateNewsfeedFilters,
+    getNewsfeed,
+    getAdminFeed
+} from './newsfeed';
+
+export type {
+    NewsfeedFilterOptions,
+    NewsfeedFilterResponse,
+    NewsfeedItem,
+    NewsfeedResponse,
+    AdminFeedResponse
+} from './newsfeed';
+
 // Re-export WebSocket utilities
 export { 
     getCurrentDBId, 

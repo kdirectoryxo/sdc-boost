@@ -6,11 +6,13 @@ import { NavbarBoostButtonModule } from '@/lib/modules/NavbarBoostButtonModule';
 import { EnhancedClickModule } from '@/lib/modules/EnhancedClickModule';
 import { ProfileMessengerButtonModule } from '@/lib/modules/ProfileMessengerButtonModule';
 import { ChatDialogModule } from '@/lib/modules/ChatDialogModule';
+import { NewsfeedModule } from '@/lib/modules/NewsfeedModule';
 import { toast } from '@/lib/toast';
 import { confirm } from '@/lib/confirm';
 import { createApp, ref, watch } from 'vue';
 import ChatDialogWrapper from '@/components/ChatDialogWrapper.vue';
 import ModuleControlPanelDialogWrapper from '@/components/ModuleControlPanelDialogWrapper.vue';
+import NewsfeedDialogWrapper from '@/components/NewsfeedDialogWrapper.vue';
 import { websocketManager } from '@/lib/websocket-manager';
 import { countersManager } from '@/lib/counters-manager';
 import { websocketHandlers } from '@/lib/websocket-handlers';
@@ -48,6 +50,9 @@ export default defineContentScript({
     const profileMessengerButtonModule = new ProfileMessengerButtonModule();
     moduleManager.register(profileMessengerButtonModule);
 
+    const newsfeedModule = new NewsfeedModule();
+    moduleManager.register(newsfeedModule);
+
     // Set up Vue Chat Dialog UI
     let chatDialogApp: ReturnType<typeof createApp> | null = null;
     let overlayHost: HTMLElement | null = null;
@@ -59,6 +64,12 @@ export default defineContentScript({
     let moduleControlPanelOverlayHost: HTMLElement | null = null;
     let moduleControlPanelOverlayContainer: HTMLElement | null = null;
     let moduleControlPanelDialogController: { open: () => void; close: () => void } | null = null;
+    
+    // Set up Vue Newsfeed Dialog UI
+    let newsfeedDialogApp: ReturnType<typeof createApp> | null = null;
+    let newsfeedOverlayHost: HTMLElement | null = null;
+    let newsfeedOverlayContainer: HTMLElement | null = null;
+    let newsfeedDialogController: { open: () => void; close: () => void } | null = null;
     
     const chatDialogUI = await createShadowRootUi(ctx, {
       name: 'chat-dialog-ui',
@@ -274,6 +285,116 @@ export default defineContentScript({
         close: () => {
           if (moduleControlPanelDialogController) {
             moduleControlPanelDialogController.close();
+          }
+        },
+      };
+    });
+
+    // Set up Newsfeed Dialog UI
+    const newsfeedDialogUI = await createShadowRootUi(ctx, {
+      name: 'newsfeed-dialog-ui',
+      position: 'overlay',
+      anchor: 'body',
+      onMount: (container) => {
+        newsfeedOverlayContainer = container;
+        
+        // Ensure container is full-screen and visible
+        const shadowRoot = container.getRootNode() as ShadowRoot;
+        const host = shadowRoot.host as HTMLElement;
+        newsfeedOverlayHost = host;
+        
+        if (host) {
+          host.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 999999 !important;
+            pointer-events: none !important;
+          `;
+        }
+        
+        // Container should allow pointer events for the dialog
+        container.style.cssText = `
+          width: 100% !important;
+          height: 100% !important;
+          pointer-events: auto !important;
+        `;
+
+        // Create Vue app with wrapper component
+        newsfeedDialogApp = createApp(NewsfeedDialogWrapper);
+
+        // Mount Vue app to container
+        const instance = newsfeedDialogApp.mount(container);
+        
+        // Get the exposed methods from the component instance
+        if (instance && typeof instance === 'object' && 'open' in instance && 'close' in instance) {
+          newsfeedDialogController = {
+            open: () => {
+              console.log('[NewsfeedDialog] Calling wrapper open method');
+              (instance as any).open();
+            },
+            close: () => {
+              (instance as any).close();
+            },
+          };
+        } else {
+          console.error('[NewsfeedDialog] Failed to get exposed methods from component instance');
+        }
+
+        return newsfeedDialogApp;
+      },
+      onRemove: (app) => {
+        app?.unmount();
+      },
+    });
+
+    // Mount the UI (hidden initially) - don't await, let it mount in background
+    newsfeedDialogUI.mount();
+    
+    // Expose methods globally for module to use (after UI is mounted)
+    // Use requestAnimationFrame for faster initialization
+    requestAnimationFrame(() => {
+      (window as any).__sdcBoostNewsfeedDialog = {
+        open: () => {
+          console.log('[NewsfeedDialog] Opening dialog via global method');
+          console.log('[NewsfeedDialog] overlayHost exists:', !!newsfeedOverlayHost);
+          console.log('[NewsfeedDialog] overlayContainer exists:', !!newsfeedOverlayContainer);
+          console.log('[NewsfeedDialog] dialogController exists:', !!newsfeedDialogController);
+          
+          // Ensure overlay is visible and covers everything
+          if (newsfeedOverlayHost) {
+            newsfeedOverlayHost.style.cssText = `
+              position: fixed !important;
+              top: 0 !important;
+              left: 0 !important;
+              right: 0 !important;
+              bottom: 0 !important;
+              width: 100vw !important;
+              height: 100vh !important;
+              z-index: 999999 !important;
+              pointer-events: none !important;
+              display: block !important;
+              visibility: visible !important;
+            `;
+          }
+          if (newsfeedOverlayContainer) {
+            newsfeedOverlayContainer.style.pointerEvents = 'auto';
+          }
+          
+          // Use the controller from Vue app
+          if (newsfeedDialogController) {
+            newsfeedDialogController.open();
+          } else {
+            console.error('[NewsfeedDialog] Dialog controller not initialized yet');
+          }
+        },
+        close: () => {
+          if (newsfeedDialogController) {
+            newsfeedDialogController.close();
           }
         },
       };
