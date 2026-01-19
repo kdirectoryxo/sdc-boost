@@ -25,11 +25,307 @@ const emit = defineEmits<{
 const dropdownRef = ref<HTMLElement | null>(null);
 const contentRef = ref<HTMLElement | null>(null);
 const isOpening = ref(false);
+const computedPlacement = ref<'top' | 'bottom'>(props.placement);
+const computedAlignment = ref<'start' | 'end' | 'center' | 'right-full'>(props.alignment);
 
 const isOpen = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value)
 });
+
+/**
+ * Find the nearest scroll container ancestor
+ * Traverses up the DOM tree to find an element with overflow-y-auto or overflow-y-scroll
+ */
+function findScrollContainer(element: HTMLElement | null): HTMLElement | null {
+  if (!element) return null;
+  
+  let current: HTMLElement | null = element.parentElement;
+  
+  while (current) {
+    const style = window.getComputedStyle(current);
+    const overflowY = style.overflowY;
+    
+    // Check if this element is a scroll container
+    if (overflowY === 'auto' || overflowY === 'scroll') {
+      return current;
+    }
+    
+    // Stop at body or html
+    if (current === document.body || current === document.documentElement) {
+      break;
+    }
+    
+    current = current.parentElement;
+  }
+  
+  return null;
+}
+
+/**
+ * Calculate dynamic placement based on available space in scroll container
+ * This is called before the dropdown is rendered, so we use an estimated height
+ */
+function calculatePlacement(): 'top' | 'bottom' {
+  if (!dropdownRef.value) {
+    return props.placement;
+  }
+  
+  const triggerRect = dropdownRef.value.getBoundingClientRect();
+  const scrollContainer = findScrollContainer(dropdownRef.value);
+  
+  // If no scroll container found, use default placement
+  if (!scrollContainer) {
+    return props.placement;
+  }
+  
+  const containerRect = scrollContainer.getBoundingClientRect();
+  
+  // Estimate dropdown height (we'll measure it after render, but for now use a reasonable estimate)
+  // We'll recalculate after the dropdown is rendered
+  const estimatedDropdownHeight = 200; // Reasonable estimate, will be refined
+  
+  // Calculate available space below and above the trigger within the scroll container
+  const spaceBelow = containerRect.bottom - triggerRect.bottom;
+  const spaceAbove = triggerRect.top - containerRect.top;
+  
+  // If placement is requested as 'bottom'
+  if (props.placement === 'bottom') {
+    // Check if there's enough space below (with some padding)
+    if (spaceBelow < estimatedDropdownHeight + 10) {
+      // Not enough space below, check if we have more space above
+      if (spaceAbove > spaceBelow) {
+        return 'top';
+      }
+    }
+    return 'bottom';
+  }
+  
+  // If placement is requested as 'top'
+  if (props.placement === 'top') {
+    // Check if there's enough space above (with some padding)
+    if (spaceAbove < estimatedDropdownHeight + 10) {
+      // Not enough space above, check if we have more space below
+      if (spaceBelow > spaceAbove) {
+        return 'bottom';
+      }
+    }
+    return 'top';
+  }
+  
+  return props.placement;
+}
+
+/**
+ * Calculate initial alignment estimate (before dropdown is rendered)
+ */
+function calculateInitialAlignment(): 'start' | 'end' | 'center' | 'right-full' {
+  if (!dropdownRef.value) {
+    return props.alignment;
+  }
+  
+  const triggerRect = dropdownRef.value.getBoundingClientRect();
+  const scrollContainer = findScrollContainer(dropdownRef.value);
+  
+  if (!scrollContainer) {
+    return props.alignment;
+  }
+  
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const estimatedDropdownWidth = 200; // Reasonable estimate
+  
+  // Calculate available space on left and right of trigger within scroll container
+  const spaceLeft = triggerRect.left - containerRect.left;
+  const spaceRight = containerRect.right - triggerRect.right;
+  
+  // Handle different alignment types
+  if (props.alignment === 'start') {
+    // start = left-0, dropdown starts at left edge of trigger
+    // Check if dropdown would overflow on the right
+    if (triggerRect.left + estimatedDropdownWidth > containerRect.right) {
+      // Would overflow right, check if we have more space on the left
+      if (spaceLeft > spaceRight) {
+        return 'end';
+      }
+    }
+    return 'start';
+  }
+  
+  if (props.alignment === 'end') {
+    // end = right-0, dropdown ends at right edge of trigger
+    // Check if dropdown would overflow on the left
+    if (triggerRect.right - estimatedDropdownWidth < containerRect.left) {
+      // Would overflow left, check if we have more space on the right
+      if (spaceRight > spaceLeft) {
+        return 'start';
+      }
+    }
+    return 'end';
+  }
+  
+  if (props.alignment === 'right-full') {
+    // right-full = dropdown positioned to the left of trigger
+    // Check if dropdown would overflow on the left
+    if (triggerRect.left - estimatedDropdownWidth < containerRect.left) {
+      // Would overflow left, check if we have more space on the right
+      if (spaceRight > spaceLeft) {
+        return 'start';
+      }
+    }
+    return 'right-full';
+  }
+  
+  return props.alignment;
+}
+
+/**
+ * Calculate dynamic alignment based on available horizontal space
+ */
+function calculateAlignment(): 'start' | 'end' | 'center' | 'right-full' {
+  if (!dropdownRef.value || !contentRef.value) {
+    return props.alignment;
+  }
+  
+  const triggerRect = dropdownRef.value.getBoundingClientRect();
+  const dropdownRect = contentRef.value.getBoundingClientRect();
+  const scrollContainer = findScrollContainer(dropdownRef.value);
+  
+  if (!scrollContainer) {
+    return props.alignment;
+  }
+  
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const dropdownWidth = dropdownRect.width;
+  
+  // Calculate available space on left and right of trigger within scroll container
+  const spaceLeft = triggerRect.left - containerRect.left;
+  const spaceRight = containerRect.right - triggerRect.right;
+  
+  // Handle different alignment types
+  if (props.alignment === 'start') {
+    // start = left-0, dropdown starts at left edge of trigger
+    // Check if dropdown would overflow on the right
+    if (triggerRect.left + dropdownWidth > containerRect.right) {
+      // Would overflow right, check if we have more space on the left
+      if (spaceLeft > spaceRight) {
+        // Flip to end (right-0) if more space on left
+        return 'end';
+      }
+    }
+    return 'start';
+  }
+  
+  if (props.alignment === 'end') {
+    // end = right-0, dropdown ends at right edge of trigger
+    // Check if dropdown would overflow on the left
+    if (triggerRect.right - dropdownWidth < containerRect.left) {
+      // Would overflow left, check if we have more space on the right
+      if (spaceRight > spaceLeft) {
+        // Flip to start (left-0) if more space on right
+        return 'start';
+      }
+    }
+    return 'end';
+  }
+  
+  if (props.alignment === 'right-full') {
+    // right-full = dropdown positioned to the left of trigger
+    // Check if dropdown would overflow on the left
+    if (triggerRect.left - dropdownWidth < containerRect.left) {
+      // Would overflow left, check if we have more space on the right
+      if (spaceRight > spaceLeft) {
+        // Use start alignment instead (dropdown to the right of trigger)
+        return 'start';
+      }
+    }
+    return 'right-full';
+  }
+  
+  // For center alignment, check if it would overflow either side
+  if (props.alignment === 'center') {
+    const centerX = triggerRect.left + triggerRect.width / 2;
+    const dropdownLeft = centerX - dropdownWidth / 2;
+    const dropdownRight = centerX + dropdownWidth / 2;
+    
+    // Check if centered dropdown would overflow
+    if (dropdownLeft < containerRect.left) {
+      // Would overflow left, use start alignment
+      return 'start';
+    }
+    if (dropdownRight > containerRect.right) {
+      // Would overflow right, use end alignment
+      return 'end';
+    }
+    return 'center';
+  }
+  
+  return props.alignment;
+}
+
+/**
+ * Recalculate placement with actual dropdown dimensions
+ */
+function recalculatePlacement() {
+  if (!props.modelValue || !dropdownRef.value || !contentRef.value) {
+    return;
+  }
+  
+  nextTick(() => {
+    if (!dropdownRef.value || !contentRef.value) {
+      return;
+    }
+    
+    const triggerRect = dropdownRef.value.getBoundingClientRect();
+    const dropdownRect = contentRef.value.getBoundingClientRect();
+    const scrollContainer = findScrollContainer(dropdownRef.value);
+    
+    if (!scrollContainer) {
+      computedPlacement.value = props.placement;
+      computedAlignment.value = props.alignment;
+      return;
+    }
+    
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const actualDropdownHeight = dropdownRect.height;
+    
+    // Calculate available space below and above the trigger within the scroll container
+    const spaceBelow = containerRect.bottom - triggerRect.bottom;
+    const spaceAbove = triggerRect.top - containerRect.top;
+    
+    // If placement is requested as 'bottom'
+    if (props.placement === 'bottom') {
+      // Check if there's enough space below (with some padding)
+      if (spaceBelow < actualDropdownHeight + 10) {
+        // Not enough space below, check if we have more space above
+        if (spaceAbove > spaceBelow) {
+          computedPlacement.value = 'top';
+        } else {
+          computedPlacement.value = 'bottom';
+        }
+      } else {
+        computedPlacement.value = 'bottom';
+      }
+    } else if (props.placement === 'top') {
+      // If placement is requested as 'top'
+      // Check if there's enough space above (with some padding)
+      if (spaceAbove < actualDropdownHeight + 10) {
+        // Not enough space above, check if we have more space below
+        if (spaceBelow > spaceAbove) {
+          computedPlacement.value = 'bottom';
+        } else {
+          computedPlacement.value = 'top';
+        }
+      } else {
+        computedPlacement.value = 'top';
+      }
+    } else {
+      computedPlacement.value = props.placement;
+    }
+    
+    // Calculate dynamic alignment
+    computedAlignment.value = calculateAlignment();
+  });
+}
 
 function toggle() {
   isOpen.value = !isOpen.value;
@@ -85,12 +381,26 @@ function handleEscape(event: KeyboardEvent): void {
   }
 }
 
+// Handle scroll events to recalculate placement
+function handleScroll() {
+  if (props.modelValue) {
+    recalculatePlacement();
+  }
+}
+
 // Watch for modelValue changes to add/remove event listeners
 watch(() => props.modelValue, (newValue) => {
   if (newValue) {
     // Opening - set flag and wait for render
     isOpening.value = true;
+    // Calculate initial placement and alignment
+    computedPlacement.value = calculatePlacement();
+    computedAlignment.value = calculateInitialAlignment();
+    
     nextTick(() => {
+      // Recalculate with actual dimensions after render
+      recalculatePlacement();
+      
       // Small delay to ignore the opening click
       setTimeout(() => {
         if (dropdownRef.value && props.modelValue) {
@@ -99,6 +409,13 @@ watch(() => props.modelValue, (newValue) => {
           document.addEventListener('click', handleClickOutside, true);
           document.addEventListener('pointerdown', handleClickOutside, true);
           document.addEventListener('keydown', handleEscape);
+          
+          // Add scroll listener to scroll container
+          const scrollContainer = findScrollContainer(dropdownRef.value);
+          if (scrollContainer) {
+            scrollContainer.addEventListener('scroll', handleScroll, true);
+            window.addEventListener('resize', recalculatePlacement);
+          }
         }
       }, 100);
     });
@@ -108,19 +425,61 @@ watch(() => props.modelValue, (newValue) => {
     document.removeEventListener('click', handleClickOutside, true);
     document.removeEventListener('pointerdown', handleClickOutside, true);
     document.removeEventListener('keydown', handleEscape);
+    
+    // Remove scroll listener
+    if (dropdownRef.value) {
+      const scrollContainer = findScrollContainer(dropdownRef.value);
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', handleScroll, true);
+      }
+    }
+    window.removeEventListener('resize', recalculatePlacement);
+  }
+});
+
+// Watch for placement prop changes
+watch(() => props.placement, () => {
+  if (props.modelValue) {
+    computedPlacement.value = calculatePlacement();
+    recalculatePlacement();
+  } else {
+    computedPlacement.value = props.placement;
+  }
+});
+
+// Watch for alignment prop changes
+watch(() => props.alignment, () => {
+  if (props.modelValue) {
+    computedAlignment.value = calculateAlignment();
+    recalculatePlacement();
+  } else {
+    computedAlignment.value = props.alignment;
   }
 });
 
 onMounted(() => {
   if (props.modelValue) {
     // If already open on mount, add listeners
+    computedPlacement.value = calculatePlacement();
+    computedAlignment.value = props.alignment;
     nextTick(() => {
       if (dropdownRef.value) {
+        recalculatePlacement();
         document.addEventListener('click', handleClickOutside, true);
         document.addEventListener('pointerdown', handleClickOutside, true);
         document.addEventListener('keydown', handleEscape);
+        
+        // Add scroll listener
+        const scrollContainer = findScrollContainer(dropdownRef.value);
+        if (scrollContainer) {
+          scrollContainer.addEventListener('scroll', handleScroll, true);
+        }
+        window.addEventListener('resize', recalculatePlacement);
       }
     });
+  } else {
+    computedPlacement.value = props.placement;
+    computedAlignment.value = props.alignment;
   }
 });
 
@@ -129,25 +488,34 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside, true);
   document.removeEventListener('pointerdown', handleClickOutside, true);
   document.removeEventListener('keydown', handleEscape);
+  window.removeEventListener('resize', recalculatePlacement);
+  
+  // Remove scroll listener
+  if (dropdownRef.value) {
+    const scrollContainer = findScrollContainer(dropdownRef.value);
+    if (scrollContainer) {
+      scrollContainer.removeEventListener('scroll', handleScroll, true);
+    }
+  }
 });
 
 // Computed classes for positioning
 const positionClasses = computed(() => {
   const classes: string[] = ['absolute'];
   
-  // Placement (top/bottom)
-  if (props.placement === 'top') {
+  // Placement (top/bottom) - use computed placement for dynamic positioning
+  if (computedPlacement.value === 'top') {
     classes.push('bottom-full');
   } else {
     classes.push('top-full');
   }
   
-  // Alignment (start/end/center/right-full)
-  if (props.alignment === 'start') {
+  // Alignment (start/end/center/right-full) - use computed alignment for dynamic positioning
+  if (computedAlignment.value === 'start') {
     classes.push('left-0');
-  } else if (props.alignment === 'end') {
+  } else if (computedAlignment.value === 'end') {
     classes.push('right-0');
-  } else if (props.alignment === 'right-full') {
+  } else if (computedAlignment.value === 'right-full') {
     classes.push('right-full');
   } else {
     classes.push('left-1/2', '-translate-x-1/2');
