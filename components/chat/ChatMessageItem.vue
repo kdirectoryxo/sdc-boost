@@ -25,6 +25,7 @@ const emit = defineEmits<{
   'open-lightbox': [message: MessengerMessage, imageIndex: number, event?: Event];
   'open-gallery': [message: MessengerMessage];
   'open-profile-dialog': [userId: number];
+  'respond-with-ai': [message: MessengerMessage];
 }>();
 
 const parsedMessage = computed(() => parseImageMessage(props.message.message));
@@ -128,6 +129,11 @@ function handleOpenProfile() {
   if (props.message.db_id && props.message.db_id > 0) {
     emit('open-profile-dialog', props.message.db_id);
   }
+}
+
+function handleRespondWithAI() {
+  emit('respond-with-ai', props.message);
+  emit('update:open-dropdown-message-id', null);
 }
 
 // Check if this is a system join message (sender === 2, message is just a db_id)
@@ -447,7 +453,7 @@ const isSystemJoinMessage = computed(() => {
         @update:model-value="handleDropdownToggle"
         placement="bottom"
         alignment="start"
-        width="w-32"
+        width="w-44"
         offset="mt-1"
         :z-index="9999999"
       >
@@ -468,7 +474,7 @@ const isSystemJoinMessage = computed(() => {
         </template>
         <template #content="{ close }">
           <div
-            class="w-32 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
+            class="w-44 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
             @click.stop
           >
             <button
@@ -490,6 +496,20 @@ const isSystemJoinMessage = computed(() => {
                 <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
               </svg>
               Citaat
+            </button>
+            <button
+              @click.stop="handleRespondWithAI(); close()"
+              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3v3m0 12v3m9-9h-3m-12 0H3m15.364 6.364l-2.121-2.121M6.757 6.757L4.636 4.636m14.728 0l-2.121 2.121M6.757 17.243l-2.121 2.121"></path>
+                <circle cx="12" cy="12" r="1"></circle>
+                <circle cx="19" cy="5" r="1"></circle>
+                <circle cx="5" cy="19" r="1"></circle>
+                <circle cx="19" cy="19" r="1"></circle>
+                <circle cx="5" cy="5" r="1"></circle>
+              </svg>
+              Respond with AI
             </button>
           </div>
         </template>

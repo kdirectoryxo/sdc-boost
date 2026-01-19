@@ -1,7 +1,7 @@
 import { getSetting } from './sdc-db/settings';
 import { OpenRouter } from '@openrouter/sdk';
 import type { ProfileUser, MessengerMessage } from './sdc-api-types';
-import { parseImageMessage, parseVideoMessage } from './composables/chat/utils';
+import { parseImageMessage, parseVideoMessage, parseGalleryMessage } from './composables/chat/utils';
 import { getCurrentDBId } from './sdc-api/utils';
 import { profileStorage } from './profile-storage';
 
@@ -403,7 +403,8 @@ export async function chatWithAI(
   messages: MessengerMessage[],
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
   abortSignal?: AbortSignal,
-  groupInfo?: { name: string; participants: Array<{ account_id: string; db_id: string | number }> } | null
+  groupInfo?: { name: string; participants: Array<{ account_id: string; db_id: string | number }> } | null,
+  focusedMessage?: MessengerMessage | null
 ): Promise<string> {
   const apiKey = await getSetting('openrouter_api_key') || undefined;
   
@@ -459,18 +460,48 @@ ${additionalContext}
 `
       : '';
     
+    // Add focused message context if provided
+    let focusedMessageContext = '';
+    if (focusedMessage) {
+      let focusedText = '';
+      if (focusedMessage.message.startsWith('[6|') && focusedMessage.message.includes('-|-')) {
+        const parsed = parseImageMessage(focusedMessage.message);
+        focusedText = parsed.text || '[Image]';
+      } else if (focusedMessage.message.startsWith('[8|') && focusedMessage.message.includes('-|-')) {
+        const parsed = parseVideoMessage(focusedMessage.message);
+        focusedText = parsed.text || '[Video]';
+      } else if (focusedMessage.message.startsWith('[7|')) {
+        const parsed = parseGalleryMessage(focusedMessage.message);
+        if (parsed) {
+          focusedText = parsed.albums && parsed.albums.length > 1 
+            ? `[Gallery: ${parsed.albums.length} albums]`
+            : `[Gallery: ${parsed.galleryName}]`;
+        } else {
+          focusedText = '[Gallery]';
+        }
+      } else {
+        focusedText = stripHtml(focusedMessage.message).trim();
+      }
+      focusedMessageContext = `\n\nFOCUSED MESSAGE (the user wants to discuss this specific message):
+From: ${focusedMessage.account_id || 'Unknown'}
+Message: "${focusedText}"
+Date: ${new Date(focusedMessage.date2 * 1000).toLocaleString()}
+
+The user is asking about this specific message. Keep this message in mind when responding, as it's the focus of the conversation.`;
+    }
+    
     systemPrompt = `You are an AI assistant helping analyze a GROUP CHAT and its participants from SDC.com (a social networking platform).
 
 ${yourProfileSection}${participantsContext}
 
 Chat History:
-${chatHistory}
+${chatHistory}${focusedMessageContext}
 
 IMPORTANT CONTEXT:
 - "Me" in the chat history refers to YOU (the current user asking questions)
 - Each message shows the sender's account_id
 - When analyzing the chat, consider all participants' contributions
-- The group chat may have multiple active participants
+- The group chat may have multiple active participants${focusedMessage ? '\n- The user is specifically interested in discussing the FOCUSED MESSAGE above' : ''}
 
 Please help answer questions about this group chat and its participants. Be concise and helpful.
 
@@ -500,19 +531,49 @@ ${additionalContext}
 `
       : '';
     
+    // Add focused message context if provided
+    let focusedMessageContext = '';
+    if (focusedMessage) {
+      let focusedText = '';
+      if (focusedMessage.message.startsWith('[6|') && focusedMessage.message.includes('-|-')) {
+        const parsed = parseImageMessage(focusedMessage.message);
+        focusedText = parsed.text || '[Image]';
+      } else if (focusedMessage.message.startsWith('[8|') && focusedMessage.message.includes('-|-')) {
+        const parsed = parseVideoMessage(focusedMessage.message);
+        focusedText = parsed.text || '[Video]';
+      } else if (focusedMessage.message.startsWith('[7|')) {
+        const parsed = parseGalleryMessage(focusedMessage.message);
+        if (parsed) {
+          focusedText = parsed.albums && parsed.albums.length > 1 
+            ? `[Gallery: ${parsed.albums.length} albums]`
+            : `[Gallery: ${parsed.galleryName}]`;
+        } else {
+          focusedText = '[Gallery]';
+        }
+      } else {
+        focusedText = stripHtml(focusedMessage.message).trim();
+      }
+      focusedMessageContext = `\n\nFOCUSED MESSAGE (the user wants to discuss this specific message):
+From: ${focusedMessage.account_id || 'Unknown'}
+Message: "${focusedText}"
+Date: ${new Date(focusedMessage.date2 * 1000).toLocaleString()}
+
+The user is asking about this specific message. Keep this message in mind when responding, as it's the focus of the conversation.`;
+    }
+    
     systemPrompt = `You are an AI assistant helping analyze a profile and chat history from SDC.com (a social networking platform).
 
 ${yourProfileSection}Profile Information (the profile being analyzed):
 ${profileContext}
 
 Chat History:
-${chatHistory}
+${chatHistory}${focusedMessageContext}
 
 IMPORTANT CONTEXT:
 - "Me" in the chat history refers to YOU (the current user asking questions)
 - "${profile.account_id}" in the chat history refers to the PROFILE BEING ANALYZED
 - When analyzing the chat, focus on what ${profile.account_id} said and did, NOT what "Me" said
-- "Me" is asking you questions about ${profile.account_id}, so messages from "Me" are from the questioner, not from ${profile.account_id}
+- "Me" is asking you questions about ${profile.account_id}, so messages from "Me" are from the questioner, not from ${profile.account_id}${focusedMessage ? '\n- The user is specifically interested in discussing the FOCUSED MESSAGE above' : ''}
 
 Please help answer questions about this profile and chat history. Be concise and helpful.
 

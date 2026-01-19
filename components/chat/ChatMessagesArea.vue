@@ -37,6 +37,7 @@ const emit = defineEmits<{
   'open-gallery': [message: MessengerMessage];
   'open-tags': [];
   'open-ai-chat': [];
+  'respond-with-ai': [message: MessengerMessage];
 }>();
 
 const messagesContainer = ref<HTMLElement | null>(null);
@@ -428,6 +429,7 @@ const displayDistance = computed(() => {
           @open-lightbox="(message: MessengerMessage, imageIndex: number, event?: Event) => emit('open-lightbox', message, imageIndex, event)"
           @open-gallery="(message: MessengerMessage) => emit('open-gallery', message)"
           @open-profile-dialog="(userId: number) => emit('open-profile-dialog', userId)"
+          @respond-with-ai="(message: MessengerMessage) => emit('respond-with-ai', message)"
         />
       </div>
 

@@ -6,10 +6,12 @@ import { profileStorage } from '@/lib/profile-storage';
 import { messageStorage } from '@/lib/message-storage';
 import { getMessengerGroupInfo, getMessengerGroupChatDetails } from '@/lib/sdc-api/messenger';
 import { marked } from 'marked';
+import { parseImageMessage, parseVideoMessage, parseGalleryMessage, highlightText } from '@/lib/composables/chat/utils';
 
 interface Props {
   visible: boolean;
   selectedChat: MessengerChatItem | null;
+  focusedMessage?: MessengerMessage | null;
 }
 
 const props = defineProps<Props>();
@@ -45,6 +47,9 @@ const isGroupChat = computed(() => {
 });
 
 const groupInfo = ref<{ name: string; users: MessengerGroupUser[]; admins: MessengerGroupAdmin[] } | null>(null);
+
+// Computed for focused message
+const focusedMessage = computed(() => props.focusedMessage);
 
 // Helper function to convert group_id (string or number) to number for storage
 // For string group_ids, we hash them to a number
@@ -208,7 +213,9 @@ async function loadData() {
       if (messages.value.length === 0 && conversationHistory.value.length === 0) {
         const welcomeMsg = {
           role: 'assistant' as const,
-          content: `Hello! I can help you analyze this group chat and its participants. What would you like to know?`,
+          content: props.focusedMessage 
+            ? `I'm here to help you discuss this message. What would you like to know or how would you like to respond?`
+            : `Hello! I can help you analyze this group chat and its participants. What would you like to know?`,
           timestamp: new Date(),
         };
         messages.value.push(welcomeMsg);
@@ -227,7 +234,9 @@ async function loadData() {
       if (messages.value.length === 0 && conversationHistory.value.length === 0) {
         const welcomeMsg = {
           role: 'assistant' as const,
-          content: `Hello! I can help you analyze the profile and chat history with ${profileData.value.account_id}. What would you like to know?`,
+          content: props.focusedMessage
+            ? `I'm here to help you discuss this message from ${profileData.value.account_id}. What would you like to know or how would you like to respond?`
+            : `Hello! I can help you analyze the profile and chat history with ${profileData.value.account_id}. What would you like to know?`,
           timestamp: new Date(),
         };
         messages.value.push(welcomeMsg);
@@ -236,6 +245,7 @@ async function loadData() {
   } catch (err) {
     console.error('[AIChatDialog] Failed to load data:', err);
     error.value = err instanceof Error ? err.message : 'Failed to load data';
+    dataLoaded.value = false;
   }
 }
 
@@ -290,7 +300,8 @@ async function handleSendMessage() {
               ...groupInfo.value.users.map(u => ({ account_id: u.account_id, db_id: u.db_id })),
             ],
           }
-        : null
+        : null,
+      props.focusedMessage || null
     );
     
     // Add AI response to UI
@@ -475,6 +486,39 @@ function formatAIMessage(content: string): string {
   }
 }
 
+/**
+ * Extract and format focused message text for display
+ */
+function formatFocusedMessage(message: MessengerMessage): { text: string; type: string } {
+  // Check if it's an image message (type 6)
+  if (message.message.startsWith('[6|') && message.message.includes('-|-')) {
+    const parsed = parseImageMessage(message.message);
+    return { text: parsed.text || '[Image]', type: 'image' };
+  }
+  // Check if it's a video message (type 8)
+  else if (message.message.startsWith('[8|') && message.message.includes('-|-')) {
+    const parsed = parseVideoMessage(message.message);
+    return { text: parsed.text || '[Video]', type: 'video' };
+  }
+  // Check if it's a gallery message (type 7)
+  else if (message.message.startsWith('[7|')) {
+    const parsed = parseGalleryMessage(message.message);
+    if (parsed) {
+      if (parsed.albums && parsed.albums.length > 1) {
+        return { text: `[Gallery: ${parsed.albums.length} albums]`, type: 'gallery' };
+      }
+      return { text: `[Gallery: ${parsed.galleryName}]`, type: 'gallery' };
+    }
+    return { text: '[Gallery]', type: 'gallery' };
+  }
+  // Regular message - strip HTML but keep formatting
+  else {
+    const div = document.createElement('div');
+    div.innerHTML = message.message;
+    return { text: (div.textContent || div.innerText || '').trim(), type: 'text' };
+  }
+}
+
 onMounted(() => {
   if (props.visible) {
     nextTick(() => {
@@ -587,6 +631,30 @@ onMounted(() => {
         ref="messagesContainer"
         class="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4 min-w-0"
       >
+        <!-- Focused Message Indicator -->
+        <div v-if="focusedMessage" class="mb-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+          <div class="flex items-start gap-3">
+            <div class="shrink-0 mt-0.5">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-semibold text-blue-400 uppercase tracking-wide">Focused Message</span>
+                <span class="text-xs text-[#999]">from {{ focusedMessage.account_id }}</span>
+                <span class="text-xs text-[#666]">•</span>
+                <span class="text-xs text-[#999]">{{ new Date(focusedMessage.date2 * 1000).toLocaleString() }}</span>
+              </div>
+              <div class="text-sm text-white/90 whitespace-pre-wrap break-words">
+                {{ formatFocusedMessage(focusedMessage).text }}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Loading State -->
         <div v-if="(!profileData && !isGroupChat) && (!groupInfo && isGroupChat) && !error" class="flex items-center justify-center h-full">
           <div class="flex flex-col items-center gap-4">

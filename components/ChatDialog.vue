@@ -14,6 +14,7 @@ import { useChatSelection } from '@/lib/composables/chat/useChatSelection';
 import { useChatDialogLifecycle } from '@/lib/composables/chat/useChatDialogLifecycle';
 import { useProfileDialogs } from '@/lib/composables/chat/useProfileDialogs';
 import { useGroupDialogs } from '@/lib/composables/chat/useGroupDialogs';
+import { parseImageMessage, parseVideoMessage, parseGalleryMessage } from '@/lib/composables/chat/utils';
 import ChatDialogHeader from '@/components/chat/ChatDialogHeader.vue';
 import ChatFoldersSidebar from '@/components/chat/ChatFoldersSidebar.vue';
 import ChatListSidebar from '@/components/chat/ChatListSidebar.vue';
@@ -29,7 +30,7 @@ import ProfileDialog from '@/components/chat/ProfileDialog.vue';
 import GroupDialog from '@/components/chat/GroupDialog.vue';
 import ChatDialogSettings from '@/components/chat/ChatDialogSettings.vue';
 import AIChatDialog from '@/components/chat/AIChatDialog.vue';
-import type { GalleryPhoto, MessengerChatItem } from '@/lib/sdc-api-types';
+import type { GalleryPhoto, MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
 import { startChat } from '@/lib/sdc-api';
 import { chatStorage } from '@/lib/chat-storage';
 import { syncProfilesForChats, hasFullProfileSyncDone } from '@/lib/profile-sync-service';
@@ -259,8 +260,15 @@ function handleOpenSettings() {
 
 // AI Chat dialog state
 const isAIChatDialogOpen = ref(false);
+const aiChatFocusedMessage = ref<MessengerMessage | null>(null);
 
 function handleOpenAIChat() {
+  aiChatFocusedMessage.value = null;
+  isAIChatDialogOpen.value = true;
+}
+
+function handleRespondWithAI(message: MessengerMessage) {
+  aiChatFocusedMessage.value = message;
   isAIChatDialogOpen.value = true;
 }
 
@@ -550,6 +558,7 @@ function handleCloseGroupDialog(dialogId: string) {
             @open-gallery="handleOpenGallery"
             @open-tags="handleOpenTags()"
             @open-ai-chat="handleOpenAIChat"
+            @respond-with-ai="handleRespondWithAI"
           >
             <template #message-search>
               <div class="flex items-center gap-1.5 shrink-0">
@@ -725,6 +734,7 @@ function handleCloseGroupDialog(dialogId: string) {
   <AIChatDialog
     :visible="isAIChatDialogOpen"
     :selected-chat="selectedChat"
-    @close="isAIChatDialogOpen = false"
+    :focused-message="aiChatFocusedMessage"
+    @close="isAIChatDialogOpen = false; aiChatFocusedMessage = null"
   />
 </template>
