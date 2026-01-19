@@ -68,7 +68,10 @@ export {
     searchGlobalV2,
     startChat,
     deleteBroadcast,
-    deleteConversation
+    deleteConversation,
+    editFolder,
+    createFolder,
+    deleteFolder
 } from './messenger';
 
 // Re-export counters functions

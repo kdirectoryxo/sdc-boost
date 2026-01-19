@@ -1495,3 +1495,162 @@ export async function getMessengerGroupInfo(
         throw error;
     }
 }
+
+/**
+ * Edit a folder name
+ * @param folderId The ID of the folder to edit
+ * @param name The new name for the folder
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Response indicating success
+ */
+export async function editFolder(
+    folderId: number,
+    name: string,
+    muid?: string | null
+): Promise<{ info: { code: number; message: string } }> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot edit folder.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_edit_folder');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('id', folderId.toString());
+    url.searchParams.set('name', name);
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
+                'origin': 'https://www.sdc.com',
+                'referer': 'https://www.sdc.com/',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Edit Folder API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        // Check if the operation was successful
+        const responseCode = data.info?.code;
+        if (responseCode !== 200 && responseCode !== '200') {
+            throw new Error(data.info?.message || 'Failed to edit folder');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('[SDC API] Failed to edit folder:', error);
+        throw error;
+    }
+}
+
+/**
+ * Create a new folder
+ * @param name The name for the new folder
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Response indicating success
+ */
+export async function createFolder(
+    name: string,
+    muid?: string | null
+): Promise<{ info: { code: number; message: string } }> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot create folder.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_new_folder');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('name', name);
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
+                'origin': 'https://www.sdc.com',
+                'referer': 'https://www.sdc.com/',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Create Folder API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        // Check if the operation was successful
+        const responseCode = data.info?.code;
+        if (responseCode !== 200 && responseCode !== '200') {
+            throw new Error(data.info?.message || 'Failed to create folder');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('[SDC API] Failed to create folder:', error);
+        throw error;
+    }
+}
+
+/**
+ * Delete a folder
+ * @param folderId The ID of the folder to delete
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Response indicating success
+ */
+export async function deleteFolder(
+    folderId: number,
+    muid?: string | null
+): Promise<{ info: { code: number; message: string } }> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot delete folder.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_delete_folder');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('id', folderId.toString());
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
+                'origin': 'https://www.sdc.com',
+                'referer': 'https://www.sdc.com/',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Delete Folder API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        // Check if the operation was successful
+        const responseCode = data.info?.code;
+        if (responseCode !== 200 && responseCode !== '200') {
+            throw new Error(data.info?.message || 'Failed to delete folder');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('[SDC API] Failed to delete folder:', error);
+        throw error;
+    }
+}

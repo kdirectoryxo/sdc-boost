@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
 import { createGlobalState } from '@vueuse/core';
-import { getMessengerFolders } from '@/lib/sdc-api';
+import { getMessengerFolders, editFolder, createFolder as createFolderAPI, deleteFolder as deleteFolderAPI } from '@/lib/sdc-api';
 import type { MessengerFolder } from '@/lib/sdc-api-types';
 import { folderStorage } from '@/lib/folder-storage';
 import { chatStorage } from '@/lib/chat-storage';
@@ -119,6 +119,89 @@ export const useChatFolders = createGlobalState(() => {
     showArchives.value = true;
     selectedFolderId.value = -1;
   }
+
+  /**
+   * Update folder name via API and update local storage
+   */
+  async function updateFolderName(folderId: number, name: string): Promise<void> {
+    try {
+      console.log(`[useChatFolders] Updating folder ${folderId} name to "${name}"...`);
+      
+      // Call API to update folder name
+      const response = await editFolder(folderId, name);
+      
+      if (response.info.code === 200) {
+        // Update folder in IndexedDB
+        const folder = folders.value.find(f => f.id === folderId);
+        if (folder) {
+          const updatedFolder: MessengerFolder = {
+            ...folder,
+            name: name.trim(),
+          };
+          await folderStorage.updateFolder(updatedFolder);
+          console.log(`[useChatFolders] Successfully updated folder ${folderId} name`);
+        } else {
+          console.warn(`[useChatFolders] Folder ${folderId} not found in local state, refreshing folders...`);
+          // Refresh folders from API to get updated name
+          await fetchFolders();
+        }
+      } else {
+        throw new Error(response.info.message || 'Failed to update folder name');
+      }
+    } catch (err) {
+      console.error(`[useChatFolders] Failed to update folder ${folderId} name:`, err);
+      throw err;
+    }
+  }
+
+  /**
+   * Create a new folder via API and refresh folders list
+   */
+  async function createFolder(name: string): Promise<void> {
+    try {
+      console.log(`[useChatFolders] Creating folder with name "${name}"...`);
+      
+      // Call API to create folder
+      const response = await createFolderAPI(name);
+      
+      if (response.info.code === 200) {
+        // Refresh folders from API to get the new folder with its ID
+        await fetchFolders();
+        console.log(`[useChatFolders] Successfully created folder "${name}"`);
+      } else {
+        throw new Error(response.info.message || 'Failed to create folder');
+      }
+    } catch (err) {
+      console.error(`[useChatFolders] Failed to create folder:`, err);
+      throw err;
+    }
+  }
+
+  /**
+   * Delete a folder via API and refresh folders list
+   */
+  async function deleteFolder(folderId: number): Promise<void> {
+    try {
+      console.log(`[useChatFolders] Deleting folder ${folderId}...`);
+      
+      // Call API to delete folder
+      const response = await deleteFolderAPI(folderId);
+      
+      if (response.info.code === 200) {
+        // Remove folder from IndexedDB
+        await db.folders.delete(folderId);
+        
+        // Refresh folders from API to ensure consistency
+        await fetchFolders();
+        console.log(`[useChatFolders] Successfully deleted folder ${folderId}`);
+      } else {
+        throw new Error(response.info.message || 'Failed to delete folder');
+      }
+    } catch (err) {
+      console.error(`[useChatFolders] Failed to delete folder ${folderId}:`, err);
+      throw err;
+    }
+  }
   
   return {
     folders,
@@ -134,6 +217,9 @@ export const useChatFolders = createGlobalState(() => {
     getTotalUnreadCount,
     handleSelectFolder,
     handleSelectArchives,
+    updateFolderName,
+    createFolder,
+    deleteFolder,
   };
 });
 
