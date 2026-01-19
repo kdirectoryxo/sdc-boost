@@ -1,11 +1,24 @@
 <script lang="ts" setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
+
+// Debounce helper
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  return function executedFunction(...args: Parameters<T>) {
+    const later = () => {
+      timeout = null;
+      func(...args);
+    };
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
 import { Icon } from '@iconify/vue';
-import PeopleList, { type ViewedFilters, type OnlineFilters } from './PeopleList.vue';
+import PeopleList, { type ViewedFilters, type OnlineFilters, type LatestMembersFilters } from './PeopleList.vue';
 import Dropdown from './ui/Dropdown.vue';
 import Switch from './ui/Switch.vue';
 import ProfileDialog from './chat/ProfileDialog.vue';
-import { getViewedFilters, setViewedFilters, getOnlineFilters, setOnlineFilters } from '@/lib/people-filters-storage';
+import { getViewedFilters, setViewedFilters, getOnlineFilters, setOnlineFilters, getClientSideFilters, setClientSideFilters, getLatestMembersFilters, setLatestMembersFilters, type ClientSideFilters } from '@/lib/people-filters-storage';
 
 interface Props {
   modelValue: boolean;
@@ -22,7 +35,7 @@ const isOpen = computed({
   set: (value) => emit('update:modelValue', value),
 });
 
-const activeTab = ref<'online' | 'viewed'>('viewed');
+const activeTab = ref<'online' | 'viewed' | 'latest' | 'featured'>('viewed');
 const viewedCount = ref(0);
 
 // Profile dialog state
@@ -84,6 +97,14 @@ const GENDER_OPTIONS = [
   { value: 4, label: 'Bedrijf', icon: 'mdi:briefcase-outline', color: '#fbbf24' },
 ];
 
+const GENDER_OPTIONS_LATEST = [
+  { value: 2, label: 'Stellen', icon: 'mdi:account-heart-outline', color: '#f472b6' },
+  { value: 1, label: 'Vrouw', icon: 'mdi:gender-female', color: '#ff60df' },
+  { value: 0, label: 'Man', icon: 'mdi:gender-male', color: '#3a97fe' },
+  { value: 3, label: 'Transgender', icon: 'mdi:gender-non-binary', color: '#a78bfa' },
+  { value: 4, label: 'Bedrijf', icon: 'mdi:briefcase-outline', color: '#fbbf24' },
+];
+
 // Filter state - will be loaded from storage
 const viewedFilters = ref<ViewedFilters>({
   select: 1,
@@ -99,6 +120,17 @@ const onlineFilters = ref<OnlineFilters>({
   speed_dating: 0,
   video: 0,
   pictures: 0,
+});
+
+const latestMembersFilters = ref<LatestMembersFilters>({
+  gender: 1,
+  looking_for_me: 0,
+});
+
+const clientSideFilters = ref<ClientSideFilters>({
+  ageMin: null,
+  ageMax: null,
+  kmWithin: null,
 });
 
 // Track if filters have been loaded from storage
@@ -127,10 +159,21 @@ function isGenderSelected(genderValue: number): boolean {
   return onlineFilters.value.genders.includes(genderValue);
 }
 
+// Get current gender option for latest members
+const currentLatestGenderOption = computed(() => {
+  return GENDER_OPTIONS_LATEST.find(opt => opt.value === latestMembersFilters.value.gender) || GENDER_OPTIONS_LATEST[1];
+});
+
+function handleLatestGenderChange(value: number) {
+  latestMembersFilters.value.gender = value;
+  latestGenderDropdownOpen.value = false;
+}
+
 // Dropdown states
 const selectDropdownOpen = ref(false);
 const orderDropdownOpen = ref(false);
 const genderDropdownOpen = ref(false);
+const latestGenderDropdownOpen = ref(false);
 
 // Get current option labels and icons
 const currentSelectOption = computed(() => {
@@ -160,6 +203,123 @@ function handleGenderChange(value: number) {
   genderDropdownOpen.value = false;
 }
 
+// Age filter helpers
+const hasAgeFilter = computed(() => {
+  return clientSideFilters.value.ageMin !== null || clientSideFilters.value.ageMax !== null;
+});
+
+// Km filter helpers
+const hasKmFilter = computed(() => {
+  return clientSideFilters.value.kmWithin !== null;
+});
+
+// Local input values to avoid reactivity issues
+const ageMinInput = ref<string>('');
+const ageMaxInput = ref<string>('');
+const kmWithinInput = ref<string>('');
+
+// Debounced update function - only updates filter, doesn't modify input
+const updateAgeFilter = debounce(() => {
+  const minValue = ageMinInput.value.trim();
+  const maxValue = ageMaxInput.value.trim();
+  
+  let newMin: number | null = null;
+  let newMax: number | null = null;
+  
+  // Parse and validate min value
+  if (minValue !== '') {
+    const num = parseInt(minValue, 10);
+    if (!isNaN(num)) {
+      newMin = Math.min(Math.max(num, 18), 99);
+      // Only update input if it was clamped
+      if (num !== newMin) {
+        ageMinInput.value = String(newMin);
+      }
+    }
+  }
+  
+  // Parse and validate max value
+  if (maxValue !== '') {
+    const num = parseInt(maxValue, 10);
+    if (!isNaN(num)) {
+      newMax = Math.min(Math.max(num, 18), 99);
+      // Only update input if it was clamped
+      if (num !== newMax) {
+        ageMaxInput.value = String(newMax);
+      }
+    }
+  }
+  
+  // Update filters
+  clientSideFilters.value.ageMin = newMin;
+  clientSideFilters.value.ageMax = newMax;
+  
+  // Ensure min <= max if both are set
+  if (newMin !== null && newMax !== null && newMin > newMax) {
+    // Swap if min > max
+    clientSideFilters.value.ageMin = newMax;
+    clientSideFilters.value.ageMax = newMin;
+    // Update inputs to reflect swap
+    ageMinInput.value = String(newMax);
+    ageMaxInput.value = String(newMin);
+  }
+}, 500);
+
+function handleAgeMinInput(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const value = input.value.replace(/\D/g, '');
+  ageMinInput.value = value;
+  updateAgeFilter();
+}
+
+function handleAgeMaxInput(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const value = input.value.replace(/\D/g, '');
+  ageMaxInput.value = value;
+  updateAgeFilter();
+}
+
+function clearAgeFilter() {
+  ageMinInput.value = '';
+  ageMaxInput.value = '';
+  clientSideFilters.value.ageMin = null;
+  clientSideFilters.value.ageMax = null;
+}
+
+// Debounced update function for km filter
+const updateKmFilter = debounce(() => {
+  const value = kmWithinInput.value.trim();
+  
+  let newKm: number | null = null;
+  
+  // Parse and validate value
+  if (value !== '') {
+    const num = parseInt(value, 10);
+    if (!isNaN(num) && num > 0) {
+      newKm = Math.max(num, 1); // Minimum 1 km
+      // Only update input if it was clamped
+      if (num !== newKm) {
+        kmWithinInput.value = String(newKm);
+      }
+    }
+  }
+  
+  // Update filter
+  clientSideFilters.value.kmWithin = newKm;
+}, 500);
+
+function handleKmInput(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const value = input.value.replace(/\D/g, '');
+  kmWithinInput.value = value;
+  updateKmFilter();
+}
+
+function clearKmFilter() {
+  kmWithinInput.value = '';
+  clientSideFilters.value.kmWithin = null;
+}
+
 // Subscribe to counter updates
 let unsubscribeCounters: (() => void) | null = null;
 
@@ -168,9 +328,19 @@ onMounted(() => {
   try {
     const storedViewedFilters = getViewedFilters();
     const storedOnlineFilters = getOnlineFilters();
+    const storedLatestMembersFilters = getLatestMembersFilters();
+    const storedClientSideFilters = getClientSideFilters();
     
     viewedFilters.value = storedViewedFilters;
     onlineFilters.value = storedOnlineFilters;
+    latestMembersFilters.value = storedLatestMembersFilters;
+    clientSideFilters.value = storedClientSideFilters;
+    
+    // Initialize age input values
+    ageMinInput.value = storedClientSideFilters.ageMin !== null ? String(storedClientSideFilters.ageMin) : '';
+    ageMaxInput.value = storedClientSideFilters.ageMax !== null ? String(storedClientSideFilters.ageMax) : '';
+    // Initialize km input value
+    kmWithinInput.value = storedClientSideFilters.kmWithin !== null ? String(storedClientSideFilters.kmWithin) : '';
     
     nextTick(() => {
       filtersLoaded.value = true;
@@ -214,7 +384,7 @@ function handleBackdropClick(e: MouseEvent) {
   }
 }
 
-function handleTabChange(tab: 'online' | 'viewed') {
+function handleTabChange(tab: 'online' | 'viewed' | 'latest' | 'featured') {
   activeTab.value = tab;
 }
 
@@ -244,6 +414,34 @@ watch(
         setOnlineFilters(newFilters);
       } catch (error) {
         console.error('[PeopleDialog] Error saving online filters:', error);
+      }
+    }
+  },
+  { deep: true }
+);
+
+watch(
+  () => clientSideFilters.value,
+  (newFilters) => {
+    if (filtersLoaded.value) {
+      try {
+        setClientSideFilters(newFilters);
+      } catch (error) {
+        console.error('[PeopleDialog] Error saving client-side filters:', error);
+      }
+    }
+  },
+  { deep: true }
+);
+
+watch(
+  () => latestMembersFilters.value,
+  (newFilters) => {
+    if (filtersLoaded.value) {
+      try {
+        setLatestMembersFilters(newFilters);
+      } catch (error) {
+        console.error('[PeopleDialog] Error saving latest members filters:', error);
       }
     }
   },
@@ -284,6 +482,18 @@ watch(
               @click="handleTabChange('online')"
             >
               Online
+            </button>
+            <button
+              :class="['people-tab', { active: activeTab === 'latest' }]"
+              @click="handleTabChange('latest')"
+            >
+              Nieuwe leden
+            </button>
+            <button
+              :class="['people-tab', { active: activeTab === 'featured' }]"
+              @click="handleTabChange('featured')"
+            >
+              Spotlight leden
             </button>
           </div>
           
@@ -383,6 +593,51 @@ watch(
               </div>
             </template>
           </Dropdown>
+
+          <!-- Age Filter -->
+          <div class="filter-age" :class="{ active: hasAgeFilter }">
+            <Icon icon="mdi:account-clock-outline" width="12" height="12" />
+            <span class="filter-age-label">Leeftijd</span>
+            <input 
+              type="text" 
+              v-model="ageMinInput"
+              @input="handleAgeMinInput"
+              @blur="updateAgeFilter"
+              placeholder="18" 
+              maxlength="2"
+              class="filter-age-input"
+            />
+            <span class="filter-age-sep">-</span>
+            <input 
+              type="text" 
+              v-model="ageMaxInput"
+              @input="handleAgeMaxInput"
+              placeholder="99" 
+              maxlength="2"
+              class="filter-age-input"
+            />
+            <button v-if="hasAgeFilter" class="filter-age-clear" @click="clearAgeFilter" title="Clear">
+              <Icon icon="mdi:close" width="10" height="10" />
+            </button>
+          </div>
+
+          <!-- Km Filter -->
+          <div class="filter-age" :class="{ active: hasKmFilter }">
+            <Icon icon="mdi:map-marker-distance" width="12" height="12" />
+            <span class="filter-age-label">Km binnen</span>
+            <input 
+              type="text" 
+              v-model="kmWithinInput"
+              @input="handleKmInput"
+              @blur="updateKmFilter"
+              placeholder="50" 
+              maxlength="4"
+              class="filter-age-input"
+            />
+            <button v-if="hasKmFilter" class="filter-age-clear" @click="clearKmFilter" title="Clear">
+              <Icon icon="mdi:close" width="10" height="10" />
+            </button>
+          </div>
         </div>
 
         <!-- Compact Filter Bar for Online -->
@@ -436,11 +691,198 @@ watch(
               <span>Bedrijf</span>
             </label>
           </div>
+
+          <div class="filter-divider"></div>
+
+          <!-- Age Filter -->
+          <div class="filter-age" :class="{ active: hasAgeFilter }">
+            <Icon icon="mdi:account-clock-outline" width="12" height="12" />
+            <span class="filter-age-label">Leeftijd</span>
+            <input 
+              type="text" 
+              :value="clientSideFilters.ageMin ?? ''"
+              @input="handleAgeMinInput"
+              placeholder="18" 
+              maxlength="2"
+              class="filter-age-input"
+            />
+            <span class="filter-age-sep">-</span>
+            <input 
+              type="text" 
+              v-model="ageMaxInput"
+              @input="handleAgeMaxInput"
+              @blur="updateAgeFilter"
+              placeholder="99" 
+              maxlength="2"
+              class="filter-age-input"
+            />
+            <button v-if="hasAgeFilter" class="filter-age-clear" @click="clearAgeFilter" title="Clear">
+              <Icon icon="mdi:close" width="10" height="10" />
+            </button>
+          </div>
+
+          <!-- Km Filter -->
+          <div class="filter-age" :class="{ active: hasKmFilter }">
+            <Icon icon="mdi:map-marker-distance" width="12" height="12" />
+            <span class="filter-age-label">Km binnen</span>
+            <input 
+              type="text" 
+              v-model="kmWithinInput"
+              @input="handleKmInput"
+              @blur="updateKmFilter"
+              placeholder="50" 
+              maxlength="4"
+              class="filter-age-input"
+            />
+            <button v-if="hasKmFilter" class="filter-age-clear" @click="clearKmFilter" title="Clear">
+              <Icon icon="mdi:close" width="10" height="10" />
+            </button>
+          </div>
+        </div>
+
+        <!-- Compact Filter Bar for Latest Members -->
+        <div v-if="activeTab === 'latest'" class="people-filters people-filters-online">
+          <!-- Gender Dropdown -->
+          <Dropdown
+            :model-value="latestGenderDropdownOpen"
+            @update:model-value="latestGenderDropdownOpen = $event"
+            placement="bottom"
+            alignment="start"
+            width="w-48"
+            offset="mt-1"
+          >
+            <template #trigger="{ toggle }">
+              <button @click.stop="toggle" class="filter-chip">
+                <Icon :icon="currentLatestGenderOption.icon" width="12" height="12" :style="{ color: currentLatestGenderOption.color }" />
+                <span class="filter-chip-value">{{ currentLatestGenderOption.label }}</span>
+                <Icon icon="mdi:chevron-down" width="12" height="12" />
+              </button>
+            </template>
+            <template #content>
+              <div class="filter-menu">
+                <button
+                  v-for="option in GENDER_OPTIONS_LATEST"
+                  :key="option.value"
+                  @click="handleLatestGenderChange(option.value)"
+                  :class="['filter-menu-item', { active: latestMembersFilters.gender === option.value }]"
+                >
+                  <Icon :icon="option.icon" width="14" height="14" :style="{ color: option.color }" />
+                  <span>{{ option.label }}</span>
+                </button>
+              </div>
+            </template>
+          </Dropdown>
+
+          <div class="filter-divider"></div>
+
+          <!-- Toggle Options -->
+          <div class="filter-toggles">
+            <label class="filter-toggle" :class="{ active: latestMembersFilters.looking_for_me === 1 }">
+              <input type="checkbox" :checked="latestMembersFilters.looking_for_me === 1" @change="latestMembersFilters.looking_for_me = latestMembersFilters.looking_for_me === 1 ? 0 : 1" />
+              <Icon icon="mdi:heart-outline" width="12" height="12" />
+              <span>Zoekt mij</span>
+            </label>
+          </div>
+
+          <div class="filter-divider"></div>
+
+          <!-- Age Filter -->
+          <div class="filter-age" :class="{ active: hasAgeFilter }">
+            <Icon icon="mdi:account-clock-outline" width="12" height="12" />
+            <span class="filter-age-label">Leeftijd</span>
+            <input 
+              type="text" 
+              :value="clientSideFilters.ageMin ?? ''"
+              @input="handleAgeMinInput"
+              placeholder="18" 
+              maxlength="2"
+              class="filter-age-input"
+            />
+            <span class="filter-age-sep">-</span>
+            <input 
+              type="text" 
+              v-model="ageMaxInput"
+              @input="handleAgeMaxInput"
+              @blur="updateAgeFilter"
+              placeholder="99" 
+              maxlength="2"
+              class="filter-age-input"
+            />
+            <button v-if="hasAgeFilter" class="filter-age-clear" @click="clearAgeFilter" title="Clear">
+              <Icon icon="mdi:close" width="10" height="10" />
+            </button>
+          </div>
+
+          <!-- Km Filter -->
+          <div class="filter-age" :class="{ active: hasKmFilter }">
+            <Icon icon="mdi:map-marker-distance" width="12" height="12" />
+            <span class="filter-age-label">Km binnen</span>
+            <input 
+              type="text" 
+              v-model="kmWithinInput"
+              @input="handleKmInput"
+              @blur="updateKmFilter"
+              placeholder="50" 
+              maxlength="4"
+              class="filter-age-input"
+            />
+            <button v-if="hasKmFilter" class="filter-age-clear" @click="clearKmFilter" title="Clear">
+              <Icon icon="mdi:close" width="10" height="10" />
+            </button>
+          </div>
+        </div>
+
+        <!-- Compact Filter Bar for Featured Members (only age filter) -->
+        <div v-if="activeTab === 'featured'" class="people-filters">
+          <!-- Age Filter -->
+          <div class="filter-age" :class="{ active: hasAgeFilter }">
+            <Icon icon="mdi:account-clock-outline" width="12" height="12" />
+            <span class="filter-age-label">Leeftijd</span>
+            <input 
+              type="text" 
+              :value="clientSideFilters.ageMin ?? ''"
+              @input="handleAgeMinInput"
+              placeholder="18" 
+              maxlength="2"
+              class="filter-age-input"
+            />
+            <span class="filter-age-sep">-</span>
+            <input 
+              type="text" 
+              v-model="ageMaxInput"
+              @input="handleAgeMaxInput"
+              @blur="updateAgeFilter"
+              placeholder="99" 
+              maxlength="2"
+              class="filter-age-input"
+            />
+            <button v-if="hasAgeFilter" class="filter-age-clear" @click="clearAgeFilter" title="Clear">
+              <Icon icon="mdi:close" width="10" height="10" />
+            </button>
+          </div>
+
+          <!-- Km Filter -->
+          <div class="filter-age" :class="{ active: hasKmFilter }">
+            <Icon icon="mdi:map-marker-distance" width="12" height="12" />
+            <span class="filter-age-label">Km binnen</span>
+            <input 
+              type="text" 
+              v-model="kmWithinInput"
+              @input="handleKmInput"
+              @blur="updateKmFilter"
+              placeholder="50" 
+              maxlength="4"
+              class="filter-age-input"
+            />
+            <button v-if="hasKmFilter" class="filter-age-clear" @click="clearKmFilter" title="Clear">
+              <Icon icon="mdi:close" width="10" height="10" />
+            </button>
+          </div>
         </div>
 
         <!-- Content -->
         <div class="people-content">
-          <PeopleList :active-tab="activeTab" :viewed-filters="viewedFilters" :online-filters="onlineFilters" />
+          <PeopleList :active-tab="activeTab" :viewed-filters="viewedFilters" :online-filters="onlineFilters" :latest-members-filters="latestMembersFilters" :client-side-filters="clientSideFilters" />
         </div>
       </div>
 
@@ -780,6 +1222,110 @@ watch(
 .filter-toggle.active svg {
   opacity: 1;
   color: #4ade80;
+}
+
+/* Age Filter */
+.filter-age {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.filter-age:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.filter-age.active {
+  background: rgba(96, 165, 250, 0.15);
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+.filter-age .iconify,
+.filter-age svg {
+  flex-shrink: 0;
+  color: #6b7280;
+  transition: color 0.15s ease;
+}
+
+.filter-age.active .iconify:first-child,
+.filter-age.active > svg:first-child {
+  color: #60a5fa;
+}
+
+.filter-age-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9ca3af;
+  transition: color 0.15s ease;
+}
+
+.filter-age.active .filter-age-label {
+  color: white;
+}
+
+.filter-age-input {
+  width: 24px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  padding: 0;
+  margin: 0;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.filter-age-input:focus {
+  border-color: #60a5fa;
+}
+
+.filter-age.active .filter-age-input {
+  color: white;
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.filter-age-input::placeholder {
+  color: #4b5563;
+  font-weight: 400;
+}
+
+.filter-age-sep {
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.filter-age.active .filter-age-sep {
+  color: #9ca3af;
+}
+
+.filter-age-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  margin-left: 2px;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-age-clear:hover {
+  color: #f87171;
 }
 
 /* Content */

@@ -8,6 +8,9 @@ import 'vue-easy-lightbox/dist/external-css/vue-easy-lightbox.css';
 import VideoLightbox from '@/components/chat/VideoLightbox.vue';
 import { profileStorage } from '@/lib/profile-storage';
 import { getProfileV2, getValidationsV2 } from '@/lib/sdc-api/profile';
+import { startChat } from '@/lib/sdc-api/messenger';
+import { chatStorage } from '@/lib/chat-storage';
+import type { MessengerChatItem } from '@/lib/sdc-api-types';
 
 interface Props {
   visible: boolean;
@@ -603,6 +606,96 @@ const isGender2Real = computed(() => {
   
   return true;
 });
+
+// Check if opened from PeopleDialog (no dialogId means opened from PeopleDialog)
+const isFromPeopleDialog = computed(() => !props.dialogId || props.dialogId === '');
+
+// Chat button state
+const isStartingChat = ref(false);
+
+// Handle opening chat
+async function handleOpenChat() {
+  if (!profileData.value?.db_id || isStartingChat.value) return;
+  
+  isStartingChat.value = true;
+  const toast = (window as any).__sdcBoostToast;
+  
+  try {
+    // Check if chat already exists
+    const existingChats = await chatStorage.getAllChats();
+    const existingChat = existingChats.find(
+      (chat: MessengerChatItem) => 
+        chat.db_id === profileData.value!.db_id && 
+        !chat.broadcast && 
+        chat.type !== 100
+    );
+    
+    let chatId: number | string;
+    
+    if (existingChat) {
+      // Chat already exists, use its group_id
+      chatId = existingChat.group_id;
+    } else {
+      // Start new chat
+      const response = await startChat(profileData.value.db_id);
+      
+      if (!response.info.group_id) {
+        throw new Error('Failed to create chat: no group_id returned');
+      }
+      
+      chatId = response.info.group_id;
+      
+      // Create chat item and store it
+      const chatItem: MessengerChatItem = {
+        db_id: response.info.target_db_id || profileData.value.db_id,
+        account_id: response.info.account_id || profileData.value.account_id || '',
+        gender1: response.info.gender1 || profileData.value.gender1 || 0,
+        gender2: response.info.gender2 || profileData.value.gender2 || 0,
+        profile_type: response.info.profile_type || profileData.value.profile_type || 0,
+        unread_counter: 0,
+        last_message: '',
+        message_status: 0,
+        date: new Date().toISOString(),
+        date_time: new Date().toISOString(),
+        start_chat: 1,
+        primary_photo: response.info.primary_photo || profileData.value.photo_file_list?.[0] || '',
+        muted: response.info.muted || 0,
+        pin_chat: response.info.pin_chat || 0,
+        time_elapsed: '',
+        isFriend: false,
+        online: response.info.online || profileData.value.online || 0,
+        group_type: 0,
+        group_id: chatId,
+        blocked_profile: 0,
+        extra1: '',
+      };
+      
+      await chatStorage.upsertChats([chatItem]);
+    }
+    
+    // Reload page with chat parameters in URL
+    // This will cause ChatDialogWrapper to auto-open the chat on page load
+    const url = new URL(window.location.href);
+    url.searchParams.set('chat', 'open');
+    url.searchParams.set('chatId', chatId.toString());
+    
+    // Reload the page with the new URL
+    window.location.assign(url.toString());
+  } catch (err: any) {
+    console.error('[ProfileDialog] Failed to open chat:', err);
+    isStartingChat.value = false;
+    
+    if (err.isBlockedChat) {
+      if (toast) {
+        toast.error('Cannot start chat: ' + (err.message || 'Chat is blocked'));
+      }
+    } else {
+      if (toast) {
+        toast.error('Failed to start chat: ' + (err.message || 'Unknown error'));
+      }
+    }
+  }
+}
 </script>
 
 <template>
@@ -681,13 +774,38 @@ const isGender2Real = computed(() => {
             </div>
           </div>
         </div>
-        <button
-          @click="handleClose"
-          class="p-2 hover:bg-[#333] rounded-md transition-colors shrink-0"
-          title="Close"
-        >
-          <Icon icon="mdi:close" width="20" height="20" class="text-[#999] hover:text-white" />
-        </button>
+        <div class="flex items-center gap-2 shrink-0">
+          <!-- Chat Button (only show when opened from PeopleDialog) -->
+          <button
+            v-if="isFromPeopleDialog && profileData?.db_id"
+            @click="handleOpenChat"
+            :disabled="isStartingChat"
+            class="p-2 hover:bg-[#333] rounded-md transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            :title="isStartingChat ? 'Starting chat...' : 'Open chat'"
+          >
+            <Icon 
+              v-if="!isStartingChat"
+              icon="mdi:message-outline" 
+              width="20" 
+              height="20" 
+              class="text-[#999] hover:text-white" 
+            />
+            <Icon 
+              v-else
+              icon="mdi:loading" 
+              width="20" 
+              height="20" 
+              class="text-[#999] animate-spin" 
+            />
+          </button>
+          <button
+            @click="handleClose"
+            class="p-2 hover:bg-[#333] rounded-md transition-colors shrink-0"
+            title="Close"
+          >
+            <Icon icon="mdi:close" width="20" height="20" class="text-[#999] hover:text-white" />
+          </button>
+        </div>
       </div>
 
       <!-- Tab Navigation -->
@@ -768,7 +886,7 @@ const isGender2Real = computed(() => {
                 
                 <!-- Membership Badge -->
                 <div v-if="profileData.membership" class="mt-4 flex items-center gap-2 px-4 py-2 bg-[#0f0f0f] rounded-full border border-[#333]">
-                  <span v-if="profileData.lifetime_status" class="text-yellow-400 text-lg">⭐</span>
+                  <Icon v-if="profileData.lifetime_status" icon="mdi:star" width="18" height="18" class="text-yellow-400" />
                   <span class="text-sm font-medium text-white">{{ profileData.membership }}</span>
                 </div>
               </div>
@@ -1188,7 +1306,7 @@ const isGender2Real = computed(() => {
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
                       <h4 class="text-white font-medium">{{ validation.account_id }}</h4>
-                      <span v-if="validation.lifetime_status" class="text-yellow-400 text-xs">⭐</span>
+                      <Icon v-if="validation.lifetime_status" icon="mdi:star" width="14" height="14" class="text-yellow-400" />
                       <span v-if="validation.online === 1" class="w-2 h-2 bg-green-500 rounded-full"></span>
                     </div>
                     <div class="flex items-center gap-2 mb-2">
@@ -1220,7 +1338,7 @@ const isGender2Real = computed(() => {
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
                       <h4 class="text-white font-medium">{{ validation.account_id }}</h4>
-                      <span v-if="validation.lifetime_status" class="text-yellow-400 text-xs">⭐</span>
+                      <Icon v-if="validation.lifetime_status" icon="mdi:star" width="14" height="14" class="text-yellow-400" />
                       <span v-if="validation.online === 1" class="w-2 h-2 bg-green-500 rounded-full"></span>
                     </div>
                     <div class="flex items-center gap-2 mb-2">
@@ -1378,7 +1496,7 @@ const isGender2Real = computed(() => {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
                   <h4 class="text-white font-medium">{{ follow.account_id }}</h4>
-                  <span v-if="follow.lifetime_status" class="text-yellow-400 text-xs">⭐</span>
+                  <Icon v-if="follow.lifetime_status" icon="mdi:star" width="14" height="14" class="text-yellow-400" />
                   <span v-if="follow.online === 1" class="w-2 h-2 bg-green-500 rounded-full"></span>
                 </div>
                 <p class="text-sm text-[#999]">{{ follow.location }}</p>
@@ -1422,7 +1540,7 @@ const isGender2Real = computed(() => {
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
                     <h4 class="text-white font-medium">{{ friend.account_id }}</h4>
-                    <span v-if="friend.lifetime_status" class="text-yellow-400 text-xs">⭐</span>
+                    <Icon v-if="friend.lifetime_status" icon="mdi:star" width="14" height="14" class="text-yellow-400" />
                     <span v-if="friend.online === 1" class="w-2 h-2 bg-green-500 rounded-full"></span>
                   </div>
                   <div class="flex items-center gap-2 mt-1.5">

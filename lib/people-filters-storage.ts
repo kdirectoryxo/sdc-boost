@@ -2,10 +2,16 @@
  * People Filters Storage
  * Handles persistence of People dialog filters (viewed and online) in localStorage
  */
-import type { ViewedFilters, OnlineFilters } from '@/components/PeopleList.vue';
+import type { ViewedFilters, OnlineFilters, LatestMembersFilters } from '@/components/PeopleList.vue';
 
 // Re-export types for convenience
-export type { ViewedFilters, OnlineFilters };
+export type { ViewedFilters, OnlineFilters, LatestMembersFilters };
+
+export interface ClientSideFilters {
+  ageMin: number | null;
+  ageMax: number | null;
+  kmWithin: number | null;
+}
 
 const STORAGE_KEY = 'sdc-boost-people-filters';
 
@@ -26,9 +32,22 @@ const DEFAULT_ONLINE_FILTERS: OnlineFilters = {
   pictures: 0,             // Disabled (default)
 };
 
+const DEFAULT_CLIENT_SIDE_FILTERS: ClientSideFilters = {
+  ageMin: null,
+  ageMax: null,
+  kmWithin: null,
+};
+
+const DEFAULT_LATEST_MEMBERS_FILTERS: LatestMembersFilters = {
+  gender: 1,  // Vrouw (default based on curl example)
+  looking_for_me: 0,  // Disabled (default)
+};
+
 interface PeopleFiltersStorage {
   viewedFilters?: ViewedFilters;
   onlineFilters?: OnlineFilters;
+  clientSideFilters?: ClientSideFilters;
+  latestMembersFilters?: LatestMembersFilters;
 }
 
 /**
@@ -101,5 +120,73 @@ export function setOnlineFilters(filters: OnlineFilters): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
   } catch (error) {
     console.error('[People Filters] Error setting online filters:', error);
+  }
+}
+
+/**
+ * Get client-side filters from storage
+ * Returns default values if not stored
+ */
+export function getClientSideFilters(): ClientSideFilters {
+  try {
+    const storedStr = localStorage.getItem(STORAGE_KEY);
+    if (storedStr) {
+      const stored: PeopleFiltersStorage = JSON.parse(storedStr);
+      if (stored.clientSideFilters) {
+        return { ...DEFAULT_CLIENT_SIDE_FILTERS, ...stored.clientSideFilters };
+      }
+    }
+    return { ...DEFAULT_CLIENT_SIDE_FILTERS };
+  } catch (error) {
+    console.error('[People Filters] Error getting client-side filters:', error);
+    return { ...DEFAULT_CLIENT_SIDE_FILTERS };
+  }
+}
+
+/**
+ * Set client-side filters in storage
+ */
+export function setClientSideFilters(filters: ClientSideFilters): void {
+  try {
+    const storedStr = localStorage.getItem(STORAGE_KEY);
+    const stored: PeopleFiltersStorage = storedStr ? JSON.parse(storedStr) : {};
+    stored.clientSideFilters = filters;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+  } catch (error) {
+    console.error('[People Filters] Error setting client-side filters:', error);
+  }
+}
+
+/**
+ * Get latest members filters from storage
+ * Returns default values if not stored
+ */
+export function getLatestMembersFilters(): LatestMembersFilters {
+  try {
+    const storedStr = localStorage.getItem(STORAGE_KEY);
+    if (storedStr) {
+      const stored: PeopleFiltersStorage = JSON.parse(storedStr);
+      if (stored.latestMembersFilters) {
+        return { ...DEFAULT_LATEST_MEMBERS_FILTERS, ...stored.latestMembersFilters };
+      }
+    }
+    return { ...DEFAULT_LATEST_MEMBERS_FILTERS };
+  } catch (error) {
+    console.error('[People Filters] Error getting latest members filters:', error);
+    return { ...DEFAULT_LATEST_MEMBERS_FILTERS };
+  }
+}
+
+/**
+ * Set latest members filters in storage
+ */
+export function setLatestMembersFilters(filters: LatestMembersFilters): void {
+  try {
+    const storedStr = localStorage.getItem(STORAGE_KEY);
+    const stored: PeopleFiltersStorage = storedStr ? JSON.parse(storedStr) : {};
+    stored.latestMembersFilters = filters;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+  } catch (error) {
+    console.error('[People Filters] Error setting latest members filters:', error);
   }
 }

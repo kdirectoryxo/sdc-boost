@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { ref, watch, toRef, nextTick } from 'vue';
+import { Icon } from '@iconify/vue';
 import VueEasyLightbox from 'vue-easy-lightbox';
 import 'vue-easy-lightbox/dist/external-css/vue-easy-lightbox.css';
 import { useChatState } from '@/lib/composables/chat/useChatState';
@@ -597,10 +598,7 @@ function handleCloseGroupDialog(dialogId: string) {
             <template #message-search>
               <div class="flex items-center gap-1.5 shrink-0">
                 <div class="relative flex items-center gap-1 bg-[#0f0f0f] border border-[#333] rounded-md px-2 py-1 min-w-[100px] max-w-[160px]">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#666] shrink-0">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <path d="m21 21-4.35-4.35"></path>
-                  </svg>
+                  <Icon icon="mdi:magnify" width="12" height="12" class="text-[#666] shrink-0" />
                   <input
                     v-model="messageSearchQuery"
                     @keydown="handleSearchKeydown"
@@ -615,10 +613,7 @@ function handleCloseGroupDialog(dialogId: string) {
                     class="p-0.5 hover:bg-[#2a2a2a] rounded transition-colors shrink-0"
                     title="Clear search"
                   >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
+                    <Icon icon="mdi:close" width="10" height="10" class="text-[#999] hover:text-white" />
                   </button>
                 </div>
                 
@@ -629,9 +624,7 @@ function handleCloseGroupDialog(dialogId: string) {
                     class="p-0.5 hover:bg-[#2a2a2a] rounded transition-colors"
                     title="Previous result (↑)"
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
-                      <polyline points="18 15 12 9 6 15"></polyline>
-                    </svg>
+                    <Icon icon="mdi:chevron-up" width="12" height="12" class="text-[#999] hover:text-white" />
                   </button>
                   <span class="text-[10px] text-[#666] px-0.5 min-w-[36px] text-center">
                     {{ currentSearchIndex + 1 }}/{{ messageSearchResults.length }}
@@ -641,9 +634,7 @@ function handleCloseGroupDialog(dialogId: string) {
                     class="p-0.5 hover:bg-[#2a2a2a] rounded transition-colors"
                     title="Next result (↓ or Enter)"
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
-                      <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
+                    <Icon icon="mdi:chevron-down" width="12" height="12" class="text-[#999] hover:text-white" />
                   </button>
                 </div>
               </div>

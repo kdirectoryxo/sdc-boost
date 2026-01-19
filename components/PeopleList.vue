@@ -1,7 +1,8 @@
 <script lang="ts" setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue';
-import { getOnlineV2, getViewedV2 } from '@/lib/sdc-api/people';
+import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue';
+import { getOnlineV2, getViewedV2, getLatestMembersV2, getFeaturedMembersV2 } from '@/lib/sdc-api/people';
 import type { OnlineV2Member, ViewedV2Member } from '@/lib/sdc-api-types';
+import type { ClientSideFilters } from '@/lib/people-filters-storage';
 import PeopleCard from './PeopleCard.vue';
 
 export interface ViewedFilters {
@@ -20,10 +21,17 @@ export interface OnlineFilters {
   pictures: number;
 }
 
+export interface LatestMembersFilters {
+  gender: number;
+  looking_for_me: number;
+}
+
 interface Props {
-  activeTab: 'online' | 'viewed';
+  activeTab: 'online' | 'viewed' | 'latest' | 'featured';
   viewedFilters?: ViewedFilters;
   onlineFilters?: OnlineFilters;
+  latestMembersFilters?: LatestMembersFilters;
+  clientSideFilters?: ClientSideFilters;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -41,6 +49,15 @@ const props = withDefaults(defineProps<Props>(), {
     video: 0,
     pictures: 0,
   }),
+  latestMembersFilters: () => ({
+    gender: 1,
+    looking_for_me: 0,
+  }),
+  clientSideFilters: () => ({
+    ageMin: null,
+    ageMax: null,
+    kmWithin: null,
+  }),
 });
 
 const items = ref<(OnlineV2Member | ViewedV2Member)[]>([]);
@@ -54,6 +71,99 @@ const observer = ref<IntersectionObserver | null>(null);
 
 const isBannerItem = (item: any): boolean => {
   return item && typeof item === 'object' && 'banner' in item && item.banner === true;
+};
+
+// Parse age string "35|32" -> extract numeric ages
+const parseAgeForFilter = (ageStr: string | undefined): number[] => {
+  if (!ageStr) return [];
+  return ageStr.split('|')
+    .map(a => parseInt(a.trim(), 10))
+    .filter(a => !isNaN(a) && a >= 18 && a <= 100);
+};
+
+// Apply client-side filtering (age and distance)
+const filteredItems = computed(() => {
+  const { ageMin, ageMax, kmWithin } = props.clientSideFilters;
+  
+  // If no filters are set, return all items
+  if (!ageMin && !ageMax && !kmWithin) return items.value;
+  
+  return items.value.filter(member => {
+    // Age filtering
+    let ageMatch = true;
+    if (ageMin || ageMax) {
+      const ages = parseAgeForFilter(member.age);
+      if (ages.length === 0) {
+        ageMatch = true; // Keep if no valid age
+      } else {
+        // Check if ANY person in the profile matches the age range
+        ageMatch = ages.some(age => {
+          const minOk = !ageMin || age >= ageMin;
+          const maxOk = !ageMax || age <= ageMax;
+          return minOk && maxOk;
+        });
+      }
+    }
+    
+    // Distance filtering
+    let distanceMatch = true;
+    if (kmWithin !== null) {
+      const distance = 'location_how_far' in member ? member.location_how_far : 0;
+      // Include members with distance <= kmWithin, or if distance is 0/undefined (unknown distance)
+      distanceMatch = distance === 0 || distance <= kmWithin;
+    }
+    
+    return ageMatch && distanceMatch;
+  });
+});
+
+// Auto-load more pages when filtered results are too few
+const autoLoadingRef = ref(false);
+const checkAndLoadMore = async () => {
+  // Only auto-load if we have a client-side filter active
+  const { ageMin, ageMax, kmWithin } = props.clientSideFilters;
+  if (!ageMin && !ageMax && !kmWithin) {
+    autoLoadingRef.value = false;
+    return;
+  }
+  
+  // Prevent multiple simultaneous auto-load attempts
+  if (autoLoadingRef.value || loading.value) return;
+  
+  // Estimate how many items we need to fill the viewport
+  // Based on grid layout: ~2-6 columns depending on screen size, ~3-4 rows visible
+  // So we want at least 25-30 items to fill the viewport comfortably
+  const MIN_ITEMS_THRESHOLD = 25;
+  
+  await nextTick();
+  
+  // Check if we need more items
+  if (filteredItems.value.length < MIN_ITEMS_THRESHOLD && hasMore.value && !loading.value) {
+    autoLoadingRef.value = true;
+    
+    // Load more and then check again recursively
+    loadMore();
+    
+    // Wait for the load to complete, then check again
+    const checkAgain = () => {
+      setTimeout(async () => {
+        if (!loading.value) {
+          autoLoadingRef.value = false;
+          // Check again after a brief delay to allow filteredItems to update
+          await nextTick();
+          if (filteredItems.value.length < MIN_ITEMS_THRESHOLD && hasMore.value && !loading.value) {
+            await checkAndLoadMore();
+          }
+        } else {
+          checkAgain();
+        }
+      }, 200);
+    };
+    
+    checkAgain();
+  } else {
+    autoLoadingRef.value = false;
+  }
 };
 
 const loadMembers = async (page: number = 0, append: boolean = false) => {
@@ -85,6 +195,19 @@ const loadMembers = async (page: number = 0, append: boolean = false) => {
         country: 'NL',
         map: 0,
       });
+    } else if (props.activeTab === 'latest') {
+      response = await getLatestMembersV2({
+        page,
+        gender: props.latestMembersFilters.gender,
+        looking_for_me: props.latestMembersFilters.looking_for_me,
+        pictures: 1,
+        business_profile: 1,
+        map: 0,
+      });
+    } else if (props.activeTab === 'featured') {
+      response = await getFeaturedMembersV2({
+        page,
+      });
     } else {
       response = await getViewedV2({
         page,
@@ -103,6 +226,12 @@ const loadMembers = async (page: number = 0, append: boolean = false) => {
     if (props.activeTab === 'online') {
       const onlineResponse = response as import('@/lib/sdc-api-types').OnlineV2Response;
       members = onlineResponse.info.onlinemembers.filter((item: any) => !isBannerItem(item)) as (OnlineV2Member | ViewedV2Member)[];
+    } else if (props.activeTab === 'latest') {
+      const latestResponse = response as import('@/lib/sdc-api-types').LatestMembersV2Response;
+      members = latestResponse.info.latestmembers.filter((item: any) => !isBannerItem(item)) as (OnlineV2Member | ViewedV2Member)[];
+    } else if (props.activeTab === 'featured') {
+      const featuredResponse = response as import('@/lib/sdc-api-types').FeaturedMembersV2Response;
+      members = featuredResponse.info.featuremembers.filter((item: any) => !isBannerItem(item)) as (OnlineV2Member | ViewedV2Member)[];
     } else {
       const viewedResponse = response as import('@/lib/sdc-api-types').ViewedV2Response;
       members = viewedResponse.info.viewedmembers.filter((item: any) => !isBannerItem(item)) as (OnlineV2Member | ViewedV2Member)[];
@@ -117,6 +246,13 @@ const loadMembers = async (page: number = 0, append: boolean = false) => {
     const urlMore = response.info.url_more;
     hasMore.value = Boolean(urlMore && urlMore !== '-1' && urlMore !== '');
     currentPage.value = page;
+    
+    // After loading, check if we need more items due to client-side filtering
+    await nextTick();
+    if (append) {
+      // Only check after appending (loading more pages), not on initial load
+      setTimeout(() => checkAndLoadMore(), 100);
+    }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') return;
     if (!controller.signal.aborted) {
@@ -193,6 +329,20 @@ watch(() => props.onlineFilters, () => {
   }
 }, { deep: true });
 
+watch(() => props.latestMembersFilters, () => {
+  if (props.activeTab === 'latest') {
+    if (abortController.value) {
+      abortController.value.abort();
+      abortController.value = null;
+    }
+    items.value = [];
+    currentPage.value = 0;
+    hasMore.value = true;
+    loading.value = false;
+    loadMembers(0, false);
+  }
+}, { deep: true });
+
 onMounted(async () => {
   await loadMembers(0, false);
   setTimeout(() => setupObserver(), 100);
@@ -208,6 +358,17 @@ watch(() => items.value.length, () => {
     setTimeout(() => setupObserver(), 100);
   }
 });
+
+// Watch filteredItems to auto-load more when client-side filtering reduces results
+watch(() => filteredItems.value.length, async () => {
+  await checkAndLoadMore();
+});
+
+// Also watch client-side filters to trigger auto-load when filter changes
+watch(() => props.clientSideFilters, async () => {
+  await nextTick();
+  await checkAndLoadMore();
+}, { deep: true });
 </script>
 
 <template>
@@ -240,7 +401,7 @@ watch(() => items.value.length, () => {
     </div>
 
     <!-- Empty -->
-    <div v-else-if="!loading && items.length === 0" class="list-empty">
+    <div v-else-if="!loading && filteredItems.length === 0" class="list-empty">
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
         <circle cx="9" cy="7" r="4"></circle>
@@ -248,13 +409,13 @@ watch(() => items.value.length, () => {
         <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
       </svg>
       <p class="list-empty-title">No members found</p>
-      <p class="list-empty-text">{{ activeTab === 'online' ? 'No online members right now' : 'No viewed members yet' }}</p>
+      <p class="list-empty-text">{{ activeTab === 'online' ? 'No online members right now' : activeTab === 'latest' ? 'No new members found' : activeTab === 'featured' ? 'No featured members found' : 'No viewed members yet' }}</p>
     </div>
 
     <!-- Grid -->
     <div v-else class="grid">
       <PeopleCard
-        v-for="member in items"
+        v-for="member in filteredItems"
         :key="member.db_id"
         :member="member"
         :is-online="activeTab === 'online'"
@@ -262,7 +423,7 @@ watch(() => items.value.length, () => {
     </div>
 
     <!-- Loading More -->
-    <div v-if="loading && items.length > 0" class="list-loading-more">
+    <div v-if="loading && filteredItems.length > 0" class="list-loading-more">
       <div class="spinner"></div>
       <span>Loading more...</span>
     </div>

@@ -775,3 +775,25 @@ export interface ViewedV2Response {
     info: ViewedV2Info;
 }
 
+export interface LatestMembersV2Info {
+    code: number;
+    latestmembers: (OnlineV2Member | { banner: boolean; type: number })[];
+    url_more: string;
+}
+
+export interface LatestMembersV2Response {
+    info: LatestMembersV2Info;
+}
+
+export interface FeaturedMembersV2Info {
+    code: number;
+    featuremembers: (OnlineV2Member | { banner: boolean; type: number })[];
+    sid?: number;
+    url_more: string;
+    allowed?: number;
+}
+
+export interface FeaturedMembersV2Response {
+    info: FeaturedMembersV2Info;
+}
+

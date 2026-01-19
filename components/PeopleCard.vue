@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 import type { OnlineV2Member, ViewedV2Member } from '@/lib/sdc-api-types';
 
@@ -36,15 +36,52 @@ const getAgeColor = (gender: number | undefined) => {
   return gender === 1 ? '#ff60df' : '#3a97fe';
 };
 
+const FALLBACK_IMAGE_URL = 'https://www.sdc.com/react/assets/couple_male_female_silhouette.cae98680.svg';
+const imageError = ref(false);
+
+// Check if photo URL is valid (not empty or just thumbnail path)
+const isValidPhoto = (photo: string | undefined): boolean => {
+  if (!photo) return false;
+  const trimmed = photo.trim();
+  // Check if it's just '/thumbnail/' or ends with '/thumbnail/' or is empty
+  if (trimmed === '' || trimmed === '/thumbnail/' || trimmed.endsWith('/thumbnail/')) {
+    return false;
+  }
+  return true;
+};
+
 // Get photo URL
 const photoUrl = computed(() => {
-  if (!props.member.primary_photo || props.member.primary_photo === '/thumbnail/') {
+  if (!isValidPhoto(props.member.primary_photo)) {
     return null;
   }
-  if (props.member.primary_photo.startsWith('http')) {
-    return props.member.primary_photo;
+  if (props.member.primary_photo!.startsWith('http')) {
+    return props.member.primary_photo!;
   }
   return `https://pictures.sdc.com/photos/${props.member.primary_photo}`;
+});
+
+// Get display image URL (with fallback)
+const displayImageUrl = computed(() => {
+  // If no valid photo URL or error occurred, use fallback
+  if (!photoUrl.value || imageError.value) {
+    return FALLBACK_IMAGE_URL;
+  }
+  return photoUrl.value;
+});
+
+// Handle image error (including 403, 404, network errors, etc.)
+const handleImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement;
+  // Prevent infinite loop - don't handle errors for the fallback image itself
+  if (img && img.src && !img.src.includes('couple_male_female_silhouette')) {
+    imageError.value = true;
+  }
+};
+
+// Reset error when member changes
+watch(() => props.member.db_id, () => {
+  imageError.value = false;
 });
 
 // Format location
@@ -174,20 +211,22 @@ const lookingForIcons = computed((): LookingForIcon[] => {
   <div class="card" @click="handleClick">
     <!-- Photo -->
     <div class="card-photo">
-      <img v-if="photoUrl" :src="photoUrl" :alt="member.account_id" />
-      <div v-else class="card-photo-placeholder">
-        <span>{{ member.account_id?.charAt(0) || '?' }}</span>
-      </div>
+      <img 
+        :key="`${member.db_id}-${imageError}`"
+        :src="displayImageUrl" 
+        :alt="member.account_id" 
+        @error="handleImageError" 
+      />
       
       <!-- Online indicator -->
       <div v-if="member.online === 1" class="card-online"></div>
       
       <!-- Badges -->
       <div class="card-badges">
-        <div v-if="hasLifetimeStatus" class="badge badge-lifetime">
+        <div v-if="hasLifetimeStatus" class="badge badge-lifetime" title="Lifetime Member">
           <Icon icon="mdi:star" width="12" height="12" />
         </div>
-        <div v-if="hasSpeedDating" class="badge badge-speed">
+        <div v-if="hasSpeedDating" class="badge badge-speed" title="Speed Date">
           <Icon icon="mdi:lightning-bolt" width="12" height="12" />
         </div>
       </div>
