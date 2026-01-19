@@ -82,7 +82,8 @@ const tabs = computed(() => {
       case 'albums':
         return profileData.value?.photoalbum_list?.length || null;
       case 'validaties':
-        return profileData.value?.my_validations?.length || profileData.value?.validations || null;
+        // Use total validations count if available, otherwise fall back to my_validations length
+        return profileData.value?.validations || profileData.value?.my_validations?.length || null;
       case 'groepen':
         return profileData.value?.communities?.length || null;
       case 'speeddate':

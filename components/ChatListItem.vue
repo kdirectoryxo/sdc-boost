@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, ref, markRaw } from 'vue';
+import { computed, ref, markRaw, nextTick } from 'vue';
 import { useDraggable } from '@vue-dnd-kit/core';
 import Dropdown from '@/components/ui/Dropdown.vue';
 import TagBadge from '@/components/ui/TagBadge.vue';
@@ -34,11 +34,20 @@ const { togglePinChat, toggleMarkUnread, deleteChat } = useChatPin();
 const { removeChatFromFolder } = useChatFolders();
 const openDropdownId = ref<number | string | null>(null);
 
+// Drag threshold tracking - prevents accidental drags when clicking
+const dragStartPosition = ref<{ x: number; y: number } | null>(null);
+const dragThreshold = 10; // pixels - must move this far before drag starts
+const dragDelay = 200; // milliseconds - hold time before drag starts (for click and hold)
+const isDragEnabled = ref(false); // Only enable drag after threshold is met
+const dragTimeout = ref<number | null>(null);
+
 // Drag and drop setup with custom preview
+// Disabled by default, will be enabled when threshold is met
 const { elementRef, isDragging, handleDragStart } = useDraggable({
   id: `chat-${props.chat.group_id}`,
   data: { chat: props.chat },
   container: markRaw(ChatDragPreview),
+  disabled: computed(() => !isDragEnabled.value),
 });
 
 // Check if this is a group
@@ -118,6 +127,88 @@ function handleClick(e: MouseEvent) {
     return;
   }
   emit('click', props.chat);
+}
+
+function handlePointerDown(e: PointerEvent) {
+  // Reset drag enabled state
+  isDragEnabled.value = false;
+  
+  // Clear any existing timeout
+  if (dragTimeout.value !== null) {
+    clearTimeout(dragTimeout.value);
+    dragTimeout.value = null;
+  }
+  
+  // Store initial position
+  dragStartPosition.value = { x: e.clientX, y: e.clientY };
+  const originalEvent = e;
+  let currentPointerPos = { x: e.clientX, y: e.clientY };
+  
+  // Set up pointer move handler
+  const handlePointerMove = (moveEvent: PointerEvent) => {
+    if (!dragStartPosition.value) return;
+    
+    // Update current pointer position
+    currentPointerPos = { x: moveEvent.clientX, y: moveEvent.clientY };
+    
+    const deltaX = Math.abs(moveEvent.clientX - dragStartPosition.value.x);
+    const deltaY = Math.abs(moveEvent.clientY - dragStartPosition.value.y);
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    // If moved beyond threshold, enable dragging and start it
+    if (distance > dragThreshold && !isDragEnabled.value) {
+      // Clear the delay timeout since we're moving
+      if (dragTimeout.value !== null) {
+        clearTimeout(dragTimeout.value);
+        dragTimeout.value = null;
+      }
+      
+      isDragEnabled.value = true;
+      // Now that dragging is enabled, trigger the drag start
+      // Use nextTick to ensure the disabled state has updated
+      nextTick(() => {
+        handleDragStart(originalEvent);
+      });
+    }
+  };
+  
+  // Set up pointer up handler to clean up
+  const handlePointerUp = () => {
+    // Clean up listeners and reset state
+    dragStartPosition.value = null;
+    isDragEnabled.value = false;
+    if (dragTimeout.value !== null) {
+      clearTimeout(dragTimeout.value);
+      dragTimeout.value = null;
+    }
+    document.removeEventListener('pointermove', handlePointerMove);
+    document.removeEventListener('pointerup', handlePointerUp);
+  };
+  
+  // Set up delay timeout for click and hold
+  dragTimeout.value = window.setTimeout(() => {
+    // After delay, if still holding and haven't moved much, enable drag
+    if (dragStartPosition.value && !isDragEnabled.value) {
+      const startPos = dragStartPosition.value;
+      // Check if pointer hasn't moved much (within tolerance)
+      const deltaX = Math.abs(currentPointerPos.x - startPos.x);
+      const deltaY = Math.abs(currentPointerPos.y - startPos.y);
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      // If still near the start position, enable drag for click and hold
+      if (distance < dragThreshold) {
+        isDragEnabled.value = true;
+        nextTick(() => {
+          handleDragStart(originalEvent);
+        });
+      }
+    }
+    dragTimeout.value = null;
+  }, dragDelay);
+  
+  // Add listeners
+  document.addEventListener('pointermove', handlePointerMove);
+  document.addEventListener('pointerup', handlePointerUp, { once: true });
 }
 
 function handleTogglePin() {
@@ -229,7 +320,7 @@ const displayDistance = computed(() => {
       ]"
       style="touch-action: none; user-select: none;"
     @click="handleClick"
-    @pointerdown="handleDragStart"
+    @pointerdown.stop="handlePointerDown"
   >
     <div class="flex items-start gap-3">
       <!-- Avatar -->
