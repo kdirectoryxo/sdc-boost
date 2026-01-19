@@ -1,7 +1,9 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
+import { computed, ref, markRaw } from 'vue';
+import { useDraggable } from '@vue-dnd-kit/core';
 import Dropdown from '@/components/ui/Dropdown.vue';
 import TagBadge from '@/components/ui/TagBadge.vue';
+import ChatDragPreview from '@/components/chat/ChatDragPreview.vue';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { parseGalleryMessage } from '@/lib/composables/chat/utils';
 import { useChatPin } from '@/lib/composables/chat/useChatPin';
@@ -31,6 +33,13 @@ const emit = defineEmits<{
 const { togglePinChat, toggleMarkUnread, deleteChat } = useChatPin();
 const { removeChatFromFolder } = useChatFolders();
 const openDropdownId = ref<number | string | null>(null);
+
+// Drag and drop setup with custom preview
+const { elementRef, isDragging, handleDragStart } = useDraggable({
+  id: `chat-${props.chat.group_id}`,
+  data: { chat: props.chat },
+  container: markRaw(ChatDragPreview),
+});
 
 // Check if this is a group
 const isGroup = computed(() => {
@@ -101,7 +110,13 @@ const displayMessage = computed(() => {
   return props.chat.last_message || '';
 });
 
-function handleClick() {
+function handleClick(e: MouseEvent) {
+  // Don't trigger click if we're currently dragging
+  if (isDragging.value) {
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
   emit('click', props.chat);
 }
 
@@ -205,12 +220,16 @@ const displayDistance = computed(() => {
 
 <template>
   <div
+      ref="elementRef"
       :class="[
         'px-4 py-3 cursor-pointer transition-colors hover:bg-[#1a1a1a] group relative',
         selected ? 'bg-[#1a1a1a]' : '',
-        openDropdownId === (chat.group_id as number | string) ? 'z-50' : 'z-auto'
+        openDropdownId === (chat.group_id as number | string) ? 'z-50' : 'z-auto',
+        isDragging ? 'opacity-30 cursor-grabbing' : 'cursor-grab'
       ]"
+      style="touch-action: none; user-select: none;"
     @click="handleClick"
+    @pointerdown="handleDragStart"
   >
     <div class="flex items-start gap-3">
       <!-- Avatar -->

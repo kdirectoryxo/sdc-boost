@@ -10,6 +10,7 @@ import { NewsfeedModule } from '@/lib/modules/NewsfeedModule';
 import { toast } from '@/lib/toast';
 import { confirm } from '@/lib/confirm';
 import { createApp, ref, watch } from 'vue';
+import VueDndKitPlugin from '@vue-dnd-kit/core';
 import ChatDialogWrapper from '@/components/ChatDialogWrapper.vue';
 import ModuleControlPanelDialogWrapper from '@/components/ModuleControlPanelDialogWrapper.vue';
 import NewsfeedDialogWrapper from '@/components/NewsfeedDialogWrapper.vue';
@@ -106,6 +107,7 @@ export default defineContentScript({
 
         // Create Vue app with wrapper component
         chatDialogApp = createApp(ChatDialogWrapper);
+        chatDialogApp.use(VueDndKitPlugin);
 
         // Mount Vue app to container
         const instance = chatDialogApp.mount(container);

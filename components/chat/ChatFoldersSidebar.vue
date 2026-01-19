@@ -1,8 +1,10 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 import type { MessengerFolder } from '@/lib/sdc-api-types';
+import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import Dropdown from '@/components/ui/Dropdown.vue';
 import FolderEditDialog from '@/components/chat/FolderEditDialog.vue';
+import DroppableFolderItem from '@/components/chat/DroppableFolderItem.vue';
 import { useChatFolders } from '@/lib/composables/chat/useChatFolders';
 import { confirm } from '@/lib/confirm';
 import { toast } from '@/lib/toast';
@@ -23,7 +25,7 @@ const emit = defineEmits<{
   'select-archives': [];
 }>();
 
-const { updateFolderName, createFolder, deleteFolder } = useChatFolders();
+const { updateFolderName, createFolder, deleteFolder, moveChatToFolder } = useChatFolders();
 
 const editingFolder = ref<MessengerFolder | null>(null);
 const showEditDialog = ref(false);
@@ -34,12 +36,16 @@ function handleSelectAll() {
   emit('select-folder', null);
 }
 
-function handleSelectInbox() {
+function handleSelectInbox(folderId: number | null) {
   emit('select-folder', 0);
 }
 
-function handleSelectFolder(folderId: number) {
-  emit('select-folder', folderId);
+function handleSelectFolder(folderId: number | null) {
+  if (folderId === null) {
+    emit('select-folder', 0); // Inbox
+  } else {
+    emit('select-folder', folderId);
+  }
 }
 
 function handleSelectArchives() {
@@ -112,6 +118,61 @@ async function handleDialogSave(newName: string) {
     folderEditError.value = error instanceof Error ? error.message : 'Failed to save folder';
   }
 }
+
+// Drop handler for moving chat to folder
+async function handleChatDrop(payload: any, targetFolderId: number | null): Promise<boolean> {
+  const chat = payload.items?.[0]?.data?.chat as MessengerChatItem | undefined;
+  
+  if (!chat) {
+    console.error('No chat data in drop payload');
+    return false;
+  }
+  
+  const currentFolderId = chat.folder_id ?? null;
+  
+  // If already in the target folder, do nothing
+  if (currentFolderId === targetFolderId) {
+    return true;
+  }
+  
+  // If chat is in a different folder, ask for confirmation
+  if (currentFolderId !== null && targetFolderId !== null) {
+    const targetFolder = props.folders.find(f => f.id === targetFolderId);
+    const currentFolder = props.folders.find(f => f.id === currentFolderId);
+    
+    const confirmed = await confirm.confirm(
+      `Move chat from "${currentFolder?.name || 'folder'}" to "${targetFolder?.name || 'folder'}"?`,
+      {
+        confirmText: 'Move',
+        cancelText: 'Cancel',
+      }
+    );
+    
+    if (!confirmed) {
+      return false;
+    }
+  }
+  
+  try {
+    await moveChatToFolder(chat.group_id, targetFolderId);
+    
+    // Focus the target folder after moving
+    if (targetFolderId === null) {
+      emit('select-folder', 0); // Select inbox
+    } else {
+      emit('select-folder', targetFolderId);
+    }
+    
+    const folderName = targetFolderId === null ? 'Inbox' : props.folders.find(f => f.id === targetFolderId)?.name || 'folder';
+    toast.success(`Chat moved to ${folderName}`);
+    return true;
+  } catch (error) {
+    console.error('Failed to move chat to folder:', error);
+    toast.error(error instanceof Error ? error.message : 'Failed to move chat to folder');
+    return false;
+  }
+}
+
 </script>
 
 <template>
@@ -140,49 +201,32 @@ async function handleDialogSave(newName: string) {
       </button>
 
       <!-- Inbox (no folder) -->
-      <button
+      <DroppableFolderItem
+        :folder-id="null"
+        folder-name="Inbox"
+        :selected="selectedFolderId === 0 && !showArchives"
+        :unread-count="getInboxUnreadCount()"
+        icon="inbox"
         @click="handleSelectInbox"
-        :class="[
-          'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#1a1a1a] transition-colors',
-          selectedFolderId === 0 && !showArchives ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
-        ]"
-      >
-        <div class="flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999]">
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-            <polyline points="22,6 12,13 2,6"></polyline>
-          </svg>
-          <span class="text-white text-sm">Inbox</span>
-        </div>
-        <span v-if="getInboxUnreadCount() > 0" class="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
-          {{ getInboxUnreadCount() > 99 ? '99+' : getInboxUnreadCount() }}
-        </span>
-      </button>
+        @drop="handleChatDrop"
+      />
 
       <!-- Folder List -->
-      <div v-for="folder in folders" :key="folder.id" class="border-t border-[#333] group">
-        <div class="relative flex items-center">
-          <button
-            @click="handleSelectFolder(folder.id)"
-            :class="[
-              'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#1a1a1a] transition-colors',
-              selectedFolderId === folder.id && !showArchives ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
-            ]"
-          >
-            <div class="flex items-center gap-2 min-w-0 flex-1">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] shrink-0">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-              </svg>
-              <span class="text-white text-sm truncate">{{ folder.name }}</span>
-            </div>
-            <div class="flex items-center gap-2 shrink-0">
-              <span v-if="getFolderUnreadCount(folder.id) > 0" class="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
-                {{ getFolderUnreadCount(folder.id) > 99 ? '99+' : getFolderUnreadCount(folder.id) }}
-              </span>
-            </div>
-          </button>
+      <template v-for="folder in folders" :key="`folder-${folder.id}`">
+        <div class="border-t border-[#333] group">
+          <div class="relative flex items-center w-full">
+            <DroppableFolderItem
+              :folder-id="folder.id"
+              :folder-name="folder.name"
+              :selected="selectedFolderId === folder.id && !showArchives"
+              :unread-count="getFolderUnreadCount(folder.id)"
+              icon="folder"
+              @click="handleSelectFolder"
+              @drop="handleChatDrop"
+              class="flex-1 min-w-0"
+            />
           <!-- Settings Icon - visible on hover -->
-          <div class="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div class="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
             <Dropdown
               :modelValue="getDropdownOpen(folder.id)"
               @update:modelValue="(val) => setDropdownOpen(folder.id, val)"
@@ -264,6 +308,7 @@ async function handleDialogSave(newName: string) {
           </div>
         </div>
       </div>
+      </template>
 
       <!-- New Folder Button -->
       <div class="border-t border-[#333]">

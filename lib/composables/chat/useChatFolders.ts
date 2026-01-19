@@ -188,6 +188,22 @@ export const useChatFolders = createGlobalState(() => {
       const response = await deleteFolderAPI(folderId);
       
       if (response.info.code === 200) {
+        // Move all chats from this folder back to inbox (folder_id = undefined)
+        const chatsInFolder = await db.chats
+          .where('folder_id')
+          .equals(folderId)
+          .toArray();
+        
+        if (chatsInFolder.length > 0) {
+          // Update each chat individually to set folder_id to undefined (inbox)
+          await Promise.all(
+            chatsInFolder.map(chat => 
+              db.chats.update(chat.id, { folder_id: undefined })
+            )
+          );
+          console.log(`[useChatFolders] Moved ${chatsInFolder.length} chats from folder ${folderId} back to inbox`);
+        }
+        
         // Remove folder from IndexedDB
         await db.folders.delete(folderId);
         
@@ -256,9 +272,9 @@ export const useChatFolders = createGlobalState(() => {
       const response = await removeChatFromFolderAPI(groupId, folderId);
       
       if (response.info.code === 200) {
-        // Update chat's folder_id to null (inbox) in IndexedDB
+        // Update chat's folder_id to undefined (inbox) in IndexedDB
         const chatId = `group_${groupId}`;
-        await db.chats.update(chatId, { folder_id: null });
+        await db.chats.update(chatId, { folder_id: undefined });
         console.log(`[useChatFolders] Successfully removed chat ${groupId} from folder ${folderId}`);
       } else {
         throw new Error(response.info.message || 'Failed to remove chat from folder');
