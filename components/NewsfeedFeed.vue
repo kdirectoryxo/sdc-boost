@@ -1,89 +1,18 @@
 <script lang="ts" setup>
-import { ref, onMounted, watch } from 'vue';
-import NewsfeedHeader from './NewsfeedHeader.vue';
-import NewsfeedTabs from './NewsfeedTabs.vue';
 import NewsfeedList from './NewsfeedList.vue';
-import { getNewsfeedFilters, updateNewsfeedFilters } from '@/lib/sdc-api/newsfeed';
 import type { NewsfeedFilterOptions } from '@/lib/sdc-api/newsfeed';
-import { getCachedFilters, setCachedFilters } from '@/lib/newsfeed-filter-cache';
 
-const activeTab = ref<'feed' | 'admin'>('feed');
-const filters = ref<Partial<NewsfeedFilterOptions>>({});
-const filtersLoading = ref(false);
-const filtersReady = ref(false);
+interface Props {
+  activeTab: 'feed' | 'admin';
+  filters: Partial<NewsfeedFilterOptions>;
+  filtersReady: boolean;
+}
 
-// Load initial filters (with caching)
-onMounted(async () => {
-  // Try to load from cache first
-  const cachedFilters = getCachedFilters();
-  if (cachedFilters) {
-    filters.value = cachedFilters;
-    filtersReady.value = true;
-    console.log('[NewsfeedFeed] Loaded filters from cache');
-  }
-
-  // Always fetch fresh filters in background and update cache
-  try {
-    const response = await getNewsfeedFilters();
-    filters.value = response.info.options;
-    setCachedFilters(response.info.options);
-    filtersReady.value = true;
-    console.log('[NewsfeedFeed] Loaded filters from API and cached');
-  } catch (error) {
-    console.error('[NewsfeedFeed] Failed to load filters:', error);
-    // If we have cached filters, use them; otherwise mark as ready with empty filters
-    if (!cachedFilters) {
-      filtersReady.value = true;
-    }
-  }
-});
-
-const handleTabChange = (tab: 'feed' | 'admin') => {
-  activeTab.value = tab;
-};
-
-const handleFiltersChange = async (newFilters: Partial<NewsfeedFilterOptions>) => {
-  // Update filters immediately - this will trigger the watcher in NewsfeedList
-  filters.value = { ...filters.value, ...newFilters };
-  
-  // Update cache immediately for faster subsequent loads
-  setCachedFilters(filters.value as NewsfeedFilterOptions);
-  
-  // Update filters on server (non-blocking, don't wait for it)
-  // Use a separate flag to track if an update is in progress, but don't block new updates
-  const currentUpdateId = Date.now();
-  filtersLoading.value = true;
-  
-  updateNewsfeedFilters(filters.value)
-    .then(() => {
-      // Only update cache if this is still the latest update
-      setCachedFilters(filters.value as NewsfeedFilterOptions);
-    })
-    .catch((error) => {
-      console.error('[NewsfeedFeed] Failed to update filters:', error);
-    })
-    .finally(() => {
-      // Only clear loading if this was the latest update
-      filtersLoading.value = false;
-    });
-};
+defineProps<Props>();
 </script>
 
 <template>
   <div class="newsfeed-container">
-    <!-- Tabs and Filters Section -->
-    <div class="newsfeed-controls">
-      <NewsfeedTabs 
-        :active-tab="activeTab"
-        @tab-change="handleTabChange"
-      />
-      <NewsfeedHeader 
-        :active-tab="activeTab"
-        :filters="filters"
-        @filters-change="handleFiltersChange"
-      />
-    </div>
-    
     <!-- Feed Content -->
     <div class="newsfeed-content">
       <NewsfeedList 
@@ -101,15 +30,9 @@ const handleFiltersChange = async (newFilters: Partial<NewsfeedFilterOptions>) =
 
 <style scoped>
 .newsfeed-container {
-  background-color: #1a1d21;
   display: flex;
   flex-direction: column;
   height: 100%;
-}
-
-.newsfeed-controls {
-  flex-shrink: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .newsfeed-content {

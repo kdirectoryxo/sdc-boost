@@ -119,18 +119,18 @@ const clearAllActivityFilters = () => {
   <div class="newsfeed-header">
     <div class="newsfeed-header-filters">
       <!-- Content Type Filter Dropdown -->
-      <Dropdown v-model="contentFilterOpen" placement="bottom" alignment="start" width="w-64" :z-index="10000001">
+      <Dropdown v-model="contentFilterOpen" placement="bottom" alignment="start" width="w-64" offset="mt-1">
         <template #trigger="{ toggle }">
           <button 
-            @click="toggle"
-            :class="['filter-button', { 'filter-button-active': activeContentCount > 0 }]"
+            @click.stop="toggle"
+            :class="['filter-chip', { 'filter-chip-active': activeContentCount > 0 }]"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
             </svg>
-            <span>Algemeen</span>
+            <span class="filter-chip-value">Algemeen</span>
             <span v-if="activeContentCount > 0" class="filter-badge">{{ activeContentCount }}</span>
-            <svg class="filter-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="filter-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="6 9 12 15 18 9"/>
             </svg>
           </button>
@@ -156,12 +156,12 @@ const clearAllActivityFilters = () => {
                 </button>
               </div>
             </div>
-            <div class="filter-dropdown-items">
-              <div 
+            <div class="filter-menu">
+              <button
                 v-for="filter in contentFilters"
                 :key="filter.key"
-                :class="['filter-dropdown-item', { 'filter-dropdown-item-active': isContentFilterActive(filter.key) }]"
                 @click="toggleContentFilter(filter.key)"
+                :class="['filter-menu-item', { active: isContentFilterActive(filter.key) }]"
               >
                 <div class="filter-checkbox-wrapper">
                   <div :class="['filter-checkbox', { 'filter-checkbox-checked': isContentFilterActive(filter.key) }]">
@@ -170,26 +170,26 @@ const clearAllActivityFilters = () => {
                     </svg>
                   </div>
                 </div>
-                <span class="filter-dropdown-label">{{ filter.label }}</span>
-              </div>
+                <span>{{ filter.label }}</span>
+              </button>
             </div>
           </div>
         </template>
       </Dropdown>
 
       <!-- Activity Filter Dropdown -->
-      <Dropdown v-model="activityFilterOpen" placement="bottom" alignment="start" width="w-64" :z-index="10000001">
+      <Dropdown v-model="activityFilterOpen" placement="bottom" alignment="start" width="w-64" offset="mt-1">
         <template #trigger="{ toggle }">
           <button 
-            @click="toggle"
-            :class="['filter-button', { 'filter-button-active': activeActivityCount > 0 }]"
+            @click.stop="toggle"
+            :class="['filter-chip', { 'filter-chip-active': activeActivityCount > 0 }]"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
             </svg>
-            <span>Vrienden</span>
+            <span class="filter-chip-value">Vrienden</span>
             <span v-if="activeActivityCount > 0" class="filter-badge">{{ activeActivityCount }}</span>
-            <svg class="filter-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="filter-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="6 9 12 15 18 9"/>
             </svg>
           </button>
@@ -215,12 +215,12 @@ const clearAllActivityFilters = () => {
                 </button>
               </div>
             </div>
-            <div class="filter-dropdown-items filter-dropdown-items-scrollable">
-              <div 
+            <div class="filter-menu filter-menu-scrollable">
+              <button
                 v-for="filter in activityFilters"
                 :key="filter.key"
-                :class="['filter-dropdown-item', { 'filter-dropdown-item-active': isActivityFilterActive(filter.key) }]"
                 @click="toggleActivityFilter(filter.key)"
+                :class="['filter-menu-item', { active: isActivityFilterActive(filter.key) }]"
               >
                 <div class="filter-checkbox-wrapper">
                   <div :class="['filter-checkbox', { 'filter-checkbox-checked': isActivityFilterActive(filter.key) }]">
@@ -229,8 +229,8 @@ const clearAllActivityFilters = () => {
                     </svg>
                   </div>
                 </div>
-                <span class="filter-dropdown-label">{{ filter.label }}</span>
-              </div>
+                <span>{{ filter.label }}</span>
+              </button>
             </div>
           </div>
         </template>
@@ -241,73 +241,79 @@ const clearAllActivityFilters = () => {
 
 <style scoped>
 .newsfeed-header {
-  background-color: #1a1d21;
-  padding: 8px 16px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 8px 14px;
 }
 
 .newsfeed-header-filters {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.filter-button {
+/* Filter Chips (Dropdowns) - matching PeopleDialog */
+.filter-chip {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   padding: 5px 10px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 5px;
-  color: #9ca3af;
-  font-size: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  color: #e5e7eb;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
-.filter-button svg {
-  width: 14px;
-  height: 14px;
+.filter-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
-.filter-button:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #e5e7eb;
+.filter-chip svg {
+  color: #6b7280;
+  flex-shrink: 0;
 }
 
-.filter-button-active {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.25);
+.filter-chip-value {
+  color: white;
+}
+
+.filter-chip-active {
+  background: rgba(96, 165, 250, 0.15);
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+.filter-chip-active .filter-chip-value {
+  color: white;
+}
+
+.filter-chip-active svg:first-child {
   color: #60a5fa;
 }
 
-.filter-button-active:hover {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.35);
-}
-
 .filter-badge {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 4px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  background: #ef4444;
   color: white;
+  border-radius: 8px;
   font-size: 10px;
   font-weight: 600;
-  border-radius: 7px;
 }
 
 .filter-chevron {
   opacity: 0.5;
-  margin-left: 1px;
+  margin-left: auto;
   transition: transform 0.2s ease;
-  width: 10px;
-  height: 10px;
+  flex-shrink: 0;
 }
 
 .filter-dropdown {
@@ -357,50 +363,59 @@ const clearAllActivityFilters = () => {
   cursor: not-allowed;
 }
 
-.filter-dropdown-items {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+/* Filter Menu - matching PeopleDialog */
+.filter-menu {
+  padding: 4px;
 }
 
-.filter-dropdown-items-scrollable {
+.filter-menu-scrollable {
   max-height: 280px;
   overflow-y: auto;
 }
 
-.filter-dropdown-items-scrollable::-webkit-scrollbar {
+.filter-menu-scrollable::-webkit-scrollbar {
   width: 6px;
 }
 
-.filter-dropdown-items-scrollable::-webkit-scrollbar-track {
+.filter-menu-scrollable::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.filter-dropdown-items-scrollable::-webkit-scrollbar-thumb {
+.filter-menu-scrollable::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
 }
 
-.filter-dropdown-item {
+.filter-menu-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  background: transparent;
+  border: none;
   border-radius: 4px;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: all 0.1s ease;
 }
 
-.filter-dropdown-item:hover {
-  background-color: rgba(255, 255, 255, 0.06);
+.filter-menu-item .filter-checkbox-wrapper,
+.filter-menu-item svg {
+  flex-shrink: 0;
 }
 
-.filter-dropdown-item-active {
-  background-color: rgba(59, 130, 246, 0.1);
+.filter-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
 }
 
-.filter-dropdown-item-active:hover {
-  background-color: rgba(59, 130, 246, 0.15);
+.filter-menu-item.active {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
 }
 
 .filter-checkbox-wrapper {
@@ -421,6 +436,7 @@ const clearAllActivityFilters = () => {
 .filter-checkbox svg {
   width: 10px;
   height: 10px;
+  flex-shrink: 0;
 }
 
 .filter-checkbox-checked {
@@ -429,9 +445,4 @@ const clearAllActivityFilters = () => {
   color: white;
 }
 
-.filter-dropdown-label {
-  font-size: 13px;
-  color: #e5e7eb;
-  flex: 1;
-}
 </style>

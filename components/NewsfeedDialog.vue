@@ -1,7 +1,11 @@
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { Icon } from '@iconify/vue';
 import NewsfeedFeed from './NewsfeedFeed.vue';
+import NewsfeedHeader from './NewsfeedHeader.vue';
+import { getNewsfeedFilters, updateNewsfeedFilters } from '@/lib/sdc-api/newsfeed';
+import type { NewsfeedFilterOptions } from '@/lib/sdc-api/newsfeed';
+import { getCachedFilters, setCachedFilters } from '@/lib/newsfeed-filter-cache';
 
 interface Props {
   modelValue: boolean;
@@ -18,6 +22,33 @@ const isOpen = computed({
   set: (value) => emit('update:modelValue', value),
 });
 
+const activeTab = ref<'feed' | 'admin'>('feed');
+const filters = ref<Partial<NewsfeedFilterOptions>>({});
+const filtersReady = ref(false);
+
+// Load initial filters (with caching)
+onMounted(async () => {
+  // Try to load from cache first
+  const cachedFilters = getCachedFilters();
+  if (cachedFilters) {
+    filters.value = cachedFilters;
+    filtersReady.value = true;
+  }
+
+  // Always fetch fresh filters in background and update cache
+  try {
+    const response = await getNewsfeedFilters();
+    filters.value = response.info.options;
+    setCachedFilters(response.info.options);
+    filtersReady.value = true;
+  } catch (error) {
+    console.error('[NewsfeedDialog] Failed to load filters:', error);
+    if (!cachedFilters) {
+      filtersReady.value = true;
+    }
+  }
+});
+
 function handleClose() {
   isOpen.value = false;
   emit('close');
@@ -28,6 +59,22 @@ function handleBackdropClick(e: MouseEvent) {
     handleClose();
   }
 }
+
+function handleTabChange(tab: 'feed' | 'admin') {
+  activeTab.value = tab;
+}
+
+const handleFiltersChange = async (newFilters: Partial<NewsfeedFilterOptions>) => {
+  filters.value = { ...filters.value, ...newFilters };
+  setCachedFilters(filters.value as NewsfeedFilterOptions);
+  
+  try {
+    await updateNewsfeedFilters(filters.value);
+    setCachedFilters(filters.value as NewsfeedFilterOptions);
+  } catch (error) {
+    console.error('[NewsfeedDialog] Failed to update filters:', error);
+  }
+};
 </script>
 
 <template>
@@ -38,30 +85,63 @@ function handleBackdropClick(e: MouseEvent) {
       @click="handleBackdropClick"
     >
       <div class="newsfeed-dialog-container" @click.stop>
-        <!-- Dialog Header -->
+        <!-- Header with Tabs -->
         <div class="newsfeed-dialog-header">
           <div class="newsfeed-dialog-header-left">
             <div class="newsfeed-dialog-icon">
-              <Icon icon="mdi:rss" width="20" height="20" />
+              <Icon icon="mdi:rss" width="16" height="16" />
             </div>
-            <div class="newsfeed-dialog-title-group">
-              <h2 class="newsfeed-dialog-title">Activity Feed</h2>
-              <span class="newsfeed-dialog-subtitle-separator">·</span>
-              <span class="newsfeed-dialog-subtitle">Stay updated</span>
-            </div>
+            <span class="newsfeed-dialog-title">Activity Feed</span>
           </div>
-          <button
-            class="newsfeed-dialog-close"
-            @click="handleClose"
-            aria-label="Close"
-          >
-            <Icon icon="mdi:close" width="20" height="20" />
+          
+          <!-- Tabs in header -->
+          <div class="newsfeed-dialog-tabs">
+            <button
+              :class="['newsfeed-dialog-tab', { active: activeTab === 'feed' }]"
+              @click="handleTabChange('feed')"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 11a9 9 0 0 1 9 9" />
+                <path d="M4 4a16 16 0 0 1 16 16" />
+                <circle cx="5" cy="19" r="1" />
+              </svg>
+              <span>Feed</span>
+            </button>
+            <button
+              :class="['newsfeed-dialog-tab', { active: activeTab === 'admin' }]"
+              @click="handleTabChange('admin')"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              <span>SDC Berichten</span>
+            </button>
+          </div>
+          
+          <button class="newsfeed-dialog-close" @click="handleClose" aria-label="Close">
+            <Icon icon="mdi:close" width="18" height="18" />
           </button>
+        </div>
+
+        <!-- Filters Section -->
+        <div v-if="filtersReady" class="newsfeed-dialog-filters">
+          <NewsfeedHeader 
+            :active-tab="activeTab"
+            :filters="filters"
+            @filters-change="handleFiltersChange"
+          />
         </div>
 
         <!-- Dialog Content -->
         <div class="newsfeed-dialog-content">
-          <NewsfeedFeed />
+          <NewsfeedFeed 
+            :active-tab="activeTab"
+            :filters="filters"
+            :filters-ready="filtersReady"
+          />
         </div>
       </div>
     </div>
@@ -71,41 +151,44 @@ function handleBackdropClick(e: MouseEvent) {
 <style scoped>
 .newsfeed-dialog-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 999999;
-  padding: 24px;
+  padding: 16px;
   pointer-events: auto;
 }
 
 .newsfeed-dialog-container {
-  width: 100%;
-  max-width: 1000px;
-  height: 90vh;
-  background-color: #1a1d21;
-  border-radius: 16px;
+  width: 95vw;
+  height: 95vh;
+  background: #131517;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 
-    0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 4px 6px -1px rgba(0, 0, 0, 0.3),
-    0 24px 48px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 24px 64px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  position: relative;
 }
 
+@media (min-width: 768px) {
+  .newsfeed-dialog-container {
+    width: 90vw;
+    height: 90vh;
+  }
+}
+
+/* Header */
 .newsfeed-dialog-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  background: linear-gradient(135deg, #252a30 0%, #1e2227 100%);
+  gap: 16px;
+  padding: 10px 14px;
+  background: #1a1d21;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }
@@ -113,109 +196,114 @@ function handleBackdropClick(e: MouseEvent) {
 .newsfeed-dialog-header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.newsfeed-dialog-icon {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border-radius: 6px;
-  color: white;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
-}
-
-.newsfeed-dialog-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.newsfeed-dialog-title-group {
-  display: flex;
-  align-items: center;
   gap: 8px;
 }
 
-.newsfeed-dialog-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: white;
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-
-.newsfeed-dialog-subtitle {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.newsfeed-dialog-subtitle-separator {
-  color: #4b5563;
-  font-size: 13px;
-}
-
-.newsfeed-dialog-close {
-  width: 36px;
-  height: 36px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  color: #9ca3af;
-  cursor: pointer;
+.newsfeed-dialog-icon {
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   border-radius: 6px;
-  transition: all 0.2s ease;
+  color: white;
 }
 
-.newsfeed-dialog-close svg {
-  width: 18px;
-  height: 18px;
+.newsfeed-dialog-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  letter-spacing: -0.01em;
+}
+
+/* Tabs */
+.newsfeed-dialog-tabs {
+  display: flex;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 3px;
+  border-radius: 8px;
+  margin-left: auto;
+}
+
+.newsfeed-dialog-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.newsfeed-dialog-tab svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.newsfeed-dialog-tab:hover {
+  color: #9ca3af;
+}
+
+.newsfeed-dialog-tab.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+/* Close Button */
+.newsfeed-dialog-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: 8px;
 }
 
 .newsfeed-dialog-close:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
   color: white;
-  transform: scale(1.05);
 }
 
-.newsfeed-dialog-close:active {
-  transform: scale(0.95);
+/* Filters */
+.newsfeed-dialog-filters {
+  flex-shrink: 0;
+  background: #16181c;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .newsfeed-dialog-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
-  background-color: #1a1d21;
+  background: #131517;
 }
 
-/* Custom scrollbar for content */
-.newsfeed-dialog-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.newsfeed-dialog-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.newsfeed-dialog-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
-.newsfeed-dialog-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-/* Dialog transitions */
+/* Transitions */
 .dialog-fade-enter-active,
 .dialog-fade-leave-active {
-  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 0.2s ease;
+}
+
+.dialog-fade-enter-active .newsfeed-dialog-container,
+.dialog-fade-leave-active .newsfeed-dialog-container {
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .dialog-fade-enter-from,
@@ -223,18 +311,9 @@ function handleBackdropClick(e: MouseEvent) {
   opacity: 0;
 }
 
-.dialog-fade-enter-active .newsfeed-dialog-container,
-.dialog-fade-leave-active .newsfeed-dialog-container {
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.dialog-fade-enter-from .newsfeed-dialog-container {
-  transform: scale(0.96) translateY(8px);
-  opacity: 0;
-}
-
+.dialog-fade-enter-from .newsfeed-dialog-container,
 .dialog-fade-leave-to .newsfeed-dialog-container {
-  transform: scale(0.98);
+  transform: scale(0.96) translateY(8px);
   opacity: 0;
 }
 </style>
