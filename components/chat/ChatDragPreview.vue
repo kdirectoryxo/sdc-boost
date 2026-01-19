@@ -15,7 +15,7 @@ const styleOverlay = computed<CSSProperties>(() => {
       position: 'fixed',
       top: '0px',
       left: '0px',
-      zIndex: 1000000,
+      zIndex: 10000000,
       pointerEvents: 'none',
       opacity: 0,
     };
@@ -25,7 +25,7 @@ const styleOverlay = computed<CSSProperties>(() => {
     position: 'fixed',
     top: `${pos.y}px`,
     left: `${pos.x}px`,
-    zIndex: 1000000,
+    zIndex: 10000000,
     pointerEvents: 'none',
     transform: 'translate(-50%, -50%)',
   };
@@ -33,18 +33,16 @@ const styleOverlay = computed<CSSProperties>(() => {
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="fade">
-      <div v-if="isDragging && draggingElements.size > 0" ref="elementRef" :style="styleOverlay" class="chat-drag-preview">
-        <template v-for="[element, { id, initialHTML }] in draggingElements" :key="id">
-          <div 
-            v-html="initialHTML" 
-            class="preview-content"
-          ></div>
-        </template>
-      </div>
-    </Transition>
-  </Teleport>
+  <Transition name="fade">
+    <div v-if="isDragging && draggingElements.size > 0" ref="elementRef" :style="styleOverlay" class="chat-drag-preview">
+      <template v-for="[element, { id, initialHTML }] in draggingElements" :key="id">
+        <div 
+          v-html="initialHTML" 
+          class="preview-content"
+        ></div>
+      </template>
+    </div>
+  </Transition>
 </template>
 
 <style scoped>
@@ -52,7 +50,7 @@ const styleOverlay = computed<CSSProperties>(() => {
   max-width: 300px;
   opacity: 0.9;
   filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3));
-  z-index: 1000000 !important;
+  z-index: 10000000 !important;
 }
 
 .preview-content {

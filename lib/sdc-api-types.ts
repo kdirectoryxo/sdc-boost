@@ -155,6 +155,52 @@ export interface Validation {
     biz_type_subcategories?: any[];
 }
 
+export interface ValidationV2User {
+    db_id: number;
+    account_id: string;
+    timed: string;
+    gender1: number;
+    gender2: number;
+    location_how_far: number;
+    speed: number;
+    photo_count: number;
+    this_birthday: number;
+    primary_photo: string;
+    blur_primary_pic: number;
+    profile_type: number;
+    age: string;
+    birthday_for: string;
+    searching: any[];
+    location: string;
+    valid_count: number;
+    validation_from: string;
+    validation_text: string;
+    validation_date: string;
+    video_count: number;
+    online: number;
+    business_type: string;
+    hide_sender: number;
+    likes_count: number;
+    travel_counter: number;
+    service_counter: number;
+    summary_int: string;
+    lifetime_status: boolean;
+    is_app_user: number;
+    is_web_user: number;
+    biz_type_subcategories?: any[];
+}
+
+export interface ValidationsV2Info {
+    code: number;
+    users: ValidationV2User[];
+    validations_are_hidden: number;
+    url_more: string;
+}
+
+export interface ValidationsV2Response {
+    info: ValidationsV2Info;
+}
+
 export interface SpeedDatingDetails {
     date_list?: string;
     dating_date?: string;

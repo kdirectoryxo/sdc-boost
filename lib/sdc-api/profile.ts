@@ -2,7 +2,7 @@
  * SDC API Profile Functions
  * Functions for fetching and working with user profiles
  */
-import type { ProfileV2Response } from '../sdc-api-types';
+import type { ProfileV2Response, ValidationsV2Response } from '../sdc-api-types';
 import { getCurrentMuid } from './utils';
 
 /**
@@ -78,6 +78,52 @@ export async function getCurrentNote(dbId: string, muid?: string | null): Promis
     } catch (error) {
         console.error('[SDC API] Failed to get current note:', error);
         return '';
+    }
+}
+
+/**
+ * Get all validations for a user
+ * @param dbId The target user's DB_ID
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @param page Page number (default: 0)
+ * @returns Validations response with all validation users
+ */
+export async function getValidationsV2(
+    dbId: string,
+    muid?: string | null,
+    page: number = 0
+): Promise<ValidationsV2Response> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot fetch validations.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/validations_v2');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('DB_ID', dbId);
+    url.searchParams.set('page', page.toString());
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'en-US,en;q=0.9',
+            },
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Validations API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data as ValidationsV2Response;
+    } catch (error) {
+        console.error('[SDC API] Failed to fetch validations:', error);
+        throw error;
     }
 }
 

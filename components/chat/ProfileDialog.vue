@@ -1,12 +1,12 @@
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import type { ProfileUser, PhotoAlbum, GalleryPhoto } from '@/lib/sdc-api-types';
+import type { ProfileUser, PhotoAlbum, GalleryPhoto, ValidationV2User } from '@/lib/sdc-api-types';
 import GalleryModal from '@/components/chat/GalleryModal.vue';
 import VueEasyLightbox from 'vue-easy-lightbox';
 import 'vue-easy-lightbox/dist/external-css/vue-easy-lightbox.css';
 import VideoLightbox from '@/components/chat/VideoLightbox.vue';
 import { profileStorage } from '@/lib/profile-storage';
-import { getProfileV2 } from '@/lib/sdc-api/profile';
+import { getProfileV2, getValidationsV2 } from '@/lib/sdc-api/profile';
 
 interface Props {
   visible: boolean;
@@ -32,6 +32,12 @@ const isRefreshingImages = ref(false);
 const isRefreshingDueToError = ref(false);
 const error = ref<string | null>(null);
 const imageErrors = ref<Set<string>>(new Set());
+
+// Validations state
+const allValidations = ref<ValidationV2User[]>([]);
+const isLoadingValidations = ref(false);
+const validationsError = ref<string | null>(null);
+const validationsLoaded = ref(false);
 
 // Gallery modal state
 const galleryModalVisible = ref<boolean>(false);
@@ -103,8 +109,14 @@ const tabs = computed(() => {
 });
 
 // Fetch profile data when dialog opens
-watch([() => props.visible, () => props.userId], async ([visible, userId]) => {
+watch([() => props.visible, () => props.userId], async ([visible, userId], [prevVisible, prevUserId]) => {
   if (visible && userId) {
+    // Reset validations state if userId changed
+    if (prevUserId !== undefined && prevUserId !== userId) {
+      allValidations.value = [];
+      validationsLoaded.value = false;
+      validationsError.value = null;
+    }
     await fetchProfile(userId);
   } else if (!visible) {
     // Reset state when closing
@@ -114,8 +126,19 @@ watch([() => props.visible, () => props.userId], async ([visible, userId]) => {
     imageErrors.value.clear();
     isRefreshingImages.value = false;
     isRefreshingDueToError.value = false;
+    // Reset validations state
+    allValidations.value = [];
+    validationsLoaded.value = false;
+    validationsError.value = null;
   }
 }, { immediate: true });
+
+// Watch for validations tab activation to fetch all validations on demand
+watch(activeTab, async (newTab) => {
+  if (newTab === 'validaties' && profileData.value?.db_id && !validationsLoaded.value) {
+    await fetchAllValidations(profileData.value.db_id);
+  }
+});
 
 async function fetchProfile(userId: number) {
   isLoading.value = true;
@@ -219,6 +242,30 @@ async function refreshProfileImages(userId: number, dueToError: boolean = false)
   })();
   
   await refreshPromise;
+}
+
+async function fetchAllValidations(userId: number) {
+  if (isLoadingValidations.value) return;
+  
+  isLoadingValidations.value = true;
+  validationsError.value = null;
+  
+  try {
+    // Fetch all validations from validations_v2 endpoint
+    const response = await getValidationsV2(userId.toString());
+    
+    // Only update if dialog is still open and showing the same user
+    if (props.visible && props.userId === userId) {
+      allValidations.value = response.info.users || [];
+      validationsLoaded.value = true;
+      console.log('[ProfileDialog] Loaded all validations for user', userId, 'count:', allValidations.value.length);
+    }
+  } catch (err) {
+    console.error('[ProfileDialog] Failed to fetch all validations:', err);
+    validationsError.value = err instanceof Error ? err.message : 'Failed to load validations';
+  } finally {
+    isLoadingValidations.value = false;
+  }
 }
 
 function handleClose() {
@@ -1160,37 +1207,94 @@ const isGender2Real = computed(() => {
                 <polyline points="22 4 12 14.01 9 11.01"></polyline>
               </svg>
               Validaties
+              <span v-if="profileData.validations" class="text-sm text-[#999] font-normal ml-2">
+                ({{ profileData.validations }} total)
+              </span>
             </h4>
-            <div v-if="profileData.my_validations && profileData.my_validations.length > 0" class="space-y-4">
-            <div
-              v-for="validation in profileData.my_validations"
-              :key="validation.validation_id"
-              @click="emit('open-profile', validation.db_id)"
-              class="bg-[#0f0f0f] rounded-lg p-4 border border-[#333] cursor-pointer hover:bg-[#1a1a1a] transition-colors"
-            >
-              <div class="flex items-start gap-4">
-                <img
-                  :src="getPhotoUrl(validation.primary_photo)"
-                  :alt="validation.account_id"
-                  class="w-16 h-16 rounded-full object-cover shrink-0"
-                />
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2 mb-1">
-                    <h4 class="text-white font-medium">{{ validation.account_id }}</h4>
-                    <span v-if="validation.lifetime_status" class="text-yellow-400 text-xs">⭐</span>
-                    <span v-if="validation.online === 1" class="w-2 h-2 bg-green-500 rounded-full"></span>
+            
+            <!-- Loading State -->
+            <div v-if="isLoadingValidations" class="flex items-center justify-center py-12">
+              <div class="flex flex-col items-center gap-4">
+                <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <div class="text-[#999] text-sm">Loading validations...</div>
+              </div>
+            </div>
+            
+            <!-- Error State -->
+            <div v-else-if="validationsError" class="text-center py-12">
+              <div class="text-red-500 mb-2">{{ validationsError }}</div>
+              <button
+                @click="profileData?.db_id && fetchAllValidations(profileData.db_id)"
+                class="text-blue-500 hover:text-blue-400 text-sm"
+              >
+                Try again
+              </button>
+            </div>
+            
+            <!-- Validations List -->
+            <div v-else-if="allValidations.length > 0" class="space-y-4">
+              <div
+                v-for="validation in allValidations"
+                :key="validation.db_id"
+                @click="emit('open-profile', validation.db_id)"
+                class="bg-[#0f0f0f] rounded-lg p-4 border border-[#333] cursor-pointer hover:bg-[#1a1a1a] transition-colors"
+              >
+                <div class="flex items-start gap-4">
+                  <img
+                    :src="getPhotoUrl(validation.primary_photo)"
+                    :alt="validation.account_id"
+                    class="w-16 h-16 rounded-full object-cover shrink-0"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                      <h4 class="text-white font-medium">{{ validation.account_id }}</h4>
+                      <span v-if="validation.lifetime_status" class="text-yellow-400 text-xs">⭐</span>
+                      <span v-if="validation.online === 1" class="w-2 h-2 bg-green-500 rounded-full"></span>
+                    </div>
+                    <div class="flex items-center gap-2 mb-2">
+                      <span v-if="splitAge(validation.age)[0] !== '-'" :class="['text-sm font-semibold', getAgeColorClass(validation.gender1)]">{{ splitAge(validation.age)[0] }}</span>
+                      <span v-if="splitAge(validation.age)[1] !== '-'" :class="['text-sm font-semibold', getAgeColorClass(validation.gender2)]">{{ splitAge(validation.age)[1] }}</span>
+                      <span v-if="validation.location" class="text-sm text-[#999]">| {{ validation.location }}</span>
+                    </div>
+                    <p class="text-sm text-white">{{ validation.validation_text }}</p>
+                    <p class="text-xs text-[#666] mt-2">{{ validation.validation_date }}</p>
                   </div>
-                  <div class="flex items-center gap-2 mb-2">
-                    <span v-if="splitAge(validation.age)[0] !== '-'" :class="['text-sm font-semibold', getAgeColorClass(validation.gender1)]">{{ splitAge(validation.age)[0] }}</span>
-                    <span v-if="splitAge(validation.age)[1] !== '-'" :class="['text-sm font-semibold', getAgeColorClass(validation.gender2)]">{{ splitAge(validation.age)[1] }}</span>
-                    <span v-if="validation.location" class="text-sm text-[#999]">| {{ validation.location }}</span>
-                  </div>
-                  <p class="text-sm text-white">{{ validation.subject }}</p>
-                  <p class="text-xs text-[#666] mt-2">{{ validation.date }}</p>
-                </div>
                 </div>
               </div>
             </div>
+            
+            <!-- Fallback to profile validations if not loaded yet -->
+            <div v-else-if="profileData.my_validations && profileData.my_validations.length > 0" class="space-y-4">
+              <div
+                v-for="validation in profileData.my_validations"
+                :key="validation.validation_id"
+                @click="emit('open-profile', validation.db_id)"
+                class="bg-[#0f0f0f] rounded-lg p-4 border border-[#333] cursor-pointer hover:bg-[#1a1a1a] transition-colors"
+              >
+                <div class="flex items-start gap-4">
+                  <img
+                    :src="getPhotoUrl(validation.primary_photo)"
+                    :alt="validation.account_id"
+                    class="w-16 h-16 rounded-full object-cover shrink-0"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                      <h4 class="text-white font-medium">{{ validation.account_id }}</h4>
+                      <span v-if="validation.lifetime_status" class="text-yellow-400 text-xs">⭐</span>
+                      <span v-if="validation.online === 1" class="w-2 h-2 bg-green-500 rounded-full"></span>
+                    </div>
+                    <div class="flex items-center gap-2 mb-2">
+                      <span v-if="splitAge(validation.age)[0] !== '-'" :class="['text-sm font-semibold', getAgeColorClass(validation.gender1)]">{{ splitAge(validation.age)[0] }}</span>
+                      <span v-if="splitAge(validation.age)[1] !== '-'" :class="['text-sm font-semibold', getAgeColorClass(validation.gender2)]">{{ splitAge(validation.age)[1] }}</span>
+                      <span v-if="validation.location" class="text-sm text-[#999]">| {{ validation.location }}</span>
+                    </div>
+                    <p class="text-sm text-white">{{ validation.subject }}</p>
+                    <p class="text-xs text-[#666] mt-2">{{ validation.date }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <div v-else class="text-center text-[#999] py-12">
               No validations available
             </div>
