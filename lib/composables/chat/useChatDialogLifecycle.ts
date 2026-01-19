@@ -7,6 +7,9 @@ import { useChatWebSocket } from './useChatWebSocket';
 import { useChatMessages } from './useChatMessages';
 import { useChatSelection } from './useChatSelection';
 import { useSDCDatabaseStore } from '@/lib/sdc-db/store';
+import { startChat } from '@/lib/sdc-api/messenger';
+import { chatStorage } from '@/lib/chat-storage';
+import type { MessengerChatItem } from '@/lib/sdc-api-types';
 
 /**
  * Composable for managing ChatDialog lifecycle (open/close, URL watching, mounting)
@@ -21,7 +24,8 @@ export function useChatDialogLifecycle(
     urlSearchParams, 
     updateURLSearchParams,
     getChatIdFromURL,
-    findChatByGroupId 
+    findChatByGroupId,
+    findChatByUserId 
   } = useChatState();
   const { fetchFolders } = useChatFolders();
   const { 
@@ -63,6 +67,67 @@ export function useChatDialogLifecycle(
   }
 
   /**
+   * Helper function to find or create chat by ID (group_id or user_id)
+   */
+  async function findOrCreateChat(chatIdFromURL: string): Promise<MessengerChatItem | null> {
+    // Try finding by group_id first (normal chat selection)
+    let chat = findChatByGroupId(chatIdFromURL);
+    
+    // Fallback: try finding by user ID (from profile button)
+    if (!chat) {
+      console.log('[ChatDialogLifecycle] Chat not found by group_id, trying by user ID...');
+      chat = findChatByUserId(chatIdFromURL);
+    }
+    
+    // If still not found, start a new chat via API
+    if (!chat) {
+      console.log('[ChatDialogLifecycle] Chat not found by user ID either, starting new chat...');
+      try {
+        const userId = Number(chatIdFromURL);
+        if (!isNaN(userId) && userId > 0) {
+          const response = await startChat(userId);
+          if (response.info && response.info.group_id) {
+            // Create a minimal chat item from the API response
+            const newChat: MessengerChatItem = {
+              db_id: userId,
+              group_id: response.info.group_id,
+              account_id: response.info.account_id || '',
+              gender1: response.info.gender1 || 0,
+              gender2: response.info.gender2 || 0,
+              profile_type: response.info.profile_type || 0,
+              unread_counter: 0,
+              last_message: '',
+              message_status: 0,
+              date: new Date().toISOString(),
+              date_time: new Date().toISOString(),
+              start_chat: 1,
+              primary_photo: response.info.primary_photo || '',
+              muted: null,
+              pin_chat: 0,
+              time_elapsed: '',
+              isFriend: false,
+              online: response.info.online || 0,
+              group_type: 0,
+              blocked_profile: 0,
+              extra1: '',
+            };
+            
+            // Store in database
+            await chatStorage.upsertChats([newChat]);
+            console.log('[ChatDialogLifecycle] New chat created and stored:', newChat.group_id);
+            
+            chat = newChat;
+          }
+        }
+      } catch (error) {
+        console.error('[ChatDialogLifecycle] Failed to start new chat:', error);
+      }
+    }
+    
+    return chat;
+  }
+
+  /**
    * Initialize dialog when it opens
    */
   async function initializeDialog() {
@@ -78,23 +143,40 @@ export function useChatDialogLifecycle(
     
     const chatIdFromURL = getChatIdFromURL();
     
-    // Fetch data from API - reactivity will handle UI updates
-    await fetchFolders();
-    await fetchAllChats();
-    
-    // Wait a bit for reactive queries to populate
+    // Wait for reactive queries to populate from IndexedDB cache
     await nextTick();
     
-    isInitialLoad.value = false;
-    
+    // Setup WebSocket listeners early
     setupEventListeners();
     
+    // If we have a chat ID in URL, try to open it IMMEDIATELY from cache
+    // Don't wait for sync - the chat is likely already in IndexedDB
     if (chatIdFromURL) {
-      const chat = findChatByGroupId(chatIdFromURL);
+      console.log('[ChatDialogLifecycle] Trying to open chat immediately from cache...');
+      const chat = await findOrCreateChat(chatIdFromURL);
+      
       if (chat) {
         await nextTick();
         await openChatFromURL(chat);
+        console.log('[ChatDialogLifecycle] Chat opened from cache, syncing in background...');
       }
+    }
+    
+    // Now sync in background (don't block UI)
+    // Start sync but don't await - let it run in background
+    fetchFolders().catch(err => console.error('[ChatDialogLifecycle] Failed to fetch folders:', err));
+    fetchAllChats().then(() => {
+      isInitialLoad.value = false;
+    }).catch(err => console.error('[ChatDialogLifecycle] Failed to sync chats:', err));
+    
+    // If no chat ID was in URL, mark as loaded after a short delay
+    // (to show loading state briefly while background sync starts)
+    if (!chatIdFromURL) {
+      setTimeout(() => {
+        if (isInitialLoad.value) {
+          isInitialLoad.value = false;
+        }
+      }, 500);
     }
   }
 
@@ -114,7 +196,8 @@ export function useChatDialogLifecycle(
       
       if (chatIdFromURL !== currentChatId) {
         if (chatIdFromURL) {
-          const chat = findChatByGroupId(chatIdFromURL);
+          const chat = await findOrCreateChat(chatIdFromURL);
+          
           if (chat) {
             await nextTick();
             await handleChatClick(chat);

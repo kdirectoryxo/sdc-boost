@@ -128,6 +128,14 @@ export const useChatState = createGlobalState(() => {
     return chats.find(chat => String(chat.group_id) === groupId) || null;
   }
   
+  /**
+   * Find chat by user ID (db_id) - used when opening chat from profile page
+   */
+  function findChatByUserId(userId: string): MessengerChatItem | null {
+    const chats = chatList.value || [];
+    return chats.find(chat => String(chat.db_id) === userId) || null;
+  }
+  
   return {
     chatList: computed(() => chatList.value || []),
     folders: computed(() => folders.value || []),
@@ -139,6 +147,7 @@ export const useChatState = createGlobalState(() => {
     updateChatInURL,
     getChatIdFromURL,
     findChatByGroupId,
+    findChatByUserId,
   };
 });
 
