@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
 import { createGlobalState } from '@vueuse/core';
-import { getMessengerFolders, editFolder, createFolder as createFolderAPI, deleteFolder as deleteFolderAPI } from '@/lib/sdc-api';
+import { getMessengerFolders, editFolder, createFolder as createFolderAPI, deleteFolder as deleteFolderAPI, addChatToFolder as addChatToFolderAPI, removeChatFromFolder as removeChatFromFolderAPI } from '@/lib/sdc-api';
 import type { MessengerFolder } from '@/lib/sdc-api-types';
 import { folderStorage } from '@/lib/folder-storage';
 import { chatStorage } from '@/lib/chat-storage';
@@ -202,6 +202,72 @@ export const useChatFolders = createGlobalState(() => {
       throw err;
     }
   }
+
+  /**
+   * Move a chat to a folder
+   * @param groupId The group_id of the chat to move
+   * @param folderId The ID of the folder to move to (null for inbox)
+   */
+  async function moveChatToFolder(groupId: number | string, folderId: number | null): Promise<void> {
+    try {
+      console.log(`[useChatFolders] Moving chat ${groupId} to folder ${folderId}...`);
+      
+      const chatId = `group_${groupId}`;
+      const existingChat = await db.chats.get(chatId);
+      
+      // If moving to inbox (null), we need to remove from current folder first
+      if (folderId === null) {
+        if (existingChat && existingChat.folder_id) {
+          // Remove from current folder using API
+          await removeChatFromFolder(groupId, existingChat.folder_id);
+        } else {
+          // Already in inbox, no action needed
+          console.log(`[useChatFolders] Chat ${groupId} is already in inbox`);
+        }
+        return;
+      }
+      
+      // Call API to add chat to folder
+      const response = await addChatToFolderAPI(groupId, folderId);
+      
+      if (response.info.code === 200) {
+        // Update chat's folder_id in IndexedDB
+        await db.chats.update(chatId, { folder_id: folderId });
+        console.log(`[useChatFolders] Successfully moved chat ${groupId} to folder ${folderId}`);
+      } else {
+        throw new Error(response.info.message || 'Failed to move chat to folder');
+      }
+    } catch (err) {
+      console.error(`[useChatFolders] Failed to move chat ${groupId} to folder:`, err);
+      throw err;
+    }
+  }
+
+  /**
+   * Remove a chat from its current folder
+   * @param groupId The group_id of the chat to remove
+   * @param folderId The ID of the folder to remove from
+   */
+  async function removeChatFromFolder(groupId: number | string, folderId: number): Promise<void> {
+    try {
+      console.log(`[useChatFolders] Removing chat ${groupId} from folder ${folderId}...`);
+      
+      // Call API to remove chat from folder
+      const response = await removeChatFromFolderAPI(groupId, folderId);
+      
+      if (response.info.code === 200) {
+        // Update chat's folder_id to null (inbox) in IndexedDB
+        const chatId = `group_${groupId}`;
+        await db.chats.update(chatId, { folder_id: null });
+        console.log(`[useChatFolders] Successfully removed chat ${groupId} from folder ${folderId}`);
+      } else {
+        throw new Error(response.info.message || 'Failed to remove chat from folder');
+      }
+    } catch (err) {
+      console.error(`[useChatFolders] Failed to remove chat ${groupId} from folder:`, err);
+      throw err;
+    }
+  }
   
   return {
     folders,
@@ -220,6 +286,8 @@ export const useChatFolders = createGlobalState(() => {
     updateFolderName,
     createFolder,
     deleteFolder,
+    moveChatToFolder,
+    removeChatFromFolder,
   };
 });
 

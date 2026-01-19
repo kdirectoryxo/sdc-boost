@@ -71,7 +71,9 @@ export {
     deleteConversation,
     editFolder,
     createFolder,
-    deleteFolder
+    deleteFolder,
+    addChatToFolder,
+    removeChatFromFolder
 } from './messenger';
 
 // Re-export counters functions

@@ -30,6 +30,7 @@ import ProfileDialog from '@/components/chat/ProfileDialog.vue';
 import GroupDialog from '@/components/chat/GroupDialog.vue';
 import ChatDialogSettings from '@/components/chat/ChatDialogSettings.vue';
 import AIChatDialog from '@/components/chat/AIChatDialog.vue';
+import FolderSelectionDialog from '@/components/chat/FolderSelectionDialog.vue';
 import type { GalleryPhoto, MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
 import { startChat } from '@/lib/sdc-api';
 import { chatStorage } from '@/lib/chat-storage';
@@ -61,6 +62,7 @@ const {
   getTotalUnreadCount,
   handleSelectFolder,
   handleSelectArchives,
+  moveChatToFolder,
 } = useChatFolders();
 
 const {
@@ -274,6 +276,36 @@ function handleRespondWithAI(message: MessengerMessage) {
 
 // New chat search dialog state
 const showNewChatDialog = ref(false);
+
+// Folder selection dialog state
+const isFolderDialogOpen = ref(false);
+const folderDialogChat = ref<MessengerChatItem | null>(null);
+
+function handleOpenFolderDialog(chat: MessengerChatItem) {
+  folderDialogChat.value = chat;
+  isFolderDialogOpen.value = true;
+}
+
+async function handleFolderSelected(folderId: number | null) {
+  const toast = (window as any).__sdcBoostToast;
+  if (!folderDialogChat.value) return;
+  
+  try {
+    await moveChatToFolder(folderDialogChat.value.group_id, folderId);
+    if (toast) {
+      const folderName = folderId === null ? 'Inbox' : folders.value.find(f => f.id === folderId)?.name || 'folder';
+      toast.success(`Moved chat to ${folderName}`);
+    }
+  } catch (err) {
+    console.error('[ChatDialog] Failed to move chat to folder:', err);
+    if (toast) {
+      toast.error('Failed to move chat to folder');
+    }
+  }
+  
+  isFolderDialogOpen.value = false;
+  folderDialogChat.value = null;
+}
 
 // Profile dialogs management
 const { profileDialogs, openProfileDialog, closeProfileDialog } = useProfileDialogs();
@@ -525,6 +557,7 @@ function handleCloseGroupDialog(dialogId: string) {
           @toggle-tag-filter="toggleTagFilter"
           @chat-click="handleChatClick"
           @chat-open-tags="handleOpenTags"
+          @chat-open-folder-dialog="handleOpenFolderDialog"
           @clear-filters="clearAllFilters"
           @clear-sort="clearAllSorts"
           @clear-search="clearChatSearch"
@@ -559,6 +592,7 @@ function handleCloseGroupDialog(dialogId: string) {
             @open-tags="handleOpenTags()"
             @open-ai-chat="handleOpenAIChat"
             @respond-with-ai="handleRespondWithAI"
+            @open-folder-dialog="handleOpenFolderDialog"
           >
             <template #message-search>
               <div class="flex items-center gap-1.5 shrink-0">
@@ -736,5 +770,12 @@ function handleCloseGroupDialog(dialogId: string) {
     :selected-chat="selectedChat"
     :focused-message="aiChatFocusedMessage"
     @close="isAIChatDialogOpen = false; aiChatFocusedMessage = null"
+  />
+  
+  <!-- Folder Selection Dialog -->
+  <FolderSelectionDialog
+    v-model="isFolderDialogOpen"
+    :current-folder-id="folderDialogChat?.folder_id"
+    @select="handleFolderSelected"
   />
 </template>

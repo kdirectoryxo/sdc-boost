@@ -1654,3 +1654,113 @@ export async function deleteFolder(
         throw error;
     }
 }
+
+/**
+ * Add a chat to a folder
+ * @param groupId The group_id of the chat to move
+ * @param folderId The ID of the folder to move the chat to
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Response indicating success
+ */
+export async function addChatToFolder(
+    groupId: number | string,
+    folderId: number,
+    muid?: string | null
+): Promise<{ info: { code: number; message: string } }> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot add chat to folder.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_add_to_folder');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('folder_id', folderId.toString());
+    url.searchParams.set('group_id', groupId.toString());
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
+                'origin': 'https://www.sdc.com',
+                'referer': 'https://www.sdc.com/',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Add Chat to Folder API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        // Check if the operation was successful
+        const responseCode = data.info?.code;
+        if (responseCode !== 200 && responseCode !== '200') {
+            throw new Error(data.info?.message || 'Failed to add chat to folder');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('[SDC API] Failed to add chat to folder:', error);
+        throw error;
+    }
+}
+
+/**
+ * Remove a chat from a folder
+ * @param groupId The group_id of the chat to remove
+ * @param folderId The ID of the folder to remove the chat from
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Response indicating success
+ */
+export async function removeChatFromFolder(
+    groupId: number | string,
+    folderId: number,
+    muid?: string | null
+): Promise<{ info: { code: number; message: string } }> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot remove chat from folder.');
+    }
+
+    const url = new URL('https://api.sdc.com/v1/messenger_remove_from_folder');
+    url.searchParams.set('muid', currentMuid);
+    url.searchParams.set('folder_id', folderId.toString());
+    url.searchParams.set('group_id', groupId.toString());
+
+    try {
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
+                'origin': 'https://www.sdc.com',
+                'referer': 'https://www.sdc.com/',
+            },
+            credentials: 'include', // Include cookies for authentication
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Remove Chat from Folder API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        // Check if the operation was successful
+        const responseCode = data.info?.code;
+        if (responseCode !== 200 && responseCode !== '200') {
+            throw new Error(data.info?.message || 'Failed to remove chat from folder');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('[SDC API] Failed to remove chat from folder:', error);
+        throw error;
+    }
+}

@@ -6,6 +6,9 @@ import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { parseGalleryMessage } from '@/lib/composables/chat/utils';
 import { useChatPin } from '@/lib/composables/chat/useChatPin';
 import { useChatProfile, getAgeColorClass, formatLocation, isGender2Real } from '@/lib/composables/chat/useChatProfile';
+import { useChatFolders } from '@/lib/composables/chat/useChatFolders';
+import { confirm } from '@/lib/confirm';
+import { toast } from '@/lib/toast';
 
 interface Props {
   chat: MessengerChatItem;
@@ -22,9 +25,11 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   click: [chat: MessengerChatItem];
   'open-tags': [chat: MessengerChatItem];
+  'open-folder-dialog': [chat: MessengerChatItem];
 }>();
 
 const { togglePinChat, toggleMarkUnread, deleteChat } = useChatPin();
+const { removeChatFromFolder } = useChatFolders();
 const openDropdownId = ref<number | string | null>(null);
 
 // Check if this is a group
@@ -122,6 +127,37 @@ function handleOpenTags(close: () => void) {
 
 async function handleDeleteChat(close: () => void) {
   await deleteChat(props.chat);
+  close();
+}
+
+function handleMoveToFolder(close: () => void) {
+  emit('open-folder-dialog', props.chat);
+  close();
+}
+
+async function handleRemoveFromFolder(close: () => void) {
+  if (!props.chat.folder_id) {
+    close();
+    return;
+  }
+
+  const confirmed = await confirm.confirm(
+    'Are you sure you want to remove this chat from its folder?',
+    {
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+    }
+  );
+
+  if (confirmed) {
+    try {
+      await removeChatFromFolder(props.chat.group_id, props.chat.folder_id);
+      toast.success('Chat removed from folder');
+    } catch (error) {
+      console.error('Failed to remove chat from folder:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to remove chat from folder');
+    }
+  }
   close();
 }
 
@@ -324,6 +360,32 @@ const displayDistance = computed(() => {
                       </svg>
                       Tags
                     </button>
+                    <div class="border-t border-[#333] my-1"></div>
+                    <button
+                      v-if="!chat.folder_id"
+                      @click.stop="handleMoveToFolder(close)"
+                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                        <path d="M12 11v6"></path>
+                        <path d="M9 14l3-3 3 3"></path>
+                      </svg>
+                      Move to folder
+                    </button>
+                    <button
+                      v-if="chat.folder_id"
+                      @click.stop="handleRemoveFromFolder(close)"
+                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                        <path d="M12 11v6"></path>
+                        <path d="M9 14l3 3 3-3"></path>
+                      </svg>
+                      Remove from folder
+                    </button>
+                    <div class="border-t border-[#333] my-1"></div>
                     <button
                       @click.stop="handleDeleteChat(close)"
                       class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"

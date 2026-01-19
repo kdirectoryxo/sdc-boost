@@ -57,6 +57,7 @@ const emit = defineEmits<{
   'toggle-tag-filter': [tagId: number];
   'chat-click': [chat: MessengerChatItem];
   'chat-open-tags': [chat: MessengerChatItem];
+  'chat-open-folder-dialog': [chat: MessengerChatItem];
   'clear-filters': [];
   'clear-sort': [];
   'clear-search': [];
@@ -622,6 +623,7 @@ function handleClearSort(e: Event) {
           :is-typing="typingStates.get(String(chat.group_id)) || false"
           @click="emit('chat-click', chat)"
           @open-tags="emit('chat-open-tags', $event)"
+          @open-folder-dialog="emit('chat-open-folder-dialog', $event)"
         />
       </div>
     </div>
