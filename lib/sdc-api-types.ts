@@ -683,3 +683,95 @@ export interface MessengerGroupInfoResponse {
     info: MessengerGroupInfoInfo;
 }
 
+/**
+ * People API Types (Online/Viewed)
+ */
+export interface OnlineV2Member {
+    db_id: number;
+    account_id: string;
+    gender1: number;
+    gender2: number;
+    location_how_far: number;
+    birthday_for: string;
+    psg?: string;
+    speed: number;
+    photo_count: number;
+    age: string;
+    this_birthday?: number;
+    primary_photo: string;
+    blur_primary_pic?: number;
+    profile_type: number;
+    online: number;
+    business_type: string;
+    valid_count: number;
+    video_count: number;
+    likes_count: number;
+    travel_counter: number;
+    service_counter: number;
+    reviews_counter?: number;
+    follows_counter: number;
+    club_id: number | null;
+    sdcdiscount: string;
+    summary_int: string;
+    location: string;
+    lat?: number;
+    lon?: number;
+    lifetime_status: boolean;
+    is_app_user: number;
+    is_web_user: number;
+    biz_type_subcategories?: any[];
+}
+
+export interface ViewedV2Member {
+    db_id: number;
+    account_id: string;
+    gender1: number;
+    gender2: number;
+    location_how_far: number;
+    birthday_for: string;
+    speed: number;
+    photo_count: number;
+    age: string;
+    primary_photo: string;
+    profile_type: number;
+    online: number;
+    business_type: string;
+    valid_count: number;
+    video_count: number;
+    likes_count: number;
+    travel_counter: number;
+    service_counter: number;
+    reviews_counter: number;
+    follows_counter: number;
+    club_id: number;
+    sdcdiscount: number;
+    summary_int: string;
+    timed: string;
+    location: string;
+    lifetime_status: boolean;
+    is_app_user: boolean;
+    is_web_user: boolean;
+    biz_type_subcategories?: any[];
+}
+
+export interface OnlineV2Info {
+    code: number;
+    onlinemembers: (OnlineV2Member | { banner: boolean; type: number })[];
+    sid?: number;
+    url_more: string;
+}
+
+export interface OnlineV2Response {
+    info: OnlineV2Info;
+}
+
+export interface ViewedV2Info {
+    code: number;
+    viewedmembers: (ViewedV2Member | { banner: boolean; type: number })[];
+    url_more: string;
+}
+
+export interface ViewedV2Response {
+    info: ViewedV2Info;
+}
+
