@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
+import { Icon } from '@iconify/vue';
 import type { NewsfeedItem } from '@/lib/sdc-api/newsfeed';
 
 interface Props {
@@ -99,15 +100,20 @@ const receiverInterests = computed(() => {
 });
 
 // Get interests icons - only show couple icons if gender2 is real, otherwise filter them out
-const receiverInterestsIcons = computed(() => {
-  const icons: Array<{ type: string; url: string; width: number; height: number }> = [];
+type LookingForIcon = 
+  | { type: 'couple-group'; icons: Array<{ icon: string; color: string }> }
+  | { type: 'single-female' | 'single-male'; icon: string; color: string };
+
+const receiverInterestsIcons = computed((): LookingForIcon[] => {
+  const icons: LookingForIcon[] = [];
   
   if (isGender2Real.value && receiverInterests.value.coupleMaleFemale) {
     icons.push({
-      type: 'couple',
-      url: 'https://www.sdc.com/react/assets/couple_male_female_icon.a2db86e4.svg',
-      width: 14,
-      height: 20,
+      type: 'couple-group',
+      icons: [
+        { icon: 'fa6-solid:person', color: '#3a97fe' }, // Blue for male
+        { icon: 'fa6-solid:person', color: '#ff60df' }, // Pink for female
+      ],
     });
   }
   
@@ -115,18 +121,16 @@ const receiverInterestsIcons = computed(() => {
     if (receiverInterests.value.singleFemale) {
       icons.push({
         type: 'single-female',
-        url: 'https://www.sdc.com/react/assets/single_female_icon.e150c7be.svg',
-        width: 24,
-        height: 20,
+        icon: 'fa6-solid:person',
+        color: '#ff60df', // Pink
       });
     }
     
     if (receiverInterests.value.singleMale) {
       icons.push({
         type: 'single-male',
-        url: 'https://www.sdc.com/react/assets/single_male_icon.6eca46f8.svg',
-        width: 20,
-        height: 20,
+        icon: 'fa6-solid:person',
+        color: '#3a97fe', // Blue
       });
     }
   }
@@ -260,14 +264,30 @@ const birthdayText = computed(() => {
             <div v-if="receiverInterestsIcons.length > 0" class="newsfeed-card-interests">
               <p class="newsfeed-card-interests-label">Interesses</p>
               <div class="newsfeed-card-interests-icons">
-                <img 
-                  v-for="(icon, index) in receiverInterestsIcons" 
-                  :key="index"
-                  :src="icon.url" 
-                  :alt="icon.type"
-                  class="newsfeed-card-interests-icon"
-                  :style="{ width: `${icon.width}px`, height: `${icon.height}px` }"
-                />
+                <template v-for="(item, index) in receiverInterestsIcons" :key="index">
+                  <!-- Couple group: display horizontally with overlapping -->
+                  <div v-if="item.type === 'couple-group'" class="flex items-center">
+                    <Icon 
+                      v-for="(icon, i) in item.icons" 
+                      :key="i"
+                      :icon="icon.icon"
+                      width="16"
+                      height="16"
+                      :style="{ 
+                        color: icon.color,
+                        marginLeft: i === 1 ? '-6px' : '0'
+                      }"
+                    />
+                  </div>
+                  <!-- Single icons: render normally -->
+                  <Icon 
+                    v-else-if="item.type === 'single-female' || item.type === 'single-male'"
+                    :icon="item.icon"
+                    width="16"
+                    height="16"
+                    :style="{ color: item.color }"
+                  />
+                </template>
               </div>
             </div>
 
@@ -337,13 +357,13 @@ const birthdayText = computed(() => {
 .newsfeed-card-header-text {
   color: white;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 14px;
   letter-spacing: -0.01em;
 }
 
 .newsfeed-card-header-time {
   color: #6b7280;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -373,8 +393,8 @@ const birthdayText = computed(() => {
 }
 
 .newsfeed-card-profile-img {
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   border-radius: 8px;
   object-fit: cover;
   border: 2px solid rgba(255, 192, 203, 0.6);
@@ -382,8 +402,8 @@ const birthdayText = computed(() => {
 }
 
 .newsfeed-card-profile-placeholder {
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   border-radius: 8px;
   background: linear-gradient(135deg, rgba(255, 192, 203, 0.15) 0%, rgba(255, 192, 203, 0.05) 100%);
   border: 2px solid rgba(255, 192, 203, 0.6);
@@ -413,7 +433,7 @@ const birthdayText = computed(() => {
 .newsfeed-card-profile-name {
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: -0.01em;
 }
 
@@ -484,7 +504,7 @@ const birthdayText = computed(() => {
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 10px;
+  font-size: 12px;
   color: #9ca3af;
 }
 
@@ -524,7 +544,7 @@ const birthdayText = computed(() => {
   align-items: center;
   gap: 4px;
   margin-top: 6px;
-  font-size: 10px;
+  font-size: 12px;
   color: #9ca3af;
 }
 
@@ -572,7 +592,7 @@ const birthdayText = computed(() => {
 .newsfeed-card-birthday-text {
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   text-align: center;
   margin: 0;
 }

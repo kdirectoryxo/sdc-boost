@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
+import { Icon } from '@iconify/vue';
 import type { NewsfeedItem } from '@/lib/sdc-api/newsfeed';
 
 interface Props {
@@ -129,18 +130,23 @@ const metInterests = computed(() => {
   return parseInterests(interestsStr);
 });
 
-// Get interests icons for profile (left side) - normalize all to same size
+// Get interests icons for profile (left side)
 // Only show couple icons if gender2 is real, otherwise filter them out
-const profileInterestsIcons = computed(() => {
-  const icons: Array<{ type: string; url: string; width: number; height: number }> = [];
+type LookingForIcon = 
+  | { type: 'couple-group'; icons: Array<{ icon: string; color: string }> }
+  | { type: 'single-female' | 'single-male'; icon: string; color: string };
+
+const profileInterestsIcons = computed((): LookingForIcon[] => {
+  const icons: LookingForIcon[] = [];
   
   // Only show couple icons if this is actually a couple (gender2 is real)
   if (isGender2Real.value && profileInterests.value.coupleMaleFemale) {
     icons.push({
-      type: 'couple',
-      url: 'https://www.sdc.com/react/assets/couple_male_female_icon.a2db86e4.svg',
-      width: 14, // Original width
-      height: 20, // Normalized height
+      type: 'couple-group',
+      icons: [
+        { icon: 'fa6-solid:person', color: '#3a97fe' }, // Blue for male
+        { icon: 'fa6-solid:person', color: '#ff60df' }, // Pink for female
+      ],
     });
   }
   
@@ -149,18 +155,16 @@ const profileInterestsIcons = computed(() => {
     if (profileInterests.value.singleFemale) {
       icons.push({
         type: 'single-female',
-        url: 'https://www.sdc.com/react/assets/single_female_icon.e150c7be.svg',
-        width: 24, // Original width
-        height: 20, // Normalized height
+        icon: 'fa6-solid:person',
+        color: '#ff60df', // Pink
       });
     }
     
     if (profileInterests.value.singleMale) {
       icons.push({
         type: 'single-male',
-        url: 'https://www.sdc.com/react/assets/single_male_icon.6eca46f8.svg',
-        width: 20, // Original width
-        height: 20, // Normalized height
+        icon: 'fa6-solid:person',
+        color: '#3a97fe', // Blue
       });
     }
   }
@@ -168,35 +172,34 @@ const profileInterestsIcons = computed(() => {
   return icons;
 });
 
-// Get interests icons for MET section (right side) - normalize all to same size
+// Get interests icons for MET section (right side)
 // MET section shows what they're looking for, so show all interests regardless of profile type
-const metInterestsIcons = computed(() => {
-  const icons: Array<{ type: string; url: string; width: number; height: number }> = [];
+const metInterestsIcons = computed((): LookingForIcon[] => {
+  const icons: LookingForIcon[] = [];
   
   if (metInterests.value.coupleMaleFemale) {
     icons.push({
-      type: 'couple',
-      url: 'https://www.sdc.com/react/assets/couple_male_female_icon.a2db86e4.svg',
-      width: 14, // Original width
-      height: 20, // Normalized height
+      type: 'couple-group',
+      icons: [
+        { icon: 'fa6-solid:person', color: '#3a97fe' }, // Blue for male
+        { icon: 'fa6-solid:person', color: '#ff60df' }, // Pink for female
+      ],
     });
   }
   
   if (metInterests.value.singleFemale) {
     icons.push({
       type: 'single-female',
-      url: 'https://www.sdc.com/react/assets/single_female_icon.e150c7be.svg',
-      width: 24, // Original width
-      height: 20, // Normalized height
+      icon: 'fa6-solid:person',
+      color: '#ff60df', // Pink
     });
   }
   
   if (metInterests.value.singleMale) {
     icons.push({
       type: 'single-male',
-      url: 'https://www.sdc.com/react/assets/single_male_icon.6eca46f8.svg',
-      width: 20, // Original width
-      height: 20, // Normalized height
+      icon: 'fa6-solid:person',
+      color: '#3a97fe', // Blue
     });
   }
   
@@ -379,14 +382,30 @@ const speedDatingDistance = computed(() => {
             <div v-if="profileInterestsIcons.length > 0" class="newsfeed-card-interests">
               <p class="newsfeed-card-interests-label">Interesses</p>
               <div class="newsfeed-card-interests-icons">
-                <img 
-                  v-for="(icon, index) in profileInterestsIcons" 
-                  :key="index"
-                  :src="icon.url" 
-                  :alt="icon.type"
-                  class="newsfeed-card-interests-icon"
-                  :style="{ width: `${icon.width}px`, height: `${icon.height}px` }"
-                />
+                <template v-for="(item, index) in profileInterestsIcons" :key="index">
+                  <!-- Couple group: display horizontally with overlapping -->
+                  <div v-if="item.type === 'couple-group'" class="flex items-center">
+                    <Icon 
+                      v-for="(icon, i) in item.icons" 
+                      :key="i"
+                      :icon="icon.icon"
+                      width="16"
+                      height="16"
+                      :style="{ 
+                        color: icon.color,
+                        marginLeft: i === 1 ? '-6px' : '0'
+                      }"
+                    />
+                  </div>
+                  <!-- Single icons: render normally -->
+                  <Icon 
+                    v-else-if="item.type === 'single-female' || item.type === 'single-male'"
+                    :icon="item.icon"
+                    width="16"
+                    height="16"
+                    :style="{ color: item.color }"
+                  />
+                </template>
               </div>
             </div>
           </div>
@@ -427,14 +446,30 @@ const speedDatingDistance = computed(() => {
           <div v-if="metInterestsIcons.length > 0" class="newsfeed-card-party-interests">
             <p class="newsfeed-card-party-interests-label">MET:</p>
             <div class="newsfeed-card-party-interests-icons">
-              <img 
-                v-for="(icon, index) in metInterestsIcons" 
-                :key="index"
-                :src="icon.url" 
-                :alt="icon.type"
-                class="newsfeed-card-interests-icon"
-                :style="{ width: `${icon.width}px`, height: `${icon.height}px` }"
-              />
+              <template v-for="(item, index) in metInterestsIcons" :key="index">
+                <!-- Couple group: display horizontally with overlapping -->
+                <div v-if="item.type === 'couple-group'" class="flex items-center">
+                  <Icon 
+                    v-for="(icon, i) in item.icons" 
+                    :key="i"
+                    :icon="icon.icon"
+                    width="16"
+                    height="16"
+                    :style="{ 
+                      color: icon.color,
+                      marginLeft: i === 1 ? '-6px' : '0'
+                    }"
+                  />
+                </div>
+                <!-- Single icons: render normally -->
+                <Icon 
+                  v-else-if="item.type === 'single-female' || item.type === 'single-male'"
+                  :icon="item.icon"
+                  width="16"
+                  height="16"
+                  :style="{ color: item.color }"
+                />
+              </template>
             </div>
           </div>
         </div>
@@ -480,13 +515,13 @@ const speedDatingDistance = computed(() => {
 .newsfeed-card-header-text {
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: -0.01em;
 }
 
 .newsfeed-card-header-time {
   color: #6b7280;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -516,8 +551,8 @@ const speedDatingDistance = computed(() => {
 }
 
 .newsfeed-card-profile-img {
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   border-radius: 8px;
   object-fit: cover;
   border: 2px solid rgba(168, 85, 247, 0.6);
@@ -531,13 +566,13 @@ const speedDatingDistance = computed(() => {
 .newsfeed-card-profile-name {
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   margin-bottom: 4px;
   letter-spacing: -0.01em;
 }
 
 .newsfeed-card-age {
-  font-size: 11px;
+  font-size: 13px;
   margin-top: 4px;
   display: flex;
   flex-direction: column;
@@ -604,7 +639,7 @@ const speedDatingDistance = computed(() => {
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 10px;
+  font-size: 12px;
   color: #9ca3af;
 }
 
@@ -619,7 +654,7 @@ const speedDatingDistance = computed(() => {
   align-items: center;
   gap: 4px;
   margin-top: 6px;
-  font-size: 10px;
+  font-size: 12px;
   color: #9ca3af;
 }
 
@@ -694,7 +729,7 @@ const speedDatingDistance = computed(() => {
 .newsfeed-card-party-title {
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: -0.01em;
   line-height: 1.4;
   flex: 1;
@@ -719,7 +754,7 @@ const speedDatingDistance = computed(() => {
 
 .newsfeed-card-message-text {
   color: #e5e7eb;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.5;
 }
 

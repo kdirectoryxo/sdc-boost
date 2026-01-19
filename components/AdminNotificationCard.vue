@@ -279,21 +279,21 @@ const handleReply = async () => {
 .admin-notification-card-title {
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: -0.01em;
   flex: 1;
 }
 
 .admin-notification-card-time {
   color: #6b7280;
-  font-size: 11px;
+  font-size: 12px;
   flex-shrink: 0;
   font-weight: 500;
 }
 
 .admin-notification-card-body {
   color: #d1d5db;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.5;
 }
 

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
+import { Icon } from '@iconify/vue';
 import NewsfeedFeed from './NewsfeedFeed.vue';
 
 interface Props {
@@ -41,11 +42,7 @@ function handleBackdropClick(e: MouseEvent) {
         <div class="newsfeed-dialog-header">
           <div class="newsfeed-dialog-header-left">
             <div class="newsfeed-dialog-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 11a9 9 0 0 1 9 9" />
-                <path d="M4 4a16 16 0 0 1 16 16" />
-                <circle cx="5" cy="19" r="1" />
-              </svg>
+              <Icon icon="mdi:rss" width="20" height="20" />
             </div>
             <div class="newsfeed-dialog-title-group">
               <h2 class="newsfeed-dialog-title">Activity Feed</h2>
@@ -58,10 +55,7 @@ function handleBackdropClick(e: MouseEvent) {
             @click="handleClose"
             aria-label="Close"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+            <Icon icon="mdi:close" width="20" height="20" />
           </button>
         </div>
 
@@ -110,7 +104,7 @@ function handleBackdropClick(e: MouseEvent) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 16px 24px;
   background: linear-gradient(135deg, #252a30 0%, #1e2227 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
@@ -123,8 +117,8 @@ function handleBackdropClick(e: MouseEvent) {
 }
 
 .newsfeed-dialog-icon {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -135,8 +129,8 @@ function handleBackdropClick(e: MouseEvent) {
 }
 
 .newsfeed-dialog-icon svg {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
 }
 
 .newsfeed-dialog-title-group {
@@ -146,7 +140,7 @@ function handleBackdropClick(e: MouseEvent) {
 }
 
 .newsfeed-dialog-title {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 600;
   color: white;
   margin: 0;
@@ -154,18 +148,18 @@ function handleBackdropClick(e: MouseEvent) {
 }
 
 .newsfeed-dialog-subtitle {
-  font-size: 12px;
+  font-size: 13px;
   color: #6b7280;
 }
 
 .newsfeed-dialog-subtitle-separator {
   color: #4b5563;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .newsfeed-dialog-close {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
   color: #9ca3af;
@@ -178,8 +172,8 @@ function handleBackdropClick(e: MouseEvent) {
 }
 
 .newsfeed-dialog-close svg {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
 }
 
 .newsfeed-dialog-close:hover {

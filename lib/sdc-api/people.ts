@@ -3,7 +3,7 @@
  * Functions for fetching online and viewed members
  */
 import type { OnlineV2Response, ViewedV2Response } from '../sdc-api-types';
-import { getCurrentMuid } from './utils';
+import { getCurrentDBId } from './utils';
 
 export interface OnlineV2Params {
     muid?: string | null;
@@ -39,10 +39,10 @@ export interface ViewedV2Params {
  * @returns Online members response
  */
 export async function getOnlineV2(params: OnlineV2Params = {}): Promise<OnlineV2Response> {
-    const currentMuid = params.muid || getCurrentMuid();
+    const currentMuid = params.muid || getCurrentDBId();
 
     if (!currentMuid) {
-        throw new Error('MUID not found. Cannot fetch online members.');
+        throw new Error('MUID (DB_ID) not found. Cannot fetch online members.');
     }
 
     const url = new URL('https://api.sdc.com/v1/online_v2');
@@ -94,10 +94,10 @@ export async function getOnlineV2(params: OnlineV2Params = {}): Promise<OnlineV2
  * @returns Viewed members response
  */
 export async function getViewedV2(params: ViewedV2Params = {}): Promise<ViewedV2Response> {
-    const currentMuid = params.muid || getCurrentMuid();
+    const currentMuid = params.muid || getCurrentDBId();
 
     if (!currentMuid) {
-        throw new Error('MUID not found. Cannot fetch viewed members.');
+        throw new Error('MUID (DB_ID) not found. Cannot fetch viewed members.');
     }
 
     const url = new URL('https://api.sdc.com/v1/viewed_v2');

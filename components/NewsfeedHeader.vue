@@ -260,15 +260,15 @@ const clearAllActivityFilters = () => {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 5px;
   color: #9ca3af;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .filter-button svg {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
 }
 
 .filter-button:hover {
@@ -297,7 +297,7 @@ const clearAllActivityFilters = () => {
   padding: 0 4px;
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   border-radius: 7px;
 }
@@ -316,7 +316,7 @@ const clearAllActivityFilters = () => {
 
 .filter-dropdown-header {
   padding: 6px 8px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -385,7 +385,7 @@ const clearAllActivityFilters = () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.15s ease;
@@ -408,8 +408,8 @@ const clearAllActivityFilters = () => {
 }
 
 .filter-checkbox {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border: 1.5px solid rgba(255, 255, 255, 0.2);
   border-radius: 3px;
   display: flex;
@@ -430,7 +430,7 @@ const clearAllActivityFilters = () => {
 }
 
 .filter-dropdown-label {
-  font-size: 11px;
+  font-size: 13px;
   color: #e5e7eb;
   flex: 1;
 }

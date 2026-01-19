@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { ref, onMounted, watch, onUnmounted } from 'vue';
+import { Icon } from '@iconify/vue';
 import { getNewsfeed, getAdminFeed, updateNewsfeedFilters, getNewsfeedFilters } from '@/lib/sdc-api/newsfeed';
 import type { NewsfeedItem, NewsfeedFilterOptions } from '@/lib/sdc-api/newsfeed';
 import PartyEventCard from './PartyEventCard.vue';
@@ -321,7 +322,7 @@ watch(observerTarget, () => {
 .newsfeed-list {
   width: 100%;
   max-width: 100%;
-  padding: 12px 16px 24px;
+  padding: 16px 24px 24px;
 }
 
 /* Error State */
@@ -355,7 +356,7 @@ watch(observerTarget, () => {
 }
 
 .newsfeed-error-title {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: #f87171;
   margin-bottom: 6px;
@@ -363,7 +364,7 @@ watch(observerTarget, () => {
 
 .newsfeed-error-text {
   color: #fca5a5;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 /* Loading State - Skeleton */
@@ -392,8 +393,8 @@ watch(observerTarget, () => {
 }
 
 .skeleton-avatar {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
   background-size: 200% 100%;
@@ -467,7 +468,7 @@ watch(observerTarget, () => {
 }
 
 .newsfeed-empty-title {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: #9ca3af;
   margin-bottom: 6px;
@@ -475,7 +476,7 @@ watch(observerTarget, () => {
 
 .newsfeed-empty-text {
   color: #6b7280;
-  font-size: 12px;
+  font-size: 14px;
   max-width: 260px;
 }
 
@@ -483,7 +484,7 @@ watch(observerTarget, () => {
 .newsfeed-items {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 /* Loading More Indicator */
@@ -494,7 +495,7 @@ watch(observerTarget, () => {
   gap: 8px;
   padding: 16px 0;
   color: #6b7280;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .loading-more-spinner {

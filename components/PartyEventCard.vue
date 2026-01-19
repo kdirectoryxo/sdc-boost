@@ -163,13 +163,13 @@ const formatDistance = (km: number | undefined) => {
 .newsfeed-card-header-text {
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: -0.01em;
 }
 
 .newsfeed-card-header-time {
   color: #6b7280;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -199,8 +199,8 @@ const formatDistance = (km: number | undefined) => {
 }
 
 .newsfeed-card-profile-img {
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   border-radius: 8px;
   object-fit: cover;
   border: 2px solid rgba(255, 241, 165, 0.6);
@@ -214,12 +214,12 @@ const formatDistance = (km: number | undefined) => {
 .newsfeed-card-profile-name {
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: -0.01em;
 }
 
 .newsfeed-card-profile-type {
-  font-size: 10px;
+  font-size: 12px;
   color: #fbbf24;
   margin-top: 4px;
   font-weight: 500;
@@ -236,7 +236,7 @@ const formatDistance = (km: number | undefined) => {
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 10px;
+  font-size: 12px;
   color: #9ca3af;
 }
 
@@ -251,7 +251,7 @@ const formatDistance = (km: number | undefined) => {
   align-items: center;
   gap: 4px;
   margin-top: 6px;
-  font-size: 10px;
+  font-size: 12px;
   color: #9ca3af;
 }
 
@@ -301,7 +301,7 @@ const formatDistance = (km: number | undefined) => {
 .newsfeed-card-party-title {
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: -0.01em;
   line-height: 1.4;
   flex: 1;

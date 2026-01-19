@@ -37,6 +37,7 @@
     "vue-easy-lightbox": "^1.19.0"
   },
   "devDependencies": {
+    "@iconify/vue": "^5.0.0",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.1.17",
     "@wxt-dev/module-vue": "^1.0.2",

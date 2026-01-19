@@ -84,8 +84,8 @@ const indicatorStyle = computed(() => ({
 .newsfeed-tab {
   position: relative;
   z-index: 1;
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: 8px 16px;
+  font-size: 14px;
   font-weight: 500;
   transition: color 0.2s ease;
   background: none;
@@ -100,8 +100,8 @@ const indicatorStyle = computed(() => ({
 }
 
 .newsfeed-tab svg {
-  width: 13px;
-  height: 13px;
+  width: 16px;
+  height: 16px;
 }
 
 .newsfeed-tab:hover:not(.newsfeed-tab-active) {

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { Icon } from '@iconify/vue';
 import type { ProfileUser, PhotoAlbum, GalleryPhoto, ValidationV2User } from '@/lib/sdc-api-types';
 import GalleryModal from '@/components/chat/GalleryModal.vue';
 import VueEasyLightbox from 'vue-easy-lightbox';
@@ -530,32 +531,44 @@ function parseInterests(interests: string | undefined): {
 }
 
 // Get looking for icons based on interests1 and interests2
-function getLookingForIcons(): Array<{ type: 'couple' | 'single-female' | 'single-male'; url: string }> {
+type LookingForIcon = 
+  | { type: 'couple-group'; icons: Array<{ icon: string; color: string }> }
+  | { type: 'single-female' | 'single-male'; icon: string; color: string };
+
+function getLookingForIcons(): LookingForIcon[] {
   if (!profileData.value) return [];
   
-  const icons: Array<{ type: 'couple' | 'single-female' | 'single-male'; url: string }> = [];
+  const icons: LookingForIcon[] = [];
   
   // Parse interests1 (what they're looking for)
   const interests1 = parseInterests(profileData.value.interests1);
   
   if (interests1.coupleMaleFemale) {
+    // Couple: grouped together as one unit
     icons.push({
-      type: 'couple',
-      url: 'https://www.sdc.com/react/assets/couple_male_female_icon.a2db86e4.svg',
+      type: 'couple-group',
+      icons: [
+        { icon: 'fa6-solid:person', color: '#3a97fe' }, // Blue for male
+        { icon: 'fa6-solid:person', color: '#ff60df' }, // Pink for female
+      ],
     });
   }
   
   if (interests1.singleFemale) {
+    // Single female: one pink person icon
     icons.push({
       type: 'single-female',
-      url: 'https://www.sdc.com/react/assets/single_female_icon.e150c7be.svg',
+      icon: 'fa6-solid:person',
+      color: '#ff60df', // Pink
     });
   }
   
   if (interests1.singleMale) {
+    // Single male: one blue person icon
     icons.push({
       type: 'single-male',
-      url: 'https://www.sdc.com/react/assets/single_male_icon.6eca46f8.svg',
+      icon: 'fa6-solid:person',
+      color: '#3a97fe', // Blue
     });
   }
   
@@ -636,10 +649,7 @@ const isGender2Real = computed(() => {
               v-else
               class="w-12 h-12 rounded-full bg-[#333] flex items-center justify-center"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#666]">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
+              <Icon icon="mdi:account-outline" width="24" height="24" class="text-[#666]" />
             </div>
             <!-- Refresh indicator - only show when refreshing due to image errors -->
             <div
@@ -662,21 +672,7 @@ const isGender2Real = computed(() => {
                 class="p-1 hover:bg-[#333] rounded transition-colors shrink-0"
                 title="Open profile in new tab"
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="text-[#999] hover:text-white"
-                >
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
+                <Icon icon="mdi:open-in-new" width="16" height="16" class="text-[#999] hover:text-white" />
               </a>
             </div>
             <div v-if="profileData?.g1_age || (profileData?.g2_age && isGender2Real)" class="flex items-center gap-2">
@@ -690,20 +686,7 @@ const isGender2Real = computed(() => {
           class="p-2 hover:bg-[#333] rounded-md transition-colors shrink-0"
           title="Close"
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="text-[#999] hover:text-white"
-          >
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
+          <Icon icon="mdi:close" width="20" height="20" class="text-[#999] hover:text-white" />
         </button>
       </div>
 
@@ -769,10 +752,7 @@ const isGender2Real = computed(() => {
                     v-else
                     class="w-48 h-48 rounded-2xl bg-[#333] flex items-center justify-center shadow-xl border-2 border-[#333]"
                   >
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#666]">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                      <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
+                    <Icon icon="mdi:account-outline" width="64" height="64" class="text-[#666]" />
                   </div>
                   <!-- Refresh indicator - only show when refreshing due to image errors -->
                   <div
@@ -803,10 +783,7 @@ const isGender2Real = computed(() => {
                     <span v-else class="px-3 py-1 bg-[#333] text-[#999] text-xs rounded-full font-medium">Offline</span>
                   </h3>
                   <div v-if="profileData.g1_age || (profileData.g2_age && isGender2Real)" class="flex items-center gap-2">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-pink-400 shrink-0">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                      <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
+                    <Icon icon="mdi:account-outline" width="20" height="20" class="text-pink-400 shrink-0" />
                     <div class="flex items-center gap-2">
                       <span v-if="profileData.g1_age" :class="['text-xl font-semibold', getAgeColorClass(profileData.gender1)]">{{ profileData.g1_age }}</span>
                       <span v-if="profileData.g2_age && isGender2Real" :class="['text-xl font-semibold', getAgeColorClass(profileData.gender2)]">{{ profileData.g2_age }}</span>
@@ -817,26 +794,18 @@ const isGender2Real = computed(() => {
                 <!-- Locations -->
                 <div v-if="profileData.location || profileData.location2" class="space-y-2">
                   <div v-if="profileData.location" class="flex items-start gap-2 text-[#999]">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 mt-0.5 text-blue-400">
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                      <circle cx="12" cy="10" r="3"></circle>
-                    </svg>
+                    <Icon icon="mdi:map-marker-outline" width="20" height="20" class="shrink-0 mt-0.5 text-blue-400" />
                     <span class="text-sm">{{ formatLocation(profileData.location, profileData.location_how_far) }}</span>
                   </div>
                   <div v-if="profileData.location2" class="flex items-start gap-2 text-[#999]">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 mt-0.5 text-blue-400">
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                      <circle cx="12" cy="10" r="3"></circle>
-                    </svg>
+                    <Icon icon="mdi:map-marker-outline" width="20" height="20" class="shrink-0 mt-0.5 text-blue-400" />
                     <span class="text-sm">{{ formatLocation(profileData.location2, profileData.location_how_far2 ? Number(profileData.location_how_far2) : undefined) }}</span>
                   </div>
                 </div>
 
                 <!-- Looking For -->
                 <div v-if="profileData.hope_to_find" class="flex items-start gap-2">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-purple-400 shrink-0 mt-0.5">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                  </svg>
+                  <Icon icon="mdi:heart-outline" width="20" height="20" class="text-purple-400 shrink-0 mt-0.5" />
                   <div class="px-3 py-1.5 bg-purple-500/20 text-purple-300 rounded-lg text-sm font-medium profile-bio" v-html="profileData.hope_to_find"></div>
                 </div>
 
@@ -847,14 +816,31 @@ const isGender2Real = computed(() => {
                 >
                   <span class="text-sm text-[#999] whitespace-nowrap">Op zoek naar:</span>
                   <!-- Icons -->
-                  <div v-if="lookingForIcons.length > 0" class="flex items-center gap-1">
-                    <img 
-                      v-for="icon in lookingForIcons" 
-                      :key="icon.type"
-                      :src="icon.url" 
-                      :alt="icon.type === 'couple' ? 'Couple' : icon.type === 'single-female' ? 'Single Female' : 'Single Male'"
-                      class="w-6 h-6"
-                    />
+                  <div v-if="lookingForIcons.length > 0" class="flex items-center gap-2">
+                    <template v-for="(item, index) in lookingForIcons" :key="index">
+                      <!-- Couple group: display horizontally with overlapping -->
+                      <div v-if="item.type === 'couple-group'" class="flex items-center">
+                        <Icon 
+                          v-for="(icon, i) in item.icons" 
+                          :key="i"
+                          :icon="icon.icon"
+                          width="16"
+                          height="16"
+                          :style="{ 
+                            color: icon.color,
+                            marginLeft: i === 1 ? '-6px' : '0'
+                          }"
+                        />
+                      </div>
+                      <!-- Single icons: render normally -->
+                      <Icon 
+                        v-else-if="item.type === 'single-female' || item.type === 'single-male'"
+                        :icon="item.icon"
+                        width="16"
+                        height="16"
+                        :style="{ color: item.color }"
+                      />
+                    </template>
                   </div>
                   <!-- Separator -->
                   <span 
@@ -881,31 +867,19 @@ const isGender2Real = computed(() => {
                 <!-- Stats -->
                 <div class="flex flex-wrap gap-4 pt-2">
                   <div v-if="profileData.validations" class="flex items-center gap-2 px-3 py-1.5 bg-[#0f0f0f] rounded-lg border border-[#333]">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-green-400">
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                    </svg>
+                    <Icon icon="mdi:check-circle-outline" width="16" height="16" class="text-green-400" />
                     <span class="text-sm text-white">{{ profileData.validations }} Validations</span>
                   </div>
                   <div v-if="profileData.friend_counter" class="flex items-center gap-2 px-3 py-1.5 bg-[#0f0f0f] rounded-lg border border-[#333]">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-blue-400">
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                      <circle cx="9" cy="7" r="4"></circle>
-                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                    </svg>
+                    <Icon icon="mdi:account-multiple-outline" width="16" height="16" class="text-blue-400" />
                     <span class="text-sm text-white">{{ profileData.friend_counter }} Friends</span>
                   </div>
                   <div v-if="profileData.likes" class="flex items-center gap-2 px-3 py-1.5 bg-[#0f0f0f] rounded-lg border border-[#333]">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-pink-400">
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                    </svg>
+                    <Icon icon="mdi:heart-outline" width="16" height="16" class="text-pink-400" />
                     <span class="text-sm text-white">{{ profileData.likes }} Likes</span>
                   </div>
                   <div v-if="profileData.messenger_count !== undefined && profileData.messenger_count !== null" class="flex items-center gap-2 px-3 py-1.5 bg-[#0f0f0f] rounded-lg border border-[#333]">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-cyan-400">
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                    </svg>
+                    <Icon icon="mdi:message-outline" width="16" height="16" class="text-cyan-400" />
                     <span class="text-sm text-white">{{ profileData.messenger_count }} Messages</span>
                   </div>
                 </div>
@@ -916,13 +890,7 @@ const isGender2Real = computed(() => {
           <!-- Bio -->
           <div v-if="profileData.profile_description" class="mb-6 bg-[#0f0f0f] rounded-xl p-6 border border-[#333]">
             <h4 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-blue-400">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
+              <Icon icon="mdi:file-document-outline" width="20" height="20" class="text-blue-400" />
               About
             </h4>
             <div
@@ -934,11 +902,7 @@ const isGender2Real = computed(() => {
           <!-- Details Table -->
           <div class="bg-[#0f0f0f] rounded-xl p-6 border border-[#333] w-full">
             <h4 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-purple-400">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="3" y1="9" x2="21" y2="9"></line>
-                <line x1="9" y1="21" x2="9" y2="9"></line>
-              </svg>
+              <Icon icon="mdi:table" width="20" height="20" class="text-purple-400" />
               Details
             </h4>
             <div class="overflow-x-auto w-full">
@@ -1041,11 +1005,7 @@ const isGender2Real = computed(() => {
         <div v-else-if="activeTab === 'images' && profileData" class="p-6">
           <div class="bg-[#0f0f0f] rounded-xl p-6 border border-[#333]">
             <h4 class="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-blue-400">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                <polyline points="21 15 16 10 5 21"></polyline>
-              </svg>
+              <Icon icon="mdi:image-outline" width="20" height="20" class="text-blue-400" />
               Images
             </h4>
             <div class="space-y-6">
@@ -1106,15 +1066,11 @@ const isGender2Real = computed(() => {
                     class="w-full h-full object-cover"
                   />
                   <div v-else class="w-full h-full flex items-center justify-center bg-[#1a1a1a]">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#666]">
-                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                    </svg>
+                    <Icon icon="mdi:play" width="48" height="48" class="text-[#666]" />
                   </div>
                   <!-- Play overlay -->
                   <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="white" class="drop-shadow-lg">
-                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                    </svg>
+                    <Icon icon="mdi:play" width="48" height="48" class="text-white drop-shadow-lg" />
                   </div>
                   <!-- Views badge -->
                   <div v-if="video.views" class="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
@@ -1129,10 +1085,7 @@ const isGender2Real = computed(() => {
                   :key="n"
                   class="aspect-square rounded-lg bg-[#0f0f0f] border-2 border-dashed border-[#333] flex flex-col items-center justify-center"
                 >
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#666] mb-2">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                  </svg>
+                  <Icon icon="mdi:lock-outline" width="48" height="48" class="text-[#666] mb-2" />
                   <span class="text-xs text-[#666] text-center px-2">Hidden</span>
                 </div>
               </div>
@@ -1149,11 +1102,7 @@ const isGender2Real = computed(() => {
         <div v-else-if="activeTab === 'albums' && profileData" class="p-6">
           <div class="bg-[#0f0f0f] rounded-xl p-6 border border-[#333]">
             <h4 class="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-green-400">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                <polyline points="21 15 16 10 5 21"></polyline>
-              </svg>
+              <Icon icon="mdi:image-multiple-outline" width="20" height="20" class="text-green-400" />
               Albums
             </h4>
             <div v-if="profileData.photoalbum_list && profileData.photoalbum_list.length > 0" class="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -1171,17 +1120,10 @@ const isGender2Real = computed(() => {
                   class="w-full h-full object-cover"
                 />
                 <div v-else class="w-full h-full flex items-center justify-center">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[#666]">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                    <polyline points="21 15 16 10 5 21"></polyline>
-                  </svg>
+                  <Icon icon="mdi:image-outline" width="48" height="48" class="text-[#666]" />
                 </div>
                 <div v-if="album.password === 1" class="absolute top-2 right-2 bg-black/50 rounded px-2 py-1">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-white">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                  </svg>
+                  <Icon icon="mdi:lock-outline" width="16" height="16" class="text-white" />
                 </div>
               </div>
               <div class="p-3">
@@ -1203,10 +1145,7 @@ const isGender2Real = computed(() => {
         <div v-else-if="activeTab === 'validaties' && profileData" class="p-6">
           <div class="bg-[#0f0f0f] rounded-xl p-6 border border-[#333]">
             <h4 class="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-green-400">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
+              <Icon icon="mdi:check-circle-outline" width="20" height="20" class="text-green-400" />
               Validaties
               <span v-if="profileData.validations" class="text-sm text-[#999] font-normal ml-2">
                 ({{ profileData.validations }} total)
@@ -1306,12 +1245,7 @@ const isGender2Real = computed(() => {
         <div v-else-if="activeTab === 'groepen' && profileData" class="p-6">
           <div class="bg-[#0f0f0f] rounded-xl p-6 border border-[#333]">
             <h4 class="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-orange-400">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="9" cy="7" r="4"></circle>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-              </svg>
+              <Icon icon="mdi:account-group-outline" width="20" height="20" class="text-orange-400" />
               Groepen
             </h4>
             <div v-if="profileData.communities && profileData.communities.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1357,10 +1291,7 @@ const isGender2Real = computed(() => {
         <div v-else-if="activeTab === 'speeddate' && profileData" class="p-6">
           <div class="bg-[#0f0f0f] rounded-xl p-6 border border-[#333]">
             <h4 class="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-red-400">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
+              <Icon icon="mdi:clock-outline" width="20" height="20" class="text-red-400" />
               Speed Date
             </h4>
             <div v-if="profileData.speeddating_active && profileData.speeddating_details" class="bg-[#1a1a1a] rounded-lg p-6 border border-[#333]">
@@ -1392,10 +1323,7 @@ const isGender2Real = computed(() => {
         <div v-else-if="activeTab === 'parties' && profileData" class="p-6">
           <div class="bg-[#0f0f0f] rounded-xl p-6 border border-[#333]">
             <h4 class="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-yellow-400">
-                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                <line x1="7" y1="7" x2="7.01" y2="7"></line>
-              </svg>
+              <Icon icon="mdi:tag-outline" width="20" height="20" class="text-yellow-400" />
               Party & Events
             </h4>
             <div v-if="profileData.party_plans_up && profileData.party_plans_up.length > 0" class="space-y-4">
@@ -1432,12 +1360,7 @@ const isGender2Real = computed(() => {
         <div v-else-if="activeTab === 'following' && profileData" class="p-6">
           <div class="bg-[#0f0f0f] rounded-xl p-6 border border-[#333]">
             <h4 class="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-blue-400">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="8.5" cy="7" r="4"></circle>
-                <path d="M20 8v6"></path>
-                <path d="M23 11h-6"></path>
-              </svg>
+              <Icon icon="mdi:account-plus-outline" width="20" height="20" class="text-blue-400" />
               Following
             </h4>
             <div v-if="profileData.following && profileData.following.length > 0" class="space-y-3">
@@ -1481,12 +1404,7 @@ const isGender2Real = computed(() => {
         <div v-else-if="activeTab === 'friends' && profileData" class="p-6">
           <div class="bg-[#0f0f0f] rounded-xl p-6 border border-[#333]">
             <h4 class="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-blue-400">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="9" cy="7" r="4"></circle>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-              </svg>
+              <Icon icon="mdi:account-multiple-outline" width="20" height="20" class="text-blue-400" />
               Friends
             </h4>
             <div v-if="profileData.friends && profileData.friends.length > 0" class="space-y-3">

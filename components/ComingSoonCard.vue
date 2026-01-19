@@ -133,14 +133,14 @@ const actionLabel = getActionLabel();
 .coming-soon-card-header-text {
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   margin: 0;
   letter-spacing: -0.01em;
 }
 
 .coming-soon-card-header-time {
   color: #6b7280;
-  font-size: 11px;
+  font-size: 12px;
   margin: 0;
   font-weight: 500;
 }
@@ -167,14 +167,14 @@ const actionLabel = getActionLabel();
 .coming-soon-card-title {
   color: white;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 16px;
   margin: 0 0 6px 0;
   letter-spacing: -0.01em;
 }
 
 .coming-soon-card-description {
   color: #9ca3af;
-  font-size: 11px;
+  font-size: 13px;
   margin: 0 0 16px 0;
   line-height: 1.5;
 }

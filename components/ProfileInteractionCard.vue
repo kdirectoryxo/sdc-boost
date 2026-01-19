@@ -426,14 +426,14 @@ const formatDistance = (km: number | undefined) => {
 .profile-interaction-card-header-text {
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   margin: 0;
   letter-spacing: -0.01em;
 }
 
 .profile-interaction-card-header-time {
   color: #6b7280;
-  font-size: 11px;
+  font-size: 12px;
   margin: 0;
   font-weight: 500;
 }
@@ -478,8 +478,8 @@ const formatDistance = (km: number | undefined) => {
 }
 
 .profile-interaction-card-profile-img {
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   border-radius: 8px;
   object-fit: cover;
   flex-shrink: 0;
@@ -487,8 +487,8 @@ const formatDistance = (km: number | undefined) => {
 }
 
 .profile-interaction-card-profile-placeholder {
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   border-radius: 8px;
   background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%);
   border: 2px solid rgba(168, 85, 247, 0.6);
@@ -514,13 +514,13 @@ const formatDistance = (km: number | undefined) => {
 .profile-interaction-card-profile-name {
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   margin: 0;
   letter-spacing: -0.01em;
 }
 
 .profile-interaction-card-age {
-  font-size: 11px;
+  font-size: 13px;
   display: inline-block;
   font-weight: 500;
 }
@@ -542,7 +542,7 @@ const formatDistance = (km: number | undefined) => {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
+  font-size: 12px;
   color: #9ca3af;
 }
 
@@ -568,7 +568,7 @@ const formatDistance = (km: number | undefined) => {
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 10px;
+  font-size: 12px;
   color: #9ca3af;
 }
 
