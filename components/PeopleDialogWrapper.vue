@@ -4,6 +4,7 @@ import PeopleDialog from './PeopleDialog.vue';
 
 const dialogOpen = ref(false);
 const isRestoringFromURL = ref(false);
+const peopleDialogRef = ref<InstanceType<typeof PeopleDialog> | null>(null);
 
 /**
  * Update URL query parameters
@@ -65,12 +66,19 @@ defineExpose({
     dialogOpen.value = false;
     updateURLParams(false);
   },
+  openProfile: (userId: number) => {
+    console.log('[PeopleDialogWrapper] Opening profile dialog for user:', userId);
+    if (peopleDialogRef.value) {
+      peopleDialogRef.value.openProfile(userId);
+    }
+  },
 });
 </script>
 
 <template>
   <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 999999;">
     <PeopleDialog 
+      ref="peopleDialogRef"
       :modelValue="dialogOpen" 
       @update:modelValue="dialogOpen = $event"
       @close="dialogOpen = false"

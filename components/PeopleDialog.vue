@@ -4,6 +4,7 @@ import { Icon } from '@iconify/vue';
 import PeopleList, { type ViewedFilters, type OnlineFilters } from './PeopleList.vue';
 import Dropdown from './ui/Dropdown.vue';
 import Switch from './ui/Switch.vue';
+import ProfileDialog from './chat/ProfileDialog.vue';
 import { getViewedFilters, setViewedFilters, getOnlineFilters, setOnlineFilters } from '@/lib/people-filters-storage';
 
 interface Props {
@@ -23,6 +24,42 @@ const isOpen = computed({
 
 const activeTab = ref<'online' | 'viewed'>('viewed');
 const viewedCount = ref(0);
+
+// Profile dialog state
+const profileDialogVisible = ref(false);
+const profileDialogUserId = ref<number | null>(null);
+const profileDialogStack = ref<number[]>([]);
+
+// Open profile dialog
+function openProfile(userId: number) {
+  profileDialogUserId.value = userId;
+  profileDialogVisible.value = true;
+}
+
+// Handle nested profile navigation (from ProfileDialog's open-profile event)
+function handleOpenNestedProfile(userId: number) {
+  if (profileDialogUserId.value !== null) {
+    profileDialogStack.value.push(profileDialogUserId.value);
+  }
+  profileDialogUserId.value = userId;
+}
+
+// Close profile dialog
+function closeProfileDialog() {
+  if (profileDialogStack.value.length > 0) {
+    // Go back to previous profile
+    profileDialogUserId.value = profileDialogStack.value.pop()!;
+  } else {
+    // Close completely
+    profileDialogVisible.value = false;
+    profileDialogUserId.value = null;
+  }
+}
+
+// Expose openProfile for external access
+defineExpose({
+  openProfile,
+});
 
 // Filter options
 const SELECT_OPTIONS = [
@@ -406,6 +443,15 @@ watch(
           <PeopleList :active-tab="activeTab" :viewed-filters="viewedFilters" :online-filters="onlineFilters" />
         </div>
       </div>
+
+      <!-- Profile Dialog -->
+      <ProfileDialog
+        :visible="profileDialogVisible"
+        :user-id="profileDialogUserId"
+        :stack-level="profileDialogStack.length"
+        @close="closeProfileDialog"
+        @open-profile="handleOpenNestedProfile"
+      />
     </div>
   </Transition>
 </template>

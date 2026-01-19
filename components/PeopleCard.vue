@@ -81,18 +81,17 @@ const handleClick = () => {
   }
 };
 
-// Profile type
-const profileType = computed(() => {
+// Profile type indicator color
+const profileTypeColor = computed(() => {
   const g1 = props.member.gender1;
-  const g2 = props.member.gender2;
   
   if (!isGender2Real.value) {
-    return g1 === 1 ? 'V' : 'M';
+    // Single: blue for male, pink for female
+    return g1 === 1 ? '#ff60df' : '#3a97fe';
   }
   
-  if (g1 === 1 && g2 === 1) return 'VV';
-  if (g1 === 0 && g2 === 0) return 'MM';
-  return 'MV';
+  // Couple: purple
+  return '#a855f7';
 });
 
 // Looking for icons type
@@ -204,11 +203,35 @@ const lookingForIcons = computed((): LookingForIcon[] => {
     </div>
 
     <!-- Info -->
-    <div class="card-info">
+    <div class="card-info" :style="{ borderTop: `3px solid ${profileTypeColor}` }">
       <!-- Name row -->
       <div class="card-row">
         <span class="card-name">{{ member.account_id }}</span>
-        <span class="card-type">{{ profileType }}</span>
+        <!-- Looking For Icons -->
+        <div v-if="lookingForIcons.length > 0" class="card-looking-for">
+          <template v-for="(item, index) in lookingForIcons" :key="index">
+            <div v-if="item.type === 'couple-group'" class="looking-for-couple">
+              <Icon 
+                v-for="(icon, i) in item.icons" 
+                :key="i"
+                :icon="icon.icon"
+                width="12"
+                height="12"
+                :style="{ 
+                  color: icon.color,
+                  marginLeft: i === 1 ? '-8px' : '0'
+                }"
+              />
+            </div>
+            <Icon 
+              v-else
+              :icon="item.icon"
+              width="12"
+              height="12"
+              :style="{ color: item.color }"
+            />
+          </template>
+        </div>
       </div>
       
       <!-- Age row -->
@@ -241,34 +264,6 @@ const lookingForIcons = computed((): LookingForIcon[] => {
           <Icon icon="mdi:check-circle-outline" width="11" height="11" />
           {{ member.valid_count }}
         </span>
-      </div>
-      
-      <!-- Looking For Icons -->
-      <div v-if="lookingForIcons.length > 0" class="card-looking-for">
-        <template v-for="(item, index) in lookingForIcons" :key="index">
-          <!-- Couple group: display horizontally with overlapping -->
-          <div v-if="item.type === 'couple-group'" class="looking-for-couple">
-            <Icon 
-              v-for="(icon, i) in item.icons" 
-              :key="i"
-              :icon="icon.icon"
-              width="16"
-              height="16"
-              :style="{ 
-                color: icon.color,
-                marginLeft: i === 1 ? '-6px' : '0'
-              }"
-            />
-          </div>
-          <!-- Single icons: render normally -->
-          <Icon 
-            v-else
-            :icon="item.icon"
-            width="16"
-            height="16"
-            :style="{ color: item.color }"
-          />
-        </template>
       </div>
     </div>
   </div>
@@ -404,8 +399,8 @@ const lookingForIcons = computed((): LookingForIcon[] => {
 
 .card-row {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  justify-content: space-between;
   gap: 6px;
 }
 
@@ -420,13 +415,12 @@ const lookingForIcons = computed((): LookingForIcon[] => {
   min-width: 0;
 }
 
-.card-type {
-  font-size: 9px;
-  font-weight: 600;
-  color: #6b7280;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 2px 6px;
-  border-radius: 4px;
+.card-looking-for {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
   flex-shrink: 0;
 }
 
@@ -476,7 +470,7 @@ const lookingForIcons = computed((): LookingForIcon[] => {
 .card-stats {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   margin-top: 4px;
   padding-top: 6px;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
@@ -496,16 +490,6 @@ const lookingForIcons = computed((): LookingForIcon[] => {
 
 .card:hover .stat {
   color: #9ca3af;
-}
-
-/* Looking For Icons */
-.card-looking-for {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .looking-for-couple {

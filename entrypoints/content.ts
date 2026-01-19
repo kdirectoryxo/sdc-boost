@@ -81,7 +81,7 @@ export default defineContentScript({
     let peopleDialogApp: ReturnType<typeof createApp> | null = null;
     let peopleOverlayHost: HTMLElement | null = null;
     let peopleOverlayContainer: HTMLElement | null = null;
-    let peopleDialogController: { open: () => void; close: () => void } | null = null;
+    let peopleDialogController: { open: () => void; close: () => void; openProfile: (userId: number) => void } | null = null;
     
     const chatDialogUI = await createShadowRootUi(ctx, {
       name: 'chat-dialog-ui',
@@ -463,6 +463,10 @@ export default defineContentScript({
             close: () => {
               (instance as any).close();
             },
+            openProfile: (userId: number) => {
+              console.log('[PeopleDialog] Calling wrapper openProfile method for user:', userId);
+              (instance as any).openProfile(userId);
+            },
           };
         } else {
           console.error('[PeopleDialog] Failed to get exposed methods from component instance');
@@ -524,12 +528,15 @@ export default defineContentScript({
     });
 
     // Expose profile dialog opener globally (for PeopleCard to use)
-    // Opens profile page - can be enhanced later to use ChatDialog's profile dialog system
     requestAnimationFrame(() => {
       (window as any).__sdcBoostOpenProfileDialog = (userId: number) => {
         console.log('[PeopleDialog] Opening profile for user:', userId);
-        // Open profile page in new tab
-        window.open(`https://www.sdc.com/react/#/profile?idUser=${userId}`, '_blank');
+        if (peopleDialogController) {
+          peopleDialogController.openProfile(userId);
+        } else {
+          // Fallback to opening in new tab if controller not available
+          window.open(`https://www.sdc.com/react/#/profile?idUser=${userId}`, '_blank');
+        }
       };
     });
 
