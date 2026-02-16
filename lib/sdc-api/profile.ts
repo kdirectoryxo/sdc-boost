@@ -82,6 +82,61 @@ export async function getCurrentNote(dbId: string, muid?: string | null): Promis
 }
 
 /**
+ * Update the note for a user profile
+ * @param dbId The target user's DB_ID
+ * @param note The note text to save
+ * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @returns Response indicating success
+ */
+export async function updateProfileNote(
+    dbId: string,
+    note: string,
+    muid?: string | null
+): Promise<{ info: { code: number; message?: string } }> {
+    const currentMuid = muid || getCurrentMuid();
+
+    if (!currentMuid) {
+        throw new Error('MUID not found. Cannot update profile note.');
+    }
+
+    const apiUrl = `https://api.sdc.com/v1/note_add?muid=${currentMuid}`;
+    const formData = new FormData();
+    formData.append('TargetDB_ID', dbId);
+    formData.append('Notes', note);
+    formData.append('client_token', '0');
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json, text/plain, */*',
+                'accept-language': 'en-US,en;q=0.9',
+            },
+            credentials: 'include',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Note update API request failed: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        // Check if the operation was successful
+        const responseCode = data.info?.code;
+        if (responseCode !== 200 && responseCode !== '200') {
+            throw new Error(data.info?.message || 'Failed to update profile note');
+        }
+
+        return data as { info: { code: number; message?: string } };
+    } catch (error) {
+        console.error('[SDC API] Failed to update profile note:', error);
+        throw error;
+    }
+}
+
+/**
  * Get all validations for a user
  * @param dbId The target user's DB_ID
  * @param muid Optional MUID (will be extracted from cookies if not provided)

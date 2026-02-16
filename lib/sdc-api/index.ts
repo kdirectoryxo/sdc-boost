@@ -37,7 +37,7 @@ export type {
 export { getCurrentMuid, getTargetDBId } from './utils';
 
 // Re-export profile functions
-export { getProfileV2, getCurrentNote } from './profile';
+export { getProfileV2, getCurrentNote, updateProfileNote } from './profile';
 
 // Re-export note utility functions
 export { noteContainsSummary, extractSummaryFromNote, getNoteBeforeSummary } from './notes';

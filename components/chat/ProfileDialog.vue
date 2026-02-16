@@ -7,9 +7,10 @@ import VueEasyLightbox from 'vue-easy-lightbox';
 import 'vue-easy-lightbox/dist/external-css/vue-easy-lightbox.css';
 import VideoLightbox from '@/components/chat/VideoLightbox.vue';
 import { profileStorage } from '@/lib/profile-storage';
-import { getProfileV2, getValidationsV2 } from '@/lib/sdc-api/profile';
+import { getProfileV2, getValidationsV2, updateProfileNote } from '@/lib/sdc-api/profile';
 import { startChat } from '@/lib/sdc-api/messenger';
 import { chatStorage } from '@/lib/chat-storage';
+import { noteCache } from '@/lib/note-cache';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 
 interface Props {
@@ -42,6 +43,24 @@ const allValidations = ref<ValidationV2User[]>([]);
 const isLoadingValidations = ref(false);
 const validationsError = ref<string | null>(null);
 const validationsLoaded = ref(false);
+
+// Note editing state
+const isEditingNote = ref(false);
+const noteDraft = ref<string>('');
+const originalNote = ref<string>(''); // Store original note when editing starts
+const isSavingNote = ref(false);
+const noteError = ref<string | null>(null);
+
+// Computed note that uses cache if available, otherwise falls back to profileData.note
+const displayedNote = computed(() => {
+  if (!profileData.value?.db_id) return '';
+  // Check cache first (for notes we've saved this session)
+  if (noteCache.has(profileData.value.db_id)) {
+    return noteCache.get(profileData.value.db_id) || '';
+  }
+  // Fall back to profileData.note (from API)
+  return profileData.value.note || '';
+});
 
 // Gallery modal state
 const galleryModalVisible = ref<boolean>(false);
@@ -135,6 +154,11 @@ watch([() => props.visible, () => props.userId], async ([visible, userId], [prev
     allValidations.value = [];
     validationsLoaded.value = false;
     validationsError.value = null;
+    // Reset note editing state
+    isEditingNote.value = false;
+    noteDraft.value = '';
+    isSavingNote.value = false;
+    noteError.value = null;
   }
 }, { immediate: true });
 
@@ -144,6 +168,18 @@ watch(activeTab, async (newTab) => {
     await fetchAllValidations(profileData.value.db_id);
   }
 });
+
+// Watch profileData to initialize note draft
+watch(profileData, (newProfile) => {
+  if (newProfile) {
+    // Use cached note if available (from this session), otherwise use profile note from API
+    const cachedNote = noteCache.get(newProfile.db_id);
+    noteDraft.value = cachedNote !== undefined ? cachedNote : (newProfile.note || '');
+    originalNote.value = newProfile.note || '';
+    isEditingNote.value = false;
+    noteError.value = null;
+  }
+}, { immediate: true });
 
 async function fetchProfile(userId: number) {
   isLoading.value = true;
@@ -696,6 +732,70 @@ async function handleOpenChat() {
     }
   }
 }
+
+// Note editing handlers
+function startEditNote() {
+  if (!profileData.value) return;
+  // Store original note value (from cache if we've saved, otherwise from API)
+  const cachedNote = noteCache.get(profileData.value.db_id);
+  originalNote.value = cachedNote !== undefined ? cachedNote : (profileData.value.note || '');
+  // Start editing with current displayed note
+  noteDraft.value = displayedNote.value;
+  isEditingNote.value = true;
+  noteError.value = null;
+}
+
+function cancelEditNote() {
+  if (!profileData.value) return;
+  // Reset to original note value (before editing started)
+  noteDraft.value = originalNote.value;
+  isEditingNote.value = false;
+  noteError.value = null;
+}
+
+async function saveNote() {
+  if (!profileData.value?.db_id || isSavingNote.value) return;
+  
+  const toast = (window as any).__sdcBoostToast;
+  isSavingNote.value = true;
+  noteError.value = null;
+  
+  const savedNoteText = noteDraft.value;
+  const dbId = profileData.value.db_id;
+  
+  try {
+    // Save the note to API
+    await updateProfileNote(dbId.toString(), savedNoteText);
+    
+    // Update cache immediately
+    noteCache.set(dbId, savedNoteText);
+    
+    // Update local profile data
+    if (profileData.value) {
+      profileData.value.note = savedNoteText;
+      // Update cache
+      await profileStorage.upsertProfile(profileData.value);
+    }
+    
+    isEditingNote.value = false;
+    
+    if (toast) {
+      toast.success('Note saved successfully');
+    }
+  } catch (err) {
+    console.error('[ProfileDialog] Failed to save note:', err);
+    noteError.value = err instanceof Error ? err.message : 'Failed to save note';
+    
+    // Remove from cache on error (so it falls back to API value)
+    noteCache.delete(dbId);
+    
+    if (toast) {
+      toast.error('Failed to save note: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
+  } finally {
+    isSavingNote.value = false;
+  }
+}
 </script>
 
 <template>
@@ -1015,6 +1115,78 @@ async function handleOpenChat() {
               class="text-sm text-[#ccc] profile-bio leading-relaxed"
               v-html="profileData.profile_description"
             ></div>
+          </div>
+
+          <!-- Note -->
+          <div class="mb-6 bg-[#0f0f0f] rounded-xl p-6 border border-[#333]">
+            <div class="flex items-center justify-between mb-4">
+              <h4 class="text-xl font-semibold text-white flex items-center gap-2">
+                <Icon icon="mdi:note-text-outline" width="20" height="20" class="text-yellow-400" />
+                Note
+              </h4>
+              <button
+                v-if="!isEditingNote"
+                @click="startEditNote"
+                class="p-1.5 hover:bg-[#333] rounded transition-colors"
+                title="Edit note"
+              >
+                <Icon icon="mdi:pencil-outline" width="18" height="18" class="text-[#999] hover:text-white" />
+              </button>
+            </div>
+            
+            <!-- View Mode -->
+            <div v-if="!isEditingNote">
+              <div v-if="displayedNote" class="text-sm text-[#ccc] whitespace-pre-wrap leading-relaxed">
+                {{ displayedNote }}
+              </div>
+              <div v-else class="text-sm text-[#666] italic">
+                No note added yet. Click the edit button to add one.
+              </div>
+            </div>
+            
+            <!-- Edit Mode -->
+            <div v-else class="space-y-3">
+              <textarea
+                v-model="noteDraft"
+                :disabled="isSavingNote"
+                class="w-full min-h-[120px] px-3 py-2 bg-[#1a1a1a] border border-[#333] rounded-lg text-sm text-white placeholder-[#666] focus:outline-none focus:border-blue-500 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder="Enter your note here..."
+              ></textarea>
+              
+              <div v-if="noteError" class="text-sm text-red-500">
+                {{ noteError }}
+              </div>
+              
+              <div class="flex items-center gap-2">
+                <button
+                  @click="saveNote"
+                  :disabled="isSavingNote"
+                  class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Icon
+                    v-if="isSavingNote"
+                    icon="mdi:loading"
+                    width="16"
+                    height="16"
+                    class="animate-spin"
+                  />
+                  <Icon
+                    v-else
+                    icon="mdi:check"
+                    width="16"
+                    height="16"
+                  />
+                  {{ isSavingNote ? 'Saving...' : 'Save' }}
+                </button>
+                <button
+                  @click="cancelEditNote"
+                  :disabled="isSavingNote"
+                  class="px-4 py-2 bg-[#333] hover:bg-[#444] text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Details Table -->
