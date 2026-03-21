@@ -1,18 +1,28 @@
 /**
  * Shared utility for detecting navigation changes in React apps
  * Handles hashchange, popstate, and React Router navigation
+ *
+ * React Router (and similar) often replaces history.pushState/replaceState after load,
+ * which removes our patches. We re-apply periodically and poll location.href because
+ * pushState does not fire hashchange and we may miss events while unpatchted.
  */
 export class NavigationWatcher {
     private navigationHandlers: Set<() => void> = new Set();
-    private originalPushState: typeof history.pushState;
-    private originalReplaceState: typeof history.replaceState;
+    /** Current underlying implementation (native or another framework wrapper) */
+    private underlyingPushState: typeof history.pushState;
+    private underlyingReplaceState: typeof history.replaceState;
+    private ourPushState!: typeof history.pushState;
+    private ourReplaceState!: typeof history.replaceState;
     private hashChangeHandler: (() => void) | null = null;
     private popStateHandler: (() => void) | null = null;
     private isInitialized = false;
+    private ensurePatchIntervalId: ReturnType<typeof setInterval> | null = null;
+    private locationPollIntervalId: ReturnType<typeof setInterval> | null = null;
+    private lastPolledHref = '';
 
     constructor() {
-        this.originalPushState = history.pushState;
-        this.originalReplaceState = history.replaceState;
+        this.underlyingPushState = history.pushState.bind(history);
+        this.underlyingReplaceState = history.replaceState.bind(history);
     }
 
     /**
@@ -23,32 +33,70 @@ export class NavigationWatcher {
             return;
         }
 
-        // Override pushState to detect React Router navigation
-        history.pushState = (...args: Parameters<typeof history.pushState>) => {
-            this.originalPushState.apply(history, args);
-            this.triggerNavigation();
-        };
+        this.installHistoryPatch();
 
-        // Override replaceState to detect React Router navigation
-        history.replaceState = (...args: Parameters<typeof history.replaceState>) => {
-            this.originalReplaceState.apply(history, args);
-            this.triggerNavigation();
-        };
-
-        // Listen for hash changes (hash routing)
         this.hashChangeHandler = () => {
             this.triggerNavigation();
         };
         window.addEventListener('hashchange', this.hashChangeHandler);
 
-        // Listen for popstate (browser back/forward)
         this.popStateHandler = () => {
             this.triggerNavigation();
         };
         window.addEventListener('popstate', this.popStateHandler);
 
+        this.lastPolledHref = location.href;
+        this.locationPollIntervalId = window.setInterval(() => {
+            const href = location.href;
+            if (href !== this.lastPolledHref) {
+                this.lastPolledHref = href;
+                this.triggerNavigation();
+            }
+        }, 100);
+
+        this.ensurePatchIntervalId = window.setInterval(() => {
+            this.ensureHistoryPatch();
+        }, 250);
+
         this.isInitialized = true;
         console.log('[NavigationWatcher] Initialized');
+    }
+
+    /**
+     * Wrap history methods so we always see navigations; re-point underlying when another
+     * library (e.g. React Router) replaces history.pushState after us.
+     */
+    private installHistoryPatch(): void {
+        this.ourPushState = (...args: Parameters<typeof history.pushState>) => {
+            const ret = this.underlyingPushState.apply(history, args);
+            this.triggerNavigation();
+            return ret;
+        };
+        this.ourReplaceState = (...args: Parameters<typeof history.replaceState>) => {
+            const ret = this.underlyingReplaceState.apply(history, args);
+            this.triggerNavigation();
+            return ret;
+        };
+
+        this.underlyingPushState = history.pushState.bind(history);
+        this.underlyingReplaceState = history.replaceState.bind(history);
+        history.pushState = this.ourPushState;
+        history.replaceState = this.ourReplaceState;
+    }
+
+    /**
+     * If another script replaced pushState/replaceState, wrap the new functions again.
+     */
+    private ensureHistoryPatch(): void {
+        if (!this.isInitialized) return;
+        if (history.pushState !== this.ourPushState) {
+            this.underlyingPushState = history.pushState.bind(history);
+            history.pushState = this.ourPushState;
+        }
+        if (history.replaceState !== this.ourReplaceState) {
+            this.underlyingReplaceState = history.replaceState.bind(history);
+            history.replaceState = this.ourReplaceState;
+        }
     }
 
     /**
@@ -63,10 +111,16 @@ export class NavigationWatcher {
 
         this.navigationHandlers.add(callback);
 
-        // Return unsubscribe function
         return () => {
             this.navigationHandlers.delete(callback);
         };
+    }
+
+    /**
+     * Notify subscribers (e.g. after manual URL inspection).
+     */
+    notifyNavigation(): void {
+        this.triggerNavigation();
     }
 
     /**
@@ -90,11 +144,18 @@ export class NavigationWatcher {
             return;
         }
 
-        // Restore original history methods
-        history.pushState = this.originalPushState;
-        history.replaceState = this.originalReplaceState;
+        if (this.ensurePatchIntervalId !== null) {
+            window.clearInterval(this.ensurePatchIntervalId);
+            this.ensurePatchIntervalId = null;
+        }
+        if (this.locationPollIntervalId !== null) {
+            window.clearInterval(this.locationPollIntervalId);
+            this.locationPollIntervalId = null;
+        }
 
-        // Remove event listeners
+        history.pushState = this.underlyingPushState;
+        history.replaceState = this.underlyingReplaceState;
+
         if (this.hashChangeHandler) {
             window.removeEventListener('hashchange', this.hashChangeHandler);
             this.hashChangeHandler = null;
@@ -105,7 +166,6 @@ export class NavigationWatcher {
             this.popStateHandler = null;
         }
 
-        // Clear all handlers
         this.navigationHandlers.clear();
         this.isInitialized = false;
         console.log('[NavigationWatcher] Destroyed');
@@ -114,9 +174,3 @@ export class NavigationWatcher {
 
 // Create singleton instance
 export const navigationWatcher = new NavigationWatcher();
-
-
-
-
-
-
