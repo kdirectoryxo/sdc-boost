@@ -947,6 +947,8 @@ export async function readBroadcast(
             headers: {
                 'accept': 'application/json, text/plain, */*',
                 'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8,ar;q=0.7,nl;q=0.6',
+                'origin': 'https://www.sdc.com',
+                'referer': 'https://www.sdc.com/',
             },
             credentials: 'include', // Include cookies for authentication
         });

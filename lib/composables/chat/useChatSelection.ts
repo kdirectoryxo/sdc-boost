@@ -3,7 +3,7 @@ import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { sendSeenEvent } from '@/lib/chat-service';
 import { countersManager } from '@/lib/counters-manager';
 import { chatStorage } from '@/lib/chat-storage';
-import { getChatKey } from './utils';
+import { getLatestChatFromList } from './utils';
 import { useChatState } from './useChatState';
 import { useChatFolders } from './useChatFolders';
 import { useChatFilters } from './useChatFilters';
@@ -52,8 +52,8 @@ export function useChatSelection() {
       clearSearch();
     }
     
-    // Get the latest chat object from chatList to ensure we have tags
-    const latestChat = chatList.value.find(c => c.group_id === chat.group_id) || chat;
+    // Get the latest chat object from chatList (broadcasts: match by id_broadcast, not group_id)
+    const latestChat = getLatestChatFromList(chatList.value, chat);
     
     // Check if profile is synced, and sync it if not (only for valid chats)
     const isBroadcast = latestChat.broadcast || latestChat.type === 100;
@@ -112,8 +112,8 @@ export function useChatSelection() {
    * Open chat from URL - handles the logic for opening a chat when dialog opens with a chat ID in URL
    */
   async function openChatFromURL(chat: MessengerChatItem): Promise<void> {
-    // Get the latest chat object from chatList to ensure we have tags
-    const latestChat = chatList.value.find(c => c.group_id === chat.group_id) || chat;
+    // Get the latest chat object from chatList (broadcasts: match by id_broadcast, not group_id)
+    const latestChat = getLatestChatFromList(chatList.value, chat);
     
     // Check if profile is synced, and sync it if not (only for valid chats)
     const isBroadcast = latestChat.broadcast || latestChat.type === 100;

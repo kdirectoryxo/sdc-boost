@@ -5,43 +5,52 @@
 
 /**
  * Get the current user's MUID from cookies or localStorage
+ *
+ * Messenger APIs (e.g. messenger_read_broadcast) expect the session/messenger id
+ * (user_info.sid), not the `profile` cookie — that value can differ (e.g. profile
+ * "0210110" vs sid 8056664).
  */
 export function getCurrentMuid(): string | null {
-    // Try to get muid from cookies first
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-        const [name, value] = cookie.trim().split('=');
-        if (name === 'profile' && value) {
-            // Profile cookie might contain the muid
-            // Format might be like: 0210110 where the number is the muid
-            const muid = value.replace(/^0+/, ''); // Remove leading zeros
-            if (muid) {
-                console.log('[SDC API] Found muid from profile cookie:', muid);
-                return muid;
-            }
-        }
-    }
-
-    // Fallback: Try to get from localStorage user_info
     try {
         const userInfoStr = localStorage.getItem('user_info');
         if (userInfoStr) {
             const userInfo = JSON.parse(userInfoStr);
-            // Check for sid (Session ID) which is likely the MUID
             if (userInfo.sid) {
                 const muid = String(userInfo.sid);
                 console.log('[SDC API] Found muid from localStorage user_info.sid:', muid);
                 return muid;
             }
-            // Also check messengerConnId as alternative
             if (userInfo.messengerConnId) {
                 const muid = String(userInfo.messengerConnId);
                 console.log('[SDC API] Found muid from localStorage user_info.messengerConnId:', muid);
                 return muid;
             }
+            if (userInfo.user?.messengerConnId) {
+                const muid = String(userInfo.user.messengerConnId);
+                console.log('[SDC API] Found muid from user_info.user.messengerConnId:', muid);
+                return muid;
+            }
         }
     } catch (error) {
         console.warn('[SDC API] Error reading user_info from localStorage:', error);
+    }
+
+    const dbId = getCurrentDBId();
+    if (dbId) {
+        console.log('[SDC API] Using db_id as muid fallback:', dbId);
+        return dbId;
+    }
+
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'profile' && value) {
+            const muid = value.replace(/^0+/, '');
+            if (muid) {
+                console.log('[SDC API] Found muid from profile cookie (last resort):', muid);
+                return muid;
+            }
+        }
     }
 
     console.warn('[SDC API] Could not find muid from cookies or localStorage');

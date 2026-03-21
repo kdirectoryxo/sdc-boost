@@ -268,6 +268,24 @@ export function getChatKey(chat: MessengerChatItem | null): string {
 }
 
 /**
+ * Resolve the list copy of a chat. Broadcasts often share group_id (e.g. -1);
+ * match by getChatKey so the correct id_broadcast is used for read/delete APIs.
+ */
+export function getLatestChatFromList(
+  chatList: MessengerChatItem[],
+  chat: MessengerChatItem
+): MessengerChatItem {
+  const isBroadcast = chat.broadcast || chat.type === 100;
+  const found = chatList.find((c) => {
+    if (isBroadcast) {
+      return getChatKey(c) === getChatKey(chat);
+    }
+    return c.group_id === chat.group_id;
+  });
+  return found ?? chat;
+}
+
+/**
  * Sort chats: pinned first, then by date_time
  */
 export function sortChats(chats: MessengerChatItem[]): MessengerChatItem[] {
