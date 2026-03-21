@@ -40,9 +40,13 @@ export function logShellCssDebug(label: string): void {
       viewRouterWarn('shell CSS debug: style#' + VIEW_ROUTER_SHELL_STYLE_ID + ' not in DOM', { label });
     }
     if (!root) {
-      viewRouterWarn('shell CSS debug: #root not found (may not be parsed yet at document_start)', {
-        label,
-      });
+      if (document.readyState === 'loading') {
+        viewRouterLog('shell CSS debug: #root not found (DOM still loading at document_start — expected)', {
+          label,
+        });
+      } else {
+        viewRouterWarn('shell CSS debug: #root not found', { label });
+      }
     } else if (hasActiveClass && rootDisplay !== 'none') {
       viewRouterWarn('shell CSS debug: #root display is not none despite active class — specificity or wrong id?', {
         label,

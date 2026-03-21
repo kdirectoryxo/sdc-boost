@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, useTemplateRef, watch, nextTick } from 'vue';
+import { useColorMode } from '@vueuse/core';
 import { Icon } from '@iconify/vue';
 import { navigationWatcher } from '@/lib/modules/utils/NavigationWatcher';
 import {
@@ -12,6 +13,7 @@ import {
 } from '@/lib/view-router/routes';
 import { viewRouterLog } from '@/lib/view-router/logger';
 import PeopleList from '@/components/PeopleList.vue';
+import { Button } from '@/components/view-router/ui/button';
 
 const path = ref(getBoostViewPathFromLocation());
 
@@ -21,6 +23,31 @@ function syncPath() {
 
 const showViewRouter = computed(() => isViewRouterActiveRoute(path.value));
 const viewId = computed(() => getViewRouterViewId(path.value));
+
+/** Default dark mode for shadcn-vue inside this shell only (no toggle / no persistence). @see https://www.shadcn-vue.com/docs/dark-mode/vite */
+const vrRootRef = useTemplateRef<HTMLElement>('vrRoot');
+const colorMode = useColorMode({
+  selector: vrRootRef,
+  attribute: 'class',
+  initialValue: 'dark',
+  storageKey: null,
+  modes: {
+    dark: 'dark',
+    light: 'light',
+  },
+});
+
+watch(
+  [vrRootRef, showViewRouter],
+  () => {
+    if (vrRootRef.value && showViewRouter.value) {
+      nextTick(() => {
+        colorMode.value = 'dark';
+      });
+    }
+  },
+  { flush: 'post' }
+);
 
 let unsubscribe: (() => void) | undefined;
 
@@ -49,237 +76,86 @@ function navigateBoost(pathSegment: string) {
 function leaveBoostView() {
   window.location.assign('https://www.sdc.com/react/#/');
 }
+
+/** Opens the classic SDC home feed in a new tab (stays on Boost in this tab). */
+function openSdcHomeInNewTab() {
+  window.open('https://www.sdc.com/react/#/', '_blank', 'noopener,noreferrer');
+}
 </script>
 
 <template>
-  <div v-if="showViewRouter" class="vr-root">
-    <header class="vr-header">
-      <div class="vr-header-inner">
-        <div class="vr-title-block">
-          <span class="vr-badge">SDC Boost</span>
-          <h1 class="vr-title">
+  <div
+    v-if="showViewRouter"
+    ref="vrRoot"
+    class="vr-root box-border flex min-h-screen w-full flex-col bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(59,130,246,0.12),transparent_50%),linear-gradient(180deg,#0a0c10_0%,#0f1218_40%,#0c0e12_100%)] text-foreground"
+  >
+    <header
+      class="shrink-0 border-b border-white/[0.06] bg-[rgba(15,18,24,0.85)] backdrop-blur-xl"
+    >
+      <div
+        class="mx-auto flex max-w-[1920px] items-start justify-between gap-4 px-5 py-4 max-[520px]:px-3.5 max-[520px]:py-3"
+      >
+        <div class="min-w-0">
+          <span class="mb-1.5 inline-block text-[11px] font-semibold uppercase tracking-[0.06em] text-primary">SDC Boost</span>
+          <h1 class="mb-1 text-[22px] font-bold tracking-tight text-foreground max-[520px]:text-lg">
             {{ viewId === 'router-test' ? 'Router test' : 'Online now' }}
           </h1>
-          <p class="vr-sub">
+          <p class="mb-3.5 text-sm leading-[1.45] text-muted-foreground">
             {{
               viewId === 'router-test'
                 ? 'Fake screen — routes use the sdc_boost_vr query param so the site router does not steal navigation.'
                 : 'Latest members online — updated as you scroll'
             }}
           </p>
-          <nav class="vr-nav" aria-label="Boost view routes">
-            <button
+          <nav class="flex flex-wrap gap-2" aria-label="Boost view routes">
+            <Button
               type="button"
-              class="vr-nav-btn"
-              :class="{ 'vr-nav-btn--active': viewId === 'home' }"
+              :variant="viewId === 'home' ? 'default' : 'outline'"
+              class="gap-1.5"
               @click="navigateBoost('/sdc')"
             >
-              <Icon icon="mdi:account-group" class="vr-nav-btn-icon" />
+              <Icon icon="mdi:account-group" class="size-[18px] shrink-0" />
               Online
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              class="vr-nav-btn"
-              :class="{ 'vr-nav-btn--active': viewId === 'router-test' }"
+              :variant="viewId === 'router-test' ? 'default' : 'outline'"
+              class="gap-1.5"
               @click="navigateBoost(VIEW_ROUTER_TEST_PATH)"
             >
-              <Icon icon="mdi:test-tube" class="vr-nav-btn-icon" />
+              <Icon icon="mdi:test-tube" class="size-[18px] shrink-0" />
               Router test
-            </button>
+            </Button>
           </nav>
         </div>
-        <button type="button" class="vr-leave" @click="leaveBoostView" title="Return to SDC">
-          <Icon icon="mdi:close" class="vr-leave-icon" />
-          <span class="vr-leave-text">Back to site</span>
-        </button>
+        <Button type="button" variant="outline" class="gap-2 shrink-0" title="Return to SDC" @click="leaveBoostView">
+          <Icon icon="mdi:close" class="size-5 shrink-0" />
+          <span class="max-[520px]:hidden">Back to site</span>
+        </Button>
       </div>
     </header>
 
-    <main class="vr-main">
+    <main class="box-border mx-auto flex min-h-0 w-full max-w-[1920px] flex-1 flex-col">
+      <div
+        v-if="viewId === 'home'"
+        class="box-border flex shrink-0 flex-wrap items-center gap-2.5 px-5 pt-3 max-[520px]:px-3.5 max-[520px]:pt-2.5"
+      >
+        <Button type="button" variant="secondary" class="gap-2" @click="openSdcHomeInNewTab">
+          <Icon icon="mdi:open-in-new" class="size-4 shrink-0" />
+          Open SDC home in new tab
+        </Button>
+      </div>
       <PeopleList v-if="viewId === 'home'" active-tab="online" />
-      <div v-else class="vr-fake">
-        <p class="vr-fake-path">
-          Boost path: <code>{{ path }}</code> (from <code>sdc_boost_vr</code> or hash)
+      <div v-else class="max-w-2xl px-5 py-6">
+        <p class="mb-3 text-sm text-foreground/90">
+          Boost path: <code class="rounded-md bg-muted px-2 py-0.5 text-xs text-primary">{{ path }}</code> (from
+          <code class="rounded-md bg-muted px-2 py-0.5 text-xs text-primary">sdc_boost_vr</code> or hash)
         </p>
-        <p class="vr-fake-hint">
-          If this appears after <strong>Router test</strong>, routing works. Use <strong>Online</strong> to go back.
+        <p class="m-0 text-sm leading-relaxed text-muted-foreground">
+          If this appears after <strong class="text-foreground">Router test</strong>, routing works. Use
+          <strong class="text-foreground">Online</strong> to go back.
         </p>
       </div>
     </main>
   </div>
 </template>
-
-<style scoped>
-.vr-root {
-  min-height: 100vh;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(59, 130, 246, 0.12), transparent 50%),
-    linear-gradient(180deg, #0a0c10 0%, #0f1218 40%, #0c0e12 100%);
-  color: #e8eaef;
-  box-sizing: border-box;
-}
-
-.vr-header {
-  flex-shrink: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(15, 18, 24, 0.85);
-  backdrop-filter: blur(12px);
-}
-
-.vr-header-inner {
-  max-width: 1920px;
-  margin: 0 auto;
-  padding: 16px 20px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.vr-title-block {
-  min-width: 0;
-}
-
-.vr-badge {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #60a5fa;
-  margin-bottom: 6px;
-}
-
-.vr-title {
-  margin: 0 0 4px 0;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: #f4f6fb;
-}
-
-.vr-sub {
-  margin: 0 0 14px 0;
-  font-size: 13px;
-  color: #8b95a8;
-  line-height: 1.45;
-}
-
-.vr-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.vr-nav-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: #b8c0d0;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-
-.vr-nav-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #e8eaef;
-}
-
-.vr-nav-btn--active {
-  border-color: rgba(96, 165, 250, 0.45);
-  background: rgba(59, 130, 246, 0.12);
-  color: #93c5fd;
-}
-
-.vr-nav-btn-icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-}
-
-.vr-leave {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: #c8d0dc;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-
-.vr-leave:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.14);
-  color: #fff;
-}
-
-.vr-leave-icon {
-  width: 20px;
-  height: 20px;
-}
-
-.vr-main {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  max-width: 1920px;
-  width: 100%;
-  margin: 0 auto;
-  box-sizing: border-box;
-}
-
-.vr-fake {
-  padding: 24px 20px;
-  max-width: 42rem;
-}
-
-.vr-fake-path {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  color: #c8d0dc;
-}
-
-.vr-fake-path code {
-  font-size: 13px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #93c5fd;
-}
-
-.vr-fake-hint {
-  margin: 0;
-  font-size: 14px;
-  color: #8b95a8;
-  line-height: 1.55;
-}
-
-@media (max-width: 520px) {
-  .vr-leave-text {
-    display: none;
-  }
-
-  .vr-header-inner {
-    padding: 12px 14px;
-  }
-
-  .vr-title {
-    font-size: 18px;
-  }
-}
-</style>
