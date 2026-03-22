@@ -16,5 +16,8 @@
     "ui": "@/lib/view-router/ui",
     "lib": "@/lib"
   },
-  "iconLibrary": "lucide"
+  "iconLibrary": "lucide",
+  "registries": {
+    "@acme": "https://acme.com/r/{name}.json"
+  }
 }

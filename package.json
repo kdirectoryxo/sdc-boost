@@ -52,6 +52,7 @@
     "@wxt-dev/module-vue": "^1.0.2",
     "bumpp": "^9.4.0",
     "conventional-changelog-cli": "^4.1.0",
+    "shadcn-vue": "^2.4.3",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.1.17",
     "terser": "^5.44.1",
