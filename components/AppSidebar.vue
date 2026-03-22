@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconInnerShadowTop, IconLogout } from '@tabler/icons-vue';
+import { IconArrowLeft, IconInnerShadowTop, IconLogout } from '@tabler/icons-vue';
 import { ref } from 'vue';
 
 import NavMain from '@/components/NavMain.vue';
@@ -23,6 +23,10 @@ const loggingOut = ref(false);
 
 function goMain() {
   navigateBoostViewRouterPath(VIEW_ROUTER_DEFAULT_PATH);
+}
+
+function goToClassicReact() {
+  window.location.assign('https://www.sdc.com/react/#/newsfeed?type=0');
 }
 
 async function onLogout() {
@@ -60,6 +64,18 @@ async function onLogout() {
     <SidebarFooter class="border-t border-sidebar-border">
       <p class="px-2 pt-1 text-xs text-sidebar-foreground/60">SDC Hub · /sdc…</p>
       <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            type="button"
+            variant="outline"
+            tooltip="Terug naar klassieke SDC"
+            class="border-sidebar-border/80 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            @click="goToClassicReact"
+          >
+            <IconArrowLeft class="size-4" />
+            <span>Back to Classic</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
         <SidebarMenuItem>
           <SidebarMenuButton
             type="button"
