@@ -2,6 +2,7 @@
 import { ref, watch, onMounted, provide } from 'vue';
 import { UI_TELEPORT_TARGET } from '@/lib/ui/teleport-target';
 import ChatDialog from './ChatDialog.vue';
+import ConfirmAlertHost from './ConfirmAlertHost.vue';
 
 const chatTeleportRootRef = ref<HTMLElement | null>(null);
 provide(UI_TELEPORT_TARGET, chatTeleportRootRef);
@@ -102,11 +103,12 @@ defineExpose({
     ref="chatTeleportRootRef"
     style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 999999;"
   >
-    <ChatDialog 
-      :modelValue="dialogOpen" 
+    <ChatDialog
+      :modelValue="dialogOpen"
       @update:modelValue="dialogOpen = $event"
       @close="dialogOpen = false"
     />
+    <ConfirmAlertHost />
   </div>
 </template>
 

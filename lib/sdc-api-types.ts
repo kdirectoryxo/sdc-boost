@@ -464,6 +464,46 @@ export interface CountersResponse {
 }
 
 /**
+ * Feed notifications (`/v1/feed/notifications`) — likes, matches, party review prompts, etc.
+ */
+export interface FeedNotificationUser {
+    db_id: number;
+    account_id: string;
+    gender1: number;
+    gender2: number;
+    profile_type: number;
+    primary_photo: string;
+}
+
+export interface FeedNotificationPost {
+    type: number;
+    title: string;
+    body: string;
+    /** Extra payload (e.g. `{ title: string }` for event review requests). */
+    data: Record<string, unknown> | unknown[] | null;
+}
+
+export interface FeedNotificationItem {
+    id: number;
+    action: number;
+    sender: FeedNotificationUser;
+    receiver: FeedNotificationUser;
+    timed: string;
+    post: FeedNotificationPost;
+}
+
+export interface FeedNotificationsInfo {
+    code: number;
+    notifications: FeedNotificationItem[];
+    /** 1 = more pages available */
+    url_more: number;
+}
+
+export interface FeedNotificationsResponse {
+    info: FeedNotificationsInfo;
+}
+
+/**
  * Messenger Chat Message Types
  */
 export interface MessengerMessage {

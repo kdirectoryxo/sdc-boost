@@ -9,9 +9,9 @@
  * https://docs.plasmo.com/quickstarts/with-tailwindcss
  *
  * Hub palette (blue-gray tones):
- *   #111315  sidebar / input wells
+ *   #0c0e10  sidebar / input wells
  *   #131517  main background
- *   #1a1d21  card / popover
+ *   #1a1d21  card / popover / chat area
  *   #1e2227  secondary / accent / hover
  *   rgba(255,255,255,0.06)  borders
  *   #999999  muted text
@@ -47,7 +47,7 @@
   --chart-4: #a78bfa;
   --chart-5: #f87171;
   --radius: 0.625rem;
-  --sidebar: #111315;
+  --sidebar: #0c0e10;
   --sidebar-foreground: #fafafa;
   --sidebar-primary: #3b82f6;
   --sidebar-primary-foreground: #ffffff;

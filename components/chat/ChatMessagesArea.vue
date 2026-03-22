@@ -1,5 +1,11 @@
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
+import { Bot, MessageSquare, MoreVertical } from 'lucide-vue-next';
+import {
+  ScrollAreaCorner,
+  ScrollAreaRoot,
+  ScrollAreaViewport,
+} from 'reka-ui';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,6 +13,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/lib/view-router/ui/dropdown-menu';
+import { Button } from '@/lib/view-router/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/lib/view-router/ui/avatar';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/lib/view-router/ui/empty';
+import { Spinner } from '@/lib/view-router/ui/spinner';
+import ScrollBar from '@/lib/view-router/ui/scroll-area/ScrollBar.vue';
 import TagBadge from '@/components/ui/TagBadge.vue';
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
 import ChatMessageItem from '@/components/chat/ChatMessageItem.vue';
@@ -50,7 +61,22 @@ const emit = defineEmits<{
   'open-folder-dialog': [chat: MessengerChatItem];
 }>();
 
+/** Underlying scroll viewport element — composables expect HTMLElement (scrollTop, querySelector, …) */
+const viewportRef = ref<InstanceType<typeof ScrollAreaViewport> | null>(null);
 const messagesContainer = ref<HTMLElement | null>(null);
+
+function syncViewportEl(): void {
+  const v = viewportRef.value as unknown as { $el?: HTMLElement } | HTMLElement | null | undefined;
+  if (!v) {
+    messagesContainer.value = null;
+    return;
+  }
+  const el =
+    v instanceof HTMLElement ? v : (v as { $el?: HTMLElement }).$el;
+  messagesContainer.value = el ?? null;
+}
+
+watch(viewportRef, () => nextTick(syncViewportEl), { flush: 'post' });
 const { togglePinChat, toggleMarkUnread, deleteChat } = useChatPin();
 const { removeChatFromFolder } = useChatFolders();
 const openHeaderDropdown = ref<boolean>(false);
@@ -208,46 +234,49 @@ const displayDistance = computed(() => {
 </script>
 
 <template>
-  <div v-if="!selectedChat" class="flex-1 flex items-center justify-center">
-    <div class="text-center text-muted-foreground">
-      <svg
-        width="64"
-        height="64"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.5"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        class="mx-auto mb-4 opacity-50"
-      >
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-      </svg>
-      <p>Select a chat to view messages</p>
-    </div>
+  <div v-if="!selectedChat" class="flex flex-1 items-center justify-center">
+    <Empty class="border-none bg-transparent p-8 md:p-12">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <MessageSquare class="size-6" />
+        </EmptyMedia>
+        <EmptyTitle>Select a chat</EmptyTitle>
+        <EmptyDescription>Choose a conversation to view messages.</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   </div>
   <div v-else class="flex-1 flex flex-col min-w-0 overflow-hidden">
     <!-- Chat Header -->
     <div class="px-4 py-3 border-b border-white/[0.06] shrink-0 min-w-0 relative z-50">
       <div class="flex items-center gap-3 flex-wrap">
         <!-- Profile Info -->
-        <div class="flex items-center gap-3 min-w-0 flex-1 basis-[200px]">
-          <img
+        <div class="flex min-w-0 flex-1 basis-[200px] items-center gap-3">
+          <Avatar
             v-if="!isGroup || (selectedChat.primary_photo && selectedChat.primary_photo !== '/thumbnail/' && selectedChat.primary_photo.trim() !== '')"
-            :src="`https://pictures.sdc.com/photos/${selectedChat.primary_photo}`"
-            :alt="isGroup ? selectedChat.group_name : selectedChat.account_id"
-            @click="isGroup ? emit('open-group-dialog', String(selectedChat.group_id)) : emit('open-profile-dialog', selectedChat.db_id)"
-            class="w-9 h-9 rounded-full object-cover shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+            class="size-9 shrink-0 cursor-pointer transition-opacity hover:opacity-80"
             :title="isGroup ? 'Click to view group' : 'Click to view profile'"
-          />
-          <img
+            @click="isGroup ? emit('open-group-dialog', String(selectedChat.group_id)) : emit('open-profile-dialog', selectedChat.db_id)"
+          >
+            <AvatarImage
+              :src="`https://pictures.sdc.com/photos/${selectedChat.primary_photo}`"
+              :alt="isGroup ? selectedChat.group_name : selectedChat.account_id"
+              class="object-cover"
+            />
+            <AvatarFallback class="text-xs">{{ (isGroup ? (selectedChat.group_name ?? '') : selectedChat.account_id).slice(0, 2) }}</AvatarFallback>
+          </Avatar>
+          <Avatar
             v-else-if="isGroup"
-            src="https://www.sdc.com/react/assets/group.8481d87a.svg"
-            :alt="selectedChat.group_name"
-            @click="emit('open-group-dialog', String(selectedChat.group_id))"
-            class="w-9 h-9 rounded-full object-cover shrink-0 cursor-pointer hover:opacity-80 transition-opacity bg-white/[0.06] p-1.5"
+            class="size-9 shrink-0 cursor-pointer bg-white/[0.06] p-1.5 transition-opacity hover:opacity-80"
             title="Click to view group"
-          />
+            @click="emit('open-group-dialog', String(selectedChat.group_id))"
+          >
+            <AvatarImage
+              src="https://www.sdc.com/react/assets/group.8481d87a.svg"
+              :alt="selectedChat.group_name"
+              class="object-cover"
+            />
+            <AvatarFallback>Gr</AvatarFallback>
+          </Avatar>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 flex-wrap">
               <h3
@@ -295,20 +324,9 @@ const displayDistance = computed(() => {
           <!-- AI & Menu buttons grouped -->
           <div class="flex items-center gap-1 shrink-0">
             <!-- AI Chat Button -->
-            <button
-              @click="handleOpenAIChat"
-              class="p-1.5 rounded hover:bg-secondary transition-colors"
-              title="AI Chat"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
-                <path d="M12 3v3m0 12v3m9-9h-3m-12 0H3m15.364 6.364l-2.121-2.121M6.757 6.757L4.636 4.636m14.728 0l-2.121 2.121M6.757 17.243l-2.121 2.121"></path>
-                <circle cx="12" cy="12" r="1"></circle>
-                <circle cx="19" cy="5" r="1"></circle>
-                <circle cx="5" cy="19" r="1"></circle>
-                <circle cx="19" cy="19" r="1"></circle>
-                <circle cx="5" cy="5" r="1"></circle>
-              </svg>
-            </button>
+            <Button variant="ghost" size="icon-sm" title="AI Chat" @click="handleOpenAIChat">
+              <Bot class="size-4 text-muted-foreground" />
+            </Button>
             
             <!-- Dropdown Menu -->
             <div @click.stop class="relative z-50">
@@ -317,17 +335,9 @@ const displayDistance = computed(() => {
                 @update:open="handleHeaderDropdownToggle"
               >
                 <DropdownMenuTrigger as-child>
-                  <button
-                    type="button"
-                    @click.stop
-                    class="p-1.5 rounded hover:bg-secondary transition-colors shrink-0 outline-none"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
-                      <circle cx="12" cy="12" r="1"></circle>
-                      <circle cx="12" cy="5" r="1"></circle>
-                      <circle cx="12" cy="19" r="1"></circle>
-                    </svg>
-                  </button>
+                  <Button type="button" variant="ghost" size="icon-sm" class="shrink-0" @click.stop>
+                    <MoreVertical class="size-4 text-muted-foreground" />
+                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
@@ -406,12 +416,16 @@ const displayDistance = computed(() => {
     </div>
 
     <!-- Broadcast Content -->
-    <div 
+    <ScrollAreaRoot
       v-if="isBroadcast"
-      ref="messagesContainer"
-      class="flex-1 overflow-y-auto overflow-x-hidden p-6 min-w-0 relative bg-white"
+      class="relative min-h-0 flex-1 min-w-0 bg-white"
     >
-      <div v-if="selectedChat?.body" class="max-w-4xl mx-auto">
+      <ScrollAreaViewport
+        ref="viewportRef"
+        class="size-full max-h-full outline-none"
+      >
+      <div class="relative min-w-0 p-6">
+      <div v-if="selectedChat?.body" class="mx-auto max-w-4xl">
         <!-- Broadcast Subject -->
         <h2 v-if="selectedChat.subject" class="text-2xl font-bold text-gray-900 mb-4">
           {{ selectedChat.subject }}
@@ -423,34 +437,42 @@ const displayDistance = computed(() => {
           v-html="selectedChat.body"
         ></div>
       </div>
-      <div v-else class="flex items-center justify-center h-full">
+      <div v-else class="flex h-full items-center justify-center">
         <div class="text-center text-gray-500">
           <p>No broadcast content available</p>
         </div>
       </div>
-    </div>
+      </div>
+      </ScrollAreaViewport>
+      <ScrollBar />
+      <ScrollAreaCorner />
+    </ScrollAreaRoot>
 
     <!-- Messages Area (for regular chats) -->
-    <div 
+    <ScrollAreaRoot
       v-else
-      ref="messagesContainer"
-      @click="handleContainerClick"
-      class="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4 min-w-0 relative z-0"
+      class="relative z-0 min-h-0 flex-1 min-w-0"
     >
+      <ScrollAreaViewport
+        ref="viewportRef"
+        class="size-full max-h-full outline-none"
+        @click="handleContainerClick"
+      >
+      <div class="relative z-0 min-w-0 space-y-4 p-6">
       <!-- Syncing Notice (sticky centered overlay) -->
       <div 
         v-if="isSyncing" 
         class="sticky top-6 z-10 flex justify-center mb-4"
       >
-        <div class="px-4 py-2 bg-background border border-white/[0.06] rounded-lg shadow-lg flex items-center gap-2">
-          <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <span class="text-white text-sm font-medium">Syncing..</span>
+        <div class="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-background px-4 py-2 shadow-lg">
+          <Spinner class="size-4 text-blue-500" />
+          <span class="text-sm font-medium text-white">Syncing..</span>
         </div>
       </div>
 
       <!-- Loading Indicator -->
       <div v-if="isLoadingMessages && messages.length === 0 && !messageError" class="flex justify-center py-8">
-        <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <Spinner class="size-8 text-blue-500" />
       </div>
 
       <!-- Error Message (e.g., blocked chat) -->
@@ -501,26 +523,30 @@ const displayDistance = computed(() => {
       </div>
 
       <!-- Empty State -->
-      <div v-else class="flex items-center justify-center h-full">
-        <div class="text-center text-muted-foreground">
-          <p v-if="isSearchActive && messages.length > 0">No messages match your search</p>
-          <template v-else>
-            <p>No messages yet</p>
-            <p class="text-sm mt-2">Start the conversation!</p>
-          </template>
-        </div>
+      <div v-else class="flex h-full min-h-[12rem] items-center justify-center">
+        <Empty class="border-none bg-transparent p-6">
+          <EmptyHeader>
+            <EmptyTitle>{{ isSearchActive ? 'No messages match your search' : 'No messages yet' }}</EmptyTitle>
+            <EmptyDescription>
+              {{ isSearchActive ? 'Try a different search term.' : 'Start the conversation!' }}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       </div>
 
       <!-- Typing Indicator -->
       <div 
         v-if="selectedChat && typingStates.get(String(selectedChat.group_id))" 
-        class="flex gap-3 min-w-0"
+        class="flex min-w-0 gap-3"
       >
-        <img
-          :src="`https://pictures.sdc.com/photos/${selectedChat.primary_photo}`"
-          :alt="selectedChat.account_id"
-          class="w-8 h-8 rounded-full object-cover shrink-0"
-        />
+        <Avatar class="size-8 shrink-0">
+          <AvatarImage
+            :src="`https://pictures.sdc.com/photos/${selectedChat.primary_photo}`"
+            :alt="selectedChat.account_id"
+            class="object-cover"
+          />
+          <AvatarFallback class="text-xs">{{ selectedChat.account_id.slice(0, 2) }}</AvatarFallback>
+        </Avatar>
         <div class="flex flex-col gap-1 min-w-0 max-w-[70%] items-start">
           <div class="px-4 py-2 rounded-lg bg-secondary text-white">
             <div class="flex gap-1">
@@ -531,7 +557,11 @@ const displayDistance = computed(() => {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+      </ScrollAreaViewport>
+      <ScrollBar />
+      <ScrollAreaCorner />
+    </ScrollAreaRoot>
 
     <!-- Message Input (only show for non-broadcast chats) -->
     <div v-if="!isBroadcast">

@@ -95,11 +95,11 @@ function handleClearSort(e: Event) {
 </script>
 
 <template>
-  <div class="w-[35%] border-r border-white/[0.06] flex flex-col bg-sidebar">
+  <div class="w-[35%] border-r border-white/[0.06] flex flex-col bg-background">
     <!-- Search Bar and Filter -->
     <div class="p-3 border-b border-white/[0.06] shrink-0 relative z-10">
       <div class="flex items-center gap-2 flex-wrap">
-        <div class="relative flex items-center gap-1 bg-background border border-white/[0.06] rounded-lg px-3 py-1.5 focus-within:border-blue-500 transition-colors min-w-0 flex-1 basis-[120px]">
+        <div class="relative flex items-center gap-1 bg-sidebar border border-white/[0.06] rounded-lg px-3 py-1.5 focus-within:border-blue-500 transition-colors min-w-0 flex-1 basis-[120px]">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white/40 shrink-0">
             <circle cx="11" cy="11" r="8"></circle>
             <path d="m21 21-4.35-4.35"></path>
@@ -569,7 +569,7 @@ function handleClearSort(e: Event) {
     </div>
 
     <!-- Tag Filters -->
-    <div v-if="dbIsReady && allTags.length > 0" class="px-4 py-2 border-b border-white/[0.06] bg-sidebar overflow-x-auto shrink-0">
+    <div v-if="dbIsReady && allTags.length > 0" class="px-4 py-2 border-b border-white/[0.06] bg-background overflow-x-auto shrink-0">
       <div class="flex gap-2">
         <button
           v-for="tag in allTags"

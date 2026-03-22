@@ -1,6 +1,10 @@
 <script lang="ts" setup>
 /** Modal shell around `ProfileView`. Prefer `/sdc/profile/:userId` in the view router when possible. */
+import { computed } from 'vue';
 import ProfileView from '@/components/profile-view/ProfileView.vue';
+import { Dialog, DialogContent } from '@/lib/view-router/ui/dialog';
+import { cn } from '@/lib/utils';
+import { CHAT_NESTED_DIALOG_CONTENT_CLASS, chatProfileDialogZIndex } from '@/lib/chat-ui/nested-dialog-classes';
 
 interface Props {
   visible: boolean;
@@ -9,7 +13,7 @@ interface Props {
   dialogId?: string;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   stackLevel: 0,
   dialogId: '',
 });
@@ -19,42 +23,48 @@ const emit = defineEmits<{
   'open-profile': [userId: number];
 }>();
 
+const zIndex = computed(() => chatProfileDialogZIndex(props.stackLevel));
+
 function handleBackdropClose() {
   emit('close');
+}
+
+function onOpenChange(open: boolean) {
+  if (!open) {
+    handleBackdropClose();
+  }
 }
 </script>
 
 <template>
-  <div
-    v-if="visible"
-    class="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
-    :style="{
-      pointerEvents: 'auto',
-      zIndex: 10000011 + stackLevel * 10,
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      width: '100vw',
-      height: '100vh',
-      background: stackLevel > 0 ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
-      backdropFilter: 'blur(4px)',
-      WebkitBackdropFilter: 'blur(4px)',
-    }"
-    @click.self="handleBackdropClose"
-  >
-    <div class="flex h-[90vh] w-[80vw] max-w-6xl flex-col overflow-hidden" @click.stop>
-      <ProfileView
-        v-if="userId"
-        :user-id="userId"
-        :active="visible"
-        variant="dialog"
-        :stack-level="stackLevel"
-        :dialog-id="dialogId"
-        @close="emit('close')"
-        @open-profile="emit('open-profile', $event)"
-      />
-    </div>
-  </div>
+  <Dialog :open="visible" @update:open="onOpenChange">
+    <DialogContent
+      :show-close-button="false"
+      overlay-class="bg-black/80 backdrop-blur-sm"
+      :overlay-style="{ zIndex: zIndex }"
+      :style="{ zIndex: zIndex }"
+      :class="
+        cn(
+          CHAT_NESTED_DIALOG_CONTENT_CLASS,
+          '!flex !h-[90vh] !w-[80vw] !max-w-6xl flex-col overflow-hidden border-0 bg-transparent p-0 shadow-none',
+        )
+      "
+    >
+      <div
+        class="flex h-full w-full flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-background shadow-2xl"
+        @click.stop
+      >
+        <ProfileView
+          v-if="userId"
+          :user-id="userId"
+          :active="visible"
+          variant="dialog"
+          :stack-level="stackLevel"
+          :dialog-id="dialogId"
+          @close="emit('close')"
+          @open-profile="emit('open-profile', $event)"
+        />
+      </div>
+    </DialogContent>
+  </Dialog>
 </template>

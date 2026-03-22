@@ -5,6 +5,17 @@ import { ref } from 'vue';
 import NavMain from '@/components/NavMain.vue';
 import { logoutSdcSession, navigateToSdcHome } from '@/lib/sdc-api/logout';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/lib/view-router/ui/alert-dialog';
+import { buttonVariants } from '@/lib/view-router/ui/button';
+import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -20,6 +31,7 @@ defineProps<{
 }>();
 
 const loggingOut = ref(false);
+const logoutConfirmOpen = ref(false);
 
 function goMain() {
   navigateBoostViewRouterPath(VIEW_ROUTER_DEFAULT_PATH);
@@ -84,7 +96,7 @@ async function onLogout() {
             :disabled="loggingOut"
             :aria-busy="loggingOut"
             class="border-sidebar-border/80 text-muted-foreground transition-colors hover:border-destructive/35 hover:bg-destructive/10 hover:text-destructive"
-            @click="onLogout"
+            @click="logoutConfirmOpen = true"
           >
             <IconLogout class="size-4" />
             <span>{{ loggingOut ? 'Bezig met uitloggen…' : 'Uitloggen' }}</span>
@@ -92,5 +104,26 @@ async function onLogout() {
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarFooter>
+
+    <AlertDialog v-model:open="logoutConfirmOpen">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Uitloggen?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Weet je zeker dat je wilt uitloggen? Je sessie op SDC wordt beëindigd.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel type="button">Annuleren</AlertDialogCancel>
+          <AlertDialogAction
+            type="button"
+            :class="buttonVariants({ variant: 'destructive' })"
+            @click="onLogout"
+          >
+            Uitloggen
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </Sidebar>
 </template>

@@ -1,8 +1,24 @@
 <script lang="ts" setup>
 import { ref, watch, onMounted } from 'vue';
+import { X } from 'lucide-vue-next';
 import type { GalleryPhoto } from '@/lib/sdc-api-types';
 import { getGalleryPhotos } from '@/lib/sdc-api';
 import { getGalleryPassword, setGalleryPassword, clearGalleryPassword } from '@/lib/storage';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/lib/view-router/ui/dialog';
+import { Button } from '@/lib/view-router/ui/button';
+import { Input } from '@/lib/view-router/ui/input';
+import { ScrollArea } from '@/lib/view-router/ui/scroll-area';
+import { Spinner } from '@/lib/view-router/ui/spinner';
+import { cn } from '@/lib/utils';
+import {
+  CHAT_NESTED_DIALOG_OVERLAY_CLASS,
+  CHAT_NESTED_DIALOG_CONTENT_CLASS,
+} from '@/lib/chat-ui/nested-dialog-classes';
 
 interface Props {
   visible: boolean;
@@ -131,6 +147,12 @@ function handleClose() {
   emit('close');
 }
 
+function onOpenChange(open: boolean) {
+  if (!open) {
+    handleClose();
+  }
+}
+
 function handleImageClick(index: number) {
   const photo = photos.value[index];
   
@@ -207,81 +229,59 @@ onMounted(() => {
 </script>
 
 <template>
-  <div
-    v-if="visible"
-    class="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
-    style="pointer-events: auto; z-index: 10000000; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"
-    @click.self="handleClose"
-  >
-    <div
-      class="w-[90vw] h-[90vh] bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden"
-      @click.stop
+  <Dialog :open="visible" @update:open="onOpenChange">
+    <DialogContent
+      :show-close-button="false"
+      :overlay-class="CHAT_NESTED_DIALOG_OVERLAY_CLASS"
+      :class="
+        cn(
+          CHAT_NESTED_DIALOG_CONTENT_CLASS,
+          '!flex min-h-0 !h-[90vh] !w-[90vw] !max-w-[90vw] flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-background p-0 shadow-2xl',
+        )
+      "
     >
-      <!-- Header -->
-      <div class="px-6 py-4 border-b border-white/[0.06] shrink-0 flex items-center justify-between">
-        <h2 class="text-white text-lg font-semibold">{{ galleryName }}</h2>
-        <button
-          @click="handleClose"
-          class="p-2 hover:bg-secondary rounded transition-colors"
-          title="Close"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
+      <DialogHeader class="flex shrink-0 flex-row items-center justify-between space-y-0 border-b border-white/[0.06] px-6 py-4 text-left">
+        <DialogTitle class="text-lg font-semibold text-white">{{ galleryName }}</DialogTitle>
+        <Button variant="ghost" size="icon" title="Close" @click="handleClose">
+          <X class="size-5 text-muted-foreground" />
+        </Button>
+      </DialogHeader>
 
-      <!-- Content -->
-      <div class="flex-1 overflow-y-auto p-6">
+      <ScrollArea class="min-h-0 flex-1">
+        <div class="p-6">
         <!-- Password Input State -->
-        <div v-if="showPasswordInput" class="flex flex-col items-center justify-center h-full gap-4">
-          <h3 class="text-white text-lg font-semibold">This gallery is password protected</h3>
-          <div class="flex flex-col items-center gap-3 w-full max-w-sm">
-            <input
+        <div v-if="showPasswordInput" class="flex min-h-[50vh] flex-col items-center justify-center gap-4">
+          <h3 class="text-lg font-semibold text-white">This gallery is password protected</h3>
+          <div class="flex w-full max-w-sm flex-col items-center gap-3">
+            <Input
               v-model="password"
-              @keydown="handlePasswordKeydown"
               type="password"
               placeholder="Enter password"
-              class="w-full px-4 py-2 bg-sidebar border border-white/[0.06] rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500 transition-colors text-center"
+              class="border-white/[0.06] bg-sidebar text-center text-white placeholder:text-white/40"
               autofocus
+              @keydown="handlePasswordKeydown"
             />
-            <p v-if="passwordError" class="text-red-500 text-sm">{{ passwordError }}</p>
-            <div class="flex gap-3 w-full">
-              <button
-                @click="handlePasswordSubmit"
-                class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-              >
-                Submit
-              </button>
-              <button
-                @click="handleClose"
-                class="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-white/[0.08] transition-colors"
-              >
-                Cancel
-              </button>
+            <p v-if="passwordError" class="text-sm text-red-500">{{ passwordError }}</p>
+            <div class="flex w-full gap-3">
+              <Button class="flex-1" @click="handlePasswordSubmit">Submit</Button>
+              <Button variant="secondary" class="flex-1" @click="handleClose">Cancel</Button>
             </div>
           </div>
         </div>
 
         <!-- Loading State -->
-        <div v-else-if="isLoading" class="flex items-center justify-center h-full">
+        <div v-else-if="isLoading" class="flex min-h-[50vh] items-center justify-center">
           <div class="flex flex-col items-center gap-4">
-            <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <Spinner class="!size-12 text-blue-500" />
             <div class="text-muted-foreground">Loading gallery...</div>
           </div>
         </div>
 
         <!-- Error State -->
-        <div v-else-if="error" class="flex items-center justify-center h-full">
+        <div v-else-if="error" class="flex min-h-[50vh] items-center justify-center">
           <div class="text-center">
-            <div class="text-red-500 text-lg font-semibold mb-2">{{ error }}</div>
-            <button
-              @click="fetchPhotos(undefined, true)"
-              class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Retry
-            </button>
+            <div class="mb-2 text-lg font-semibold text-red-500">{{ error }}</div>
+            <Button @click="fetchPhotos(undefined, true)">Retry</Button>
           </div>
         </div>
 
@@ -360,13 +360,14 @@ onMounted(() => {
         </div>
 
         <!-- Empty State -->
-        <div v-else class="flex items-center justify-center h-full">
+        <div v-else class="flex min-h-[40vh] items-center justify-center">
           <div class="text-center text-muted-foreground">
             <p>No photos in this gallery</p>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
+        </div>
+      </ScrollArea>
+    </DialogContent>
+  </Dialog>
 </template>
 

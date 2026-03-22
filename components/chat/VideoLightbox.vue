@@ -2,6 +2,15 @@
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import Hls from 'hls.js';
 import type { GalleryPhoto } from '@/lib/sdc-api-types';
+import {
+  Dialog,
+  DialogContent,
+} from '@/lib/view-router/ui/dialog';
+import { cn } from '@/lib/utils';
+import {
+  CHAT_NESTED_DIALOG_OVERLAY_CLASS,
+  CHAT_NESTED_DIALOG_CONTENT_CLASS,
+} from '@/lib/chat-ui/nested-dialog-classes';
 
 interface Props {
   visible: boolean;
@@ -280,6 +289,12 @@ function handleFullscreenChange() {
   );
 }
 
+function onOpenChange(open: boolean) {
+  if (!open) {
+    handleClose();
+  }
+}
+
 function handleClose() {
   emit('close');
 }
@@ -447,13 +462,18 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div
-    v-if="visible && videos.length > 0"
-    class="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
-    style="pointer-events: auto; z-index: 10000002; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.95); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"
-    @click.self="handleClose"
-  >
-    <div class="relative w-full h-full flex flex-col" @click.stop>
+  <Dialog :open="visible && videos.length > 0" @update:open="onOpenChange">
+    <DialogContent
+      :show-close-button="false"
+      :overlay-class="cn(CHAT_NESTED_DIALOG_OVERLAY_CLASS, '!z-[10000020] bg-black/95')"
+      :class="
+        cn(
+          CHAT_NESTED_DIALOG_CONTENT_CLASS,
+          '!z-[10000020] !flex !h-screen !max-h-screen !w-screen !max-w-none !translate-x-0 !translate-y-0 flex-col gap-0 border-0 p-0 !top-0 !left-0 rounded-none',
+        )
+      "
+    >
+    <div class="relative flex h-full w-full flex-col" @click.stop>
       <!-- Close Button -->
       <button
         @click="handleClose"
@@ -669,7 +689,8 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-  </div>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <style scoped>

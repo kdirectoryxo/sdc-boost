@@ -9,6 +9,28 @@ export interface ConfirmOptions {
     content?: string; // Optional HTML content to display
 }
 
+/** Stack of Vue confirm handlers (multiple app roots can each mount {@link ConfirmAlertHost}). */
+const vueConfirmHandlers: Array<(message: string, options?: ConfirmOptions) => Promise<boolean>> = [];
+
+function activeVueConfirmHandler(): ((message: string, options?: ConfirmOptions) => Promise<boolean>) | null {
+    return vueConfirmHandlers.length ? vueConfirmHandlers[vueConfirmHandlers.length - 1]! : null;
+}
+
+/**
+ * Register a Vue-based confirm; returns unregister. Latest registration wins while mounted.
+ */
+export function pushVueConfirmHandler(
+    handler: (message: string, options?: ConfirmOptions) => Promise<boolean>,
+): () => void {
+    vueConfirmHandlers.push(handler);
+    return () => {
+        const i = vueConfirmHandlers.indexOf(handler);
+        if (i >= 0) {
+            vueConfirmHandlers.splice(i, 1);
+        }
+    };
+}
+
 class Confirm {
     private overlay: HTMLElement | null = null;
     private dialog: HTMLElement | null = null;
@@ -25,6 +47,10 @@ class Confirm {
      * Show confirm dialog (Promise-based)
      */
     confirm(message: string, options?: ConfirmOptions): Promise<boolean> {
+        const vue = activeVueConfirmHandler();
+        if (vue) {
+            return vue(message, options);
+        }
         return new Promise<boolean>((resolve) => {
             this.resolveCallback = resolve;
             this.show(message, options);

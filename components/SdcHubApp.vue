@@ -10,6 +10,7 @@ import {
 import { viewRouterLog } from '@/lib/view-router/logger';
 import { UI_TELEPORT_TARGET } from '@/lib/ui/teleport-target';
 import SdcHubLayout from '@/components/SdcHubLayout.vue';
+import ConfirmAlertHost from '@/components/ConfirmAlertHost.vue';
 
 const path = ref(getBoostViewPathFromLocation());
 
@@ -82,5 +83,6 @@ onUnmounted(() => {
       class="pointer-events-none fixed inset-0 z-[999999] overflow-visible"
       aria-hidden="true"
     />
+    <ConfirmAlertHost />
   </div>
 </template>

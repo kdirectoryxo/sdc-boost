@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { IconBell, IconMessage } from '@tabler/icons-vue';
+import { IconMessage } from '@tabler/icons-vue';
 
+import HubNotificationsMenu from '@/components/HubNotificationsMenu.vue';
 import SdcHubBreadcrumb from '@/components/SdcHubBreadcrumb.vue';
 import { useHubCounters } from '@/lib/composables/useHubCounters';
 import { Button } from '@/lib/view-router/ui/button';
@@ -17,7 +18,7 @@ defineProps<{
   profileTitle?: string | null;
 }>();
 
-const { messenger } = useHubCounters();
+const { messenger, feedCounter } = useHubCounters();
 
 const messengerBadgeLabel = computed(() => {
   const n = messenger.value;
@@ -60,15 +61,7 @@ function onChatNavClick(event: MouseEvent) {
             {{ messengerBadgeLabel }}
           </span>
         </a>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          class="text-white/70 hover:bg-white/10 hover:text-white"
-          aria-label="Notifications"
-        >
-          <IconBell class="size-5" />
-        </Button>
+        <HubNotificationsMenu :feed-counter="feedCounter" />
       </div>
     </div>
   </header>

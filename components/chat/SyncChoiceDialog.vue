@@ -1,5 +1,18 @@
 <script lang="ts" setup>
-import { watch, onUnmounted } from 'vue';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/lib/view-router/ui/dialog';
+import { Button } from '@/lib/view-router/ui/button';
+import { cn } from '@/lib/utils';
+import {
+  CHAT_NESTED_DIALOG_OVERLAY_CLASS,
+  CHAT_NESTED_DIALOG_CONTENT_CLASS,
+} from '@/lib/chat-ui/nested-dialog-classes';
 
 interface Props {
   modelValue: boolean;
@@ -12,10 +25,14 @@ const emit = defineEmits<{
   'select': [choice: 'sync-unsynced' | 'resync-all' | 'resync-newest' | 'sync-profiles' | 'sync-profiles-reset'];
 }>();
 
-let escapeHandler: ((e: KeyboardEvent) => void) | null = null;
-
 function handleClose() {
   emit('update:modelValue', false);
+}
+
+function onOpenChange(open: boolean) {
+  if (!open) {
+    handleClose();
+  }
 }
 
 function handleSelect(choice: 'sync-unsynced' | 'resync-all' | 'resync-newest' | 'sync-profiles' | 'sync-profiles-reset') {
@@ -27,93 +44,70 @@ function handleSyncProfiles(event: MouseEvent) {
   const reset = event.shiftKey;
   handleSelect(reset ? 'sync-profiles-reset' : 'sync-profiles');
 }
-
-// Close on Escape key
-watch(() => props.modelValue, (isOpen) => {
-  if (isOpen) {
-    escapeHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        handleClose();
-      }
-    };
-    document.addEventListener('keydown', escapeHandler);
-  } else {
-    if (escapeHandler) {
-      document.removeEventListener('keydown', escapeHandler);
-      escapeHandler = null;
-    }
-  }
-});
-
-onUnmounted(() => {
-  if (escapeHandler) {
-    document.removeEventListener('keydown', escapeHandler);
-  }
-});
 </script>
 
 <template>
-  <div
-    v-if="modelValue"
-    class="fixed inset-0 flex items-center justify-center backdrop-blur-sm z-[1000000]"
-    style="pointer-events: auto; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"
-    @click.self="handleClose"
-  >
-    <div
-      class="bg-background border border-white/[0.06] rounded-lg shadow-2xl min-w-[400px] max-w-[500px] overflow-hidden"
-      @click.stop
+  <Dialog :open="props.modelValue" @update:open="onOpenChange">
+    <DialogContent
+      :show-close-button="false"
+      :overlay-class="CHAT_NESTED_DIALOG_OVERLAY_CLASS"
+      :class="
+        cn(
+          CHAT_NESTED_DIALOG_CONTENT_CLASS,
+          '!max-w-[500px] !min-w-[min(400px,90vw)] flex flex-col overflow-hidden rounded-lg bg-background',
+        )
+      "
     >
-      <!-- Header -->
-      <div class="px-6 py-4 border-b border-white/[0.06]">
-        <h3 class="text-lg font-semibold text-white">Sync All Chat</h3>
-        <p class="text-sm text-muted-foreground mt-1">Choose how you want to sync chats</p>
-      </div>
+      <DialogHeader class="border-b border-white/[0.06] px-6 py-4 text-left">
+        <DialogTitle class="text-lg font-semibold text-white">Sync All Chat</DialogTitle>
+        <DialogDescription class="mt-1 text-sm text-muted-foreground">
+          Choose how you want to sync chats
+        </DialogDescription>
+      </DialogHeader>
 
-      <!-- Options -->
-      <div class="p-4 space-y-2">
+      <div class="space-y-2 p-4">
         <button
+          type="button"
+          class="group w-full cursor-pointer rounded-lg border border-white/[0.06] bg-sidebar px-4 py-3 text-left transition-all duration-150 hover:bg-secondary active:scale-[0.98] active:bg-white/[0.08]"
           @click="handleSelect('sync-unsynced')"
-          class="w-full px-4 py-3 text-left bg-sidebar hover:bg-secondary active:bg-white/[0.08] active:scale-[0.98] border border-white/[0.06] rounded-lg transition-all duration-150 group cursor-pointer"
         >
-          <div class="font-medium text-white mb-1">Sync unsynced</div>
+          <div class="mb-1 font-medium text-white">Sync unsynced</div>
           <div class="text-sm text-muted-foreground">Sync all chats that have no sync date</div>
         </button>
 
         <button
+          type="button"
+          class="group w-full cursor-pointer rounded-lg border border-white/[0.06] bg-sidebar px-4 py-3 text-left transition-all duration-150 hover:bg-secondary active:scale-[0.98] active:bg-white/[0.08]"
           @click="handleSelect('resync-all')"
-          class="w-full px-4 py-3 text-left bg-sidebar hover:bg-secondary active:bg-white/[0.08] active:scale-[0.98] border border-white/[0.06] rounded-lg transition-all duration-150 group cursor-pointer"
         >
-          <div class="font-medium text-white mb-1">Resync all</div>
+          <div class="mb-1 font-medium text-white">Resync all</div>
           <div class="text-sm text-muted-foreground">Force resync all chats (all pages)</div>
         </button>
 
         <button
+          type="button"
+          class="group w-full cursor-pointer rounded-lg border border-white/[0.06] bg-sidebar px-4 py-3 text-left transition-all duration-150 hover:bg-secondary active:scale-[0.98] active:bg-white/[0.08]"
           @click="handleSelect('resync-newest')"
-          class="w-full px-4 py-3 text-left bg-sidebar hover:bg-secondary active:bg-white/[0.08] active:scale-[0.98] border border-white/[0.06] rounded-lg transition-all duration-150 group cursor-pointer"
         >
-          <div class="font-medium text-white mb-1">Resync newest</div>
+          <div class="mb-1 font-medium text-white">Resync newest</div>
           <div class="text-sm text-muted-foreground">Force resync first page of all chats</div>
         </button>
 
         <button
+          type="button"
+          class="group w-full cursor-pointer rounded-lg border border-white/[0.06] bg-sidebar px-4 py-3 text-left transition-all duration-150 hover:bg-secondary active:scale-[0.98] active:bg-white/[0.08]"
           @click="handleSyncProfiles"
-          class="w-full px-4 py-3 text-left bg-sidebar hover:bg-secondary active:bg-white/[0.08] active:scale-[0.98] border border-white/[0.06] rounded-lg transition-all duration-150 group cursor-pointer"
         >
-          <div class="font-medium text-white mb-1">Sync Profile Data</div>
-          <div class="text-sm text-muted-foreground">Sync profile data for chats (hold Shift to reset and resync all)</div>
+          <div class="mb-1 font-medium text-white">Sync Profile Data</div>
+          <div class="text-sm text-muted-foreground">
+            Sync profile data for chats (hold Shift to reset and resync all)
+          </div>
         </button>
       </div>
 
-      <!-- Footer -->
-      <div class="px-6 py-4 border-t border-white/[0.06] flex justify-end">
-        <button
-          @click="handleClose"
-          class="px-4 py-2 text-sm text-muted-foreground hover:text-white active:text-white/80 transition-colors cursor-pointer"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  </div>
+      <DialogFooter class="border-t border-white/[0.06] px-6 py-4 sm:justify-end">
+        <Button variant="ghost" @click="handleClose">Cancel</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
-

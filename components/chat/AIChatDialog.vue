@@ -7,6 +7,15 @@ import { messageStorage } from '@/lib/message-storage';
 import { getMessengerGroupInfo, getMessengerGroupChatDetails } from '@/lib/sdc-api/messenger';
 import { marked } from 'marked';
 import { parseImageMessage, parseVideoMessage, parseGalleryMessage, highlightText } from '@/lib/composables/chat/utils';
+import {
+  Dialog,
+  DialogContent,
+} from '@/lib/view-router/ui/dialog';
+import { cn } from '@/lib/utils';
+import {
+  CHAT_NESTED_DIALOG_OVERLAY_CLASS,
+  CHAT_NESTED_DIALOG_CONTENT_CLASS,
+} from '@/lib/chat-ui/nested-dialog-classes';
 
 interface Props {
   visible: boolean;
@@ -363,6 +372,12 @@ function handleKeydown(event: KeyboardEvent) {
   }
 }
 
+function onOpenChange(open: boolean) {
+  if (!open) {
+    handleClose();
+  }
+}
+
 function handleClose() {
   emit('close');
 }
@@ -529,28 +544,16 @@ onMounted(() => {
 </script>
 
 <template>
-  <div
-    v-if="visible"
-    class="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
-    :style="{
-      pointerEvents: 'auto',
-      zIndex: 10000001,
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      width: '100vw',
-      height: '100vh',
-      background: 'rgba(0, 0, 0, 0.7)',
-      backdropFilter: 'blur(4px)',
-      WebkitBackdropFilter: 'blur(4px)',
-    }"
-    @click.self="handleClose"
-  >
-    <div
-      class="w-[80vw] max-w-6xl h-[90vh] bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden border border-white/[0.06]"
-      @click.stop
+  <Dialog :open="visible" @update:open="onOpenChange">
+    <DialogContent
+      :show-close-button="false"
+      :overlay-class="CHAT_NESTED_DIALOG_OVERLAY_CLASS"
+      :class="
+        cn(
+          CHAT_NESTED_DIALOG_CONTENT_CLASS,
+          '!flex min-h-0 !h-[90vh] !w-[80vw] !max-w-6xl flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-background p-0 shadow-2xl',
+        )
+      "
     >
       <!-- Header -->
       <div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] shrink-0">
@@ -835,8 +838,8 @@ onMounted(() => {
           Press Enter to send, Shift+Enter for new line
         </p>
       </div>
-    </div>
-  </div>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <style scoped>

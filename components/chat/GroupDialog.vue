@@ -1,7 +1,22 @@
 <script lang="ts" setup>
-import { ref, computed, watch } from 'vue';
+import { ref, watch } from 'vue';
+import { X } from 'lucide-vue-next';
 import type { MessengerGroupUser, MessengerGroupAdmin } from '@/lib/sdc-api-types';
 import { getMessengerGroupInfo, getMessengerGroupChatDetails } from '@/lib/sdc-api/messenger';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/lib/view-router/ui/dialog';
+import { Button } from '@/lib/view-router/ui/button';
+import { ScrollArea } from '@/lib/view-router/ui/scroll-area';
+import { Spinner } from '@/lib/view-router/ui/spinner';
+import { cn } from '@/lib/utils';
+import {
+  CHAT_NESTED_DIALOG_OVERLAY_CLASS,
+  CHAT_NESTED_DIALOG_CONTENT_CLASS,
+} from '@/lib/chat-ui/nested-dialog-classes';
 
 interface Props {
   visible: boolean;
@@ -95,62 +110,52 @@ function handleClose() {
   emit('close');
 }
 
+function onOpenChange(open: boolean) {
+  if (!open) {
+    handleClose();
+  }
+}
+
 function handleOpenProfile(userId: number) {
   emit('open-profile', userId);
 }
 </script>
 
 <template>
-  <div
-    v-if="visible"
-    class="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
-    :style="{
-      pointerEvents: 'auto',
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      width: '100vw',
-      height: '100vh',
-      background: stackLevel > 0 ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.7)',
-      backdropFilter: 'blur(4px)',
-      WebkitBackdropFilter: 'blur(4px)',
-      zIndex: 10000001 + (stackLevel * 10),
-    }"
-    @click.self="handleClose"
-  >
-        <div
-          class="w-[80vw] max-w-6xl h-[90vh] bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden border border-white/[0.06]"
-          :style="{
-            transform: stackLevel > 0 ? `scale(${1 - stackLevel * 0.05})` : 'scale(1)',
-            transition: 'transform 0.2s ease',
-          }"
-          @click.stop
-        >
-          <!-- Header -->
-          <div class="px-6 py-4 border-b border-white/[0.06] shrink-0 flex items-center justify-between">
-            <h2 class="text-xl font-semibold text-white">Group Info</h2>
-            <button
-              @click="handleClose"
-              class="p-2 hover:bg-secondary rounded transition-colors"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
+  <Dialog :open="visible" @update:open="onOpenChange">
+    <DialogContent
+      :show-close-button="false"
+      :overlay-class="CHAT_NESTED_DIALOG_OVERLAY_CLASS"
+      :class="
+        cn(
+          CHAT_NESTED_DIALOG_CONTENT_CLASS,
+          '!flex min-h-0 !h-[90vh] !w-[80vw] !max-w-6xl flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-background p-0 shadow-2xl',
+        )
+      "
+    >
+      <div
+        class="flex min-h-0 flex-1 flex-col overflow-hidden"
+        :style="{
+          transform: stackLevel > 0 ? `scale(${1 - stackLevel * 0.05})` : 'scale(1)',
+          transition: 'transform 0.2s ease',
+        }"
+      >
+        <DialogHeader class="flex shrink-0 flex-row items-center justify-between space-y-0 border-b border-white/[0.06] px-6 py-4 text-left">
+          <DialogTitle class="text-xl font-semibold text-white">Group Info</DialogTitle>
+          <Button variant="ghost" size="icon" @click="handleClose">
+            <X class="size-5 text-muted-foreground" />
+          </Button>
+        </DialogHeader>
 
-          <!-- Content -->
-          <div class="flex-1 overflow-y-auto p-6">
-            <div v-if="isLoading" class="flex items-center justify-center h-full">
-              <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <ScrollArea class="min-h-0 flex-1">
+          <div class="p-6">
+            <div v-if="isLoading" class="flex min-h-[200px] items-center justify-center">
+              <Spinner class="!size-12 text-blue-500" />
             </div>
 
-            <div v-else-if="error" class="flex items-center justify-center h-full">
-              <div class="text-red-500 text-center">
-                <p class="text-lg font-semibold mb-2">Error</p>
+            <div v-else-if="error" class="flex min-h-[200px] items-center justify-center text-center text-red-500">
+              <div>
+                <p class="mb-2 text-lg font-semibold">Error</p>
                 <p>{{ error }}</p>
               </div>
             </div>
@@ -225,7 +230,9 @@ function handleOpenProfile(userId: number) {
               </div>
             </div>
           </div>
-        </div>
+        </ScrollArea>
       </div>
+    </DialogContent>
+  </Dialog>
 </template>
 

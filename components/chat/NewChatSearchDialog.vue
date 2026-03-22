@@ -1,8 +1,26 @@
 <script lang="ts" setup>
-import { ref, watch, computed } from 'vue';
-import { searchGlobalV2, startChat } from '@/lib/sdc-api';
+import { ref, watch } from 'vue';
+import { Search, X, ChevronRight } from 'lucide-vue-next';
+import { searchGlobalV2 } from '@/lib/sdc-api';
 import type { SearchGlobalV2Result } from '@/lib/sdc-api-types';
 import { useDebounceFn } from '@vueuse/core';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/lib/view-router/ui/dialog';
+import { Button } from '@/lib/view-router/ui/button';
+import { Input } from '@/lib/view-router/ui/input';
+import { ScrollArea } from '@/lib/view-router/ui/scroll-area';
+import { Spinner } from '@/lib/view-router/ui/spinner';
+import { Avatar, AvatarImage, AvatarFallback } from '@/lib/view-router/ui/avatar';
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/lib/view-router/ui/empty';
+import { cn } from '@/lib/utils';
+import {
+  CHAT_NESTED_DIALOG_OVERLAY_CLASS,
+  CHAT_NESTED_DIALOG_CONTENT_CLASS,
+} from '@/lib/chat-ui/nested-dialog-classes';
 
 interface Props {
   visible: boolean;
@@ -21,7 +39,6 @@ const isSearching = ref(false);
 const isStartingChat = ref(false);
 const error = ref<string | null>(null);
 
-// Debounce search to avoid excessive API calls
 const performSearch = useDebounceFn(async (query: string) => {
   if (!query.trim()) {
     searchResults.value = [];
@@ -33,19 +50,15 @@ const performSearch = useDebounceFn(async (query: string) => {
 
   try {
     const response = await searchGlobalV2(query.trim(), 'PN', 0);
-    
-    // Results are in info.list (new format) or info.data.PN.results (old format)
+
     let results: SearchGlobalV2Result[] = [];
-    
+
     if (response.info.list && Array.isArray(response.info.list)) {
-      // New format: results directly in list
       results = response.info.list;
     } else if (response.info.data?.PN?.results) {
-      // Old format: results in data.PN.results
       results = response.info.data.PN.results;
     }
-    
-    // Return all results (no limit)
+
     searchResults.value = results;
   } catch (err) {
     console.error('[NewChatSearchDialog] Search failed:', err);
@@ -56,14 +69,11 @@ const performSearch = useDebounceFn(async (query: string) => {
   }
 }, 300);
 
-// Watch search query and perform search
 watch(searchQuery, (newQuery) => {
   if (newQuery.trim()) {
-    // Set loading state immediately when user types
     isSearching.value = true;
     error.value = null;
   } else {
-    // Clear results immediately when query is empty
     searchResults.value = [];
     isSearching.value = false;
     error.value = null;
@@ -71,18 +81,26 @@ watch(searchQuery, (newQuery) => {
   performSearch(newQuery);
 });
 
-// Reset when dialog closes
-watch(() => props.visible, (newValue) => {
-  console.log('[NewChatSearchDialog] visible prop changed to:', newValue);
-  if (!newValue) {
-    searchQuery.value = '';
-    searchResults.value = [];
-    error.value = null;
-  }
-}, { immediate: true });
+watch(
+  () => props.visible,
+  (newValue) => {
+    if (!newValue) {
+      searchQuery.value = '';
+      searchResults.value = [];
+      error.value = null;
+    }
+  },
+  { immediate: true },
+);
 
 function handleClose() {
   emit('close');
+}
+
+function onOpenChange(open: boolean) {
+  if (!open) {
+    handleClose();
+  }
 }
 
 async function handleSelectUser(user: SearchGlobalV2Result) {
@@ -90,7 +108,6 @@ async function handleSelectUser(user: SearchGlobalV2Result) {
   error.value = null;
 
   try {
-    // Emit event to parent to handle chat creation
     emit('start-chat', user.db_id);
     handleClose();
   } catch (err) {
@@ -109,167 +126,126 @@ function getPhotoUrl(photo: string): string {
 
 function formatAge(age: string): string {
   if (!age) return '';
-  // Age format is "61|61" or similar
   const parts = age.split('|');
   return parts[0] || age;
 }
 </script>
 
 <template>
-  <div
-    v-if="visible"
-    class="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
-    style="pointer-events: auto; z-index: 10000000; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"
-    @click.self="handleClose"
-  >
-    <div
-      class="w-[90vw] max-w-md h-[80vh] max-h-[600px] bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden border border-white/[0.06]"
-      @click.stop
+  <Dialog :open="visible" @update:open="onOpenChange">
+    <DialogContent
+      :show-close-button="false"
+      :overlay-class="CHAT_NESTED_DIALOG_OVERLAY_CLASS"
+      :class="
+        cn(
+          CHAT_NESTED_DIALOG_CONTENT_CLASS,
+          '!flex h-[min(80vh,600px)] !max-h-[600px] !w-[90vw] !max-w-md flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-background p-0 shadow-2xl',
+        )
+      "
     >
-            <!-- Header -->
-            <div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] shrink-0">
-              <h2 class="text-xl font-semibold text-white">New Chat</h2>
-              <button
-                @click="handleClose"
-                class="p-2 hover:bg-white/[0.08] rounded-md transition-colors"
-                title="Close"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="text-muted-foreground hover:text-white"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-            </div>
+      <DialogHeader class="flex shrink-0 flex-row items-center justify-between space-y-0 border-b border-white/[0.06] px-6 py-4 text-left">
+        <DialogTitle class="text-xl font-semibold text-white">New Chat</DialogTitle>
+        <Button variant="ghost" size="icon" title="Close" @click="handleClose">
+          <X class="size-5 text-muted-foreground" />
+        </Button>
+      </DialogHeader>
 
-            <!-- Search Input -->
-            <div class="px-6 py-4 border-b border-white/[0.06] shrink-0">
-              <div class="relative flex items-center gap-2 bg-sidebar border border-white/[0.06] rounded-lg px-4 py-2 focus-within:border-blue-500 transition-colors">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white/40 shrink-0">
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <path d="m21 21-4.35-4.35"></path>
-                </svg>
-                <input
-                  v-model="searchQuery"
-                  type="text"
-                  placeholder="Search by username..."
-                  class="flex-1 bg-transparent text-white placeholder-white/40 focus:outline-none min-w-0"
-                  autofocus
+      <div class="shrink-0 border-b border-white/[0.06] px-6 py-4">
+        <div
+          class="relative flex items-center gap-2 rounded-lg border border-white/[0.06] bg-sidebar px-4 py-2 transition-colors focus-within:border-blue-500"
+        >
+          <Search class="size-4 shrink-0 text-white/40" />
+          <Input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search by username..."
+            class="border-0 bg-transparent px-0 text-white shadow-none placeholder:text-white/40 focus-visible:ring-0"
+            autofocus
+          />
+          <Button
+            v-if="searchQuery.trim()"
+            variant="ghost"
+            size="icon-sm"
+            class="shrink-0"
+            title="Clear search"
+            @click="searchQuery = ''"
+          >
+            <X class="size-3.5 text-muted-foreground" />
+          </Button>
+        </div>
+      </div>
+
+      <ScrollArea class="min-h-0 flex-1">
+        <div class="relative min-h-[200px]">
+          <div v-if="isSearching" class="flex min-h-[200px] flex-col items-center justify-center gap-4 py-12">
+            <Spinner class="!size-10 text-blue-500" />
+            <p class="text-sm text-muted-foreground">Searching...</p>
+          </div>
+
+          <div v-else-if="error" class="flex min-h-[200px] flex-col items-center justify-center px-6 py-12 text-center">
+            <p class="mb-2 text-red-500">{{ error }}</p>
+            <Button variant="link" class="text-blue-500" @click="error = null; performSearch(searchQuery)">
+              Try again
+            </Button>
+          </div>
+
+          <Empty v-else-if="!searchQuery.trim()" class="min-h-[200px] border-0">
+            <EmptyHeader>
+              <EmptyTitle>Type a username</EmptyTitle>
+              <EmptyDescription>Search for people to start a new chat.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+
+          <Empty v-else-if="searchResults.length === 0" class="min-h-[200px] border-0">
+            <EmptyHeader>
+              <EmptyTitle>No users found</EmptyTitle>
+              <EmptyDescription>Try a different search term.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+
+          <div v-else class="divide-y divide-white/[0.06]">
+            <button
+              v-for="user in searchResults"
+              :key="user.db_id"
+              type="button"
+              :disabled="isStartingChat"
+              class="flex w-full items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+              @click="handleSelectUser(user)"
+            >
+              <div class="relative shrink-0">
+                <Avatar class="size-12">
+                  <AvatarImage :src="getPhotoUrl(user.primary_photo)" :alt="user.account_id" />
+                  <AvatarFallback class="bg-muted text-xs text-white">
+                    {{ user.account_id.slice(0, 2).toUpperCase() }}
+                  </AvatarFallback>
+                </Avatar>
+                <div
+                  v-if="user.online === 1"
+                  class="absolute right-0 bottom-0 size-3 rounded-full border-2 border-background bg-green-500"
                 />
-                <button
-                  v-if="searchQuery.trim()"
-                  @click="searchQuery = ''"
-                  class="p-0.5 hover:bg-secondary rounded transition-colors shrink-0"
-                  title="Clear search"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <!-- Results -->
-            <div class="flex-1 overflow-y-auto relative">
-              <!-- Loading State -->
-              <div v-if="isSearching" class="flex items-center justify-center h-full">
-                <div class="flex flex-col items-center gap-4">
-                  <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <div class="text-muted-foreground text-sm">Searching...</div>
-                </div>
               </div>
 
-              <!-- Error State -->
-              <div v-else-if="error" class="flex items-center justify-center h-full">
-                <div class="text-center px-6">
-                  <div class="text-red-500 mb-2">{{ error }}</div>
-                  <button
-                    @click="error = null; performSearch(searchQuery)"
-                    class="text-blue-500 hover:text-blue-400 text-sm"
+              <div class="min-w-0 flex-1">
+                <div class="mb-1 flex items-center gap-2">
+                  <span class="truncate font-medium text-white">{{ user.account_id }}</span>
+                  <span
+                    v-if="user.lifetime_status"
+                    class="text-xs text-yellow-400"
+                    title="Lifetime Member"
+                    >⭐</span
                   >
-                    Try again
-                  </button>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  <span v-if="formatAge(user.age)">{{ formatAge(user.age) }} jaar</span>
+                  <span v-if="user.location">{{ user.location }}</span>
                 </div>
               </div>
 
-              <!-- Empty State (no search yet) -->
-              <div v-else-if="!searchQuery.trim()" class="flex items-center justify-center h-full">
-                <div class="text-center px-6">
-                  <div class="text-muted-foreground text-sm">Type a username to search for people</div>
-                </div>
-              </div>
-
-              <!-- No Results -->
-              <div v-else-if="searchResults.length === 0 && !isSearching" class="flex items-center justify-center h-full">
-                <div class="text-center px-6">
-                  <div class="text-muted-foreground text-sm">No users found</div>
-                </div>
-              </div>
-
-              <!-- Results List -->
-              <div v-else class="divide-y divide-white/[0.06]">
-                <button
-                  v-for="user in searchResults"
-                  :key="user.db_id"
-                  @click="handleSelectUser(user)"
-                  :disabled="isStartingChat"
-                  class="w-full px-6 py-4 hover:bg-secondary transition-colors flex items-center gap-4 text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <!-- Avatar -->
-                  <div class="relative shrink-0">
-                    <img
-                      :src="getPhotoUrl(user.primary_photo)"
-                      :alt="user.account_id"
-                      class="w-12 h-12 rounded-full object-cover"
-                    />
-                    <!-- Online Indicator -->
-                    <div
-                      v-if="user.online === 1"
-                      class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background"
-                    ></div>
-                  </div>
-
-                  <!-- User Info -->
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-1">
-                      <div class="text-white font-medium truncate">{{ user.account_id }}</div>
-                      <div v-if="user.lifetime_status" class="text-yellow-400 text-xs" title="Lifetime Member">⭐</div>
-                    </div>
-                    <div class="flex items-center gap-3 text-sm text-muted-foreground">
-                      <span v-if="formatAge(user.age)">{{ formatAge(user.age) }} jaar</span>
-                      <span v-if="user.location">{{ user.location }}</span>
-                    </div>
-                  </div>
-
-                  <!-- Arrow -->
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="text-white/40 shrink-0"
-                  >
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                    <polyline points="12 5 19 12 12 19"></polyline>
-                  </svg>
-                </button>
-              </div>
-            </div>
-    </div>
-  </div>
+              <ChevronRight class="size-4 shrink-0 text-white/40" />
+            </button>
+          </div>
+        </div>
+      </ScrollArea>
+    </DialogContent>
+  </Dialog>
 </template>
-

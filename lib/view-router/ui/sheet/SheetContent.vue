@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { DialogContentEmits, DialogContentProps } from "reka-ui"
 import type { HTMLAttributes } from "vue"
+import { computed, inject } from "vue"
 import { reactiveOmit } from "@vueuse/core"
+import { UI_TELEPORT_TARGET } from "@/lib/ui/teleport-target"
 import { X } from "lucide-vue-next"
 import {
   DialogClose,
@@ -29,10 +31,13 @@ const emits = defineEmits<DialogContentEmits>()
 const delegatedProps = reactiveOmit(props, "class", "side")
 
 const forwarded = useForwardPropsEmits(delegatedProps, emits)
+
+const teleportTarget = inject(UI_TELEPORT_TARGET, null)
+const portalTo = computed(() => teleportTarget?.value ?? "body")
 </script>
 
 <template>
-  <DialogPortal>
+  <DialogPortal :to="portalTo">
     <SheetOverlay />
     <DialogContent
       data-slot="sheet-content"

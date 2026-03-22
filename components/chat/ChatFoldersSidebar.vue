@@ -2,12 +2,16 @@
 import { computed, ref } from 'vue';
 import type { MessengerFolder } from '@/lib/sdc-api-types';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
+import { ChevronLeft, MoreVertical, Plus, RefreshCw, Settings } from 'lucide-vue-next';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/lib/view-router/ui/dropdown-menu';
+import { Button } from '@/lib/view-router/ui/button';
+import { ScrollArea } from '@/lib/view-router/ui/scroll-area';
+import { Badge } from '@/lib/view-router/ui/badge';
 import {
   Tooltip,
   TooltipContent,
@@ -214,31 +218,20 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
     <!-- Header -->
     <div class="flex shrink-0 items-center border-b border-white/[0.06]" :class="collapsed ? 'justify-center p-2' : 'justify-between px-4 py-3'">
       <h3 v-if="!collapsed" class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Folders</h3>
-      <button
+      <Button
         type="button"
-        @click="toggleCollapsed"
-        class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-white/[0.08] hover:text-white"
+        variant="ghost"
+        size="icon-sm"
+        class="text-muted-foreground hover:bg-white/[0.08] hover:text-white"
         :title="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        @click="toggleCollapsed"
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="transition-transform duration-200"
-          :class="collapsed ? 'rotate-180' : ''"
-        >
-          <path d="M11 17l-5-5 5-5" /><path d="M18 17l-5-5 5-5" />
-        </svg>
-      </button>
+        <ChevronLeft class="size-4 transition-transform duration-200" :class="collapsed ? 'rotate-180' : ''" />
+      </Button>
     </div>
 
     <TooltipProvider :delay-duration="200">
-    <div class="min-h-0 flex-1 overflow-y-auto">
+    <ScrollArea class="min-h-0 flex-1">
       <!-- All Chats -->
       <Tooltip :disabled="folderTooltipsDisabled">
         <TooltipTrigger as-child>
@@ -256,18 +249,20 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
               </svg>
               <span v-if="!collapsed" class="text-white text-sm">All Chats</span>
             </div>
-            <span
+            <Badge
               v-if="!collapsed && getTotalUnreadCount() > 0"
-              class="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center"
+              variant="destructive"
+              class="min-w-[20px] justify-center px-2 py-0.5 text-center text-xs font-bold"
             >
               {{ getTotalUnreadCount() > 99 ? '99+' : getTotalUnreadCount() }}
-            </span>
-            <span
+            </Badge>
+            <Badge
               v-if="collapsed && getTotalUnreadCount() > 0"
-              class="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
+              variant="destructive"
+              class="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center p-0 text-[10px] font-bold"
             >
               {{ getTotalUnreadCount() > 9 ? '9+' : getTotalUnreadCount() }}
-            </span>
+            </Badge>
           </button>
         </TooltipTrigger>
         <TooltipContent side="right" :side-offset="4">
@@ -316,31 +311,19 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
                 {{ folder.name }}
               </TooltipContent>
             </Tooltip>
-            <div v-if="!collapsed" class="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <div v-if="!collapsed" class="absolute right-2 z-10 opacity-0 transition-opacity group-hover:opacity-100">
               <DropdownMenu>
                 <DropdownMenuTrigger as-child>
-                  <button
+                  <Button
                     type="button"
-                    @click.stop
-                    class="p-0 rounded transition-colors flex items-center justify-center group/btn outline-none"
+                    variant="ghost"
+                    size="icon-sm"
+                    class="group/btn"
                     title="Folder settings"
+                    @click.stop
                   >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      class="text-muted-foreground group-hover/btn:text-white transition-colors"
-                    >
-                      <circle cx="12" cy="12" r="1"></circle>
-                      <circle cx="12" cy="5" r="1"></circle>
-                      <circle cx="12" cy="19" r="1"></circle>
-                    </svg>
-                  </button>
+                    <MoreVertical class="size-4 text-muted-foreground transition-colors group-hover/btn:text-white" />
+                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent class="w-40" align="end" side="bottom" :side-offset="4">
                   <DropdownMenuItem class="cursor-pointer" @click="handleEditFolder(folder)">
@@ -393,30 +376,18 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
       <div class="border-t border-white/[0.06]">
         <Tooltip :disabled="folderTooltipsDisabled">
           <TooltipTrigger as-child>
-            <button
-              @click="handleNewFolder"
+            <Button
+              variant="ghost"
               :class="[
-                'w-full flex items-center hover:bg-background transition-colors group/new-folder',
-                collapsed ? 'justify-center px-0 py-2.5' : 'text-left px-4 py-2.5 gap-2',
+                'group/new-folder h-auto w-full rounded-none py-2.5 hover:bg-background',
+                collapsed ? 'justify-center px-0' : 'justify-start gap-2 px-4 text-left',
               ]"
               title="New folder"
+              @click="handleNewFolder"
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="shrink-0 text-white/40 group-hover/new-folder:text-muted-foreground transition-colors"
-              >
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-              <span v-if="!collapsed" class="text-white/40 text-sm group-hover/new-folder:text-muted-foreground transition-colors">New Folder</span>
-            </button>
+              <Plus class="size-4 shrink-0 text-white/40 transition-colors group-hover/new-folder:text-muted-foreground" />
+              <span v-if="!collapsed" class="text-sm text-white/40 transition-colors group-hover/new-folder:text-muted-foreground">New Folder</span>
+            </Button>
           </TooltipTrigger>
           <TooltipContent side="right" :side-offset="4">
             New Folder
@@ -451,7 +422,7 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
           Archives
         </TooltipContent>
       </Tooltip>
-    </div>
+    </ScrollArea>
 
     <!-- Hub: connection + sync / settings -->
     <div
@@ -478,47 +449,23 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
       </Tooltip>
       <Tooltip :disabled="folderTooltipsDisabled">
         <TooltipTrigger as-child>
-          <button
+          <Button
             type="button"
-            @click="handleHubSync"
+            variant="ghost"
             :disabled="isSyncingMessages"
             :class="[
-              'flex w-full items-center rounded-md py-1.5 transition-colors hover:bg-white/[0.08]',
+              'h-auto w-full justify-start rounded-md py-1.5 hover:bg-white/[0.08]',
               collapsed ? 'justify-center px-0' : 'gap-2 px-2',
-              isSyncingMessages ? 'cursor-not-allowed opacity-50' : '',
             ]"
             :title="isSyncingMessages ? 'Syncing messages...' : 'Sync messages for unsynced chats'"
+            @click="handleHubSync"
           >
-            <svg
-              v-if="!isSyncingMessages"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="shrink-0 text-muted-foreground"
-            >
-              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path>
-            </svg>
-            <svg
-              v-else
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="shrink-0 animate-spin text-blue-500"
-            >
-              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path>
-            </svg>
+            <RefreshCw
+              class="size-4 shrink-0 text-muted-foreground"
+              :class="isSyncingMessages ? 'animate-spin text-blue-500' : ''"
+            />
             <span v-if="!collapsed" class="text-xs text-white/40">{{ isSyncingMessages ? 'Syncing…' : 'Refresh' }}</span>
-          </button>
+          </Button>
         </TooltipTrigger>
         <TooltipContent side="right" :side-offset="4">
           {{ isSyncingMessages ? 'Syncing…' : 'Refresh' }}
@@ -526,33 +473,19 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
       </Tooltip>
       <Tooltip :disabled="folderTooltipsDisabled">
         <TooltipTrigger as-child>
-          <button
+          <Button
             type="button"
-            @click="handleHubSettings"
+            variant="ghost"
             :class="[
-              'flex w-full items-center rounded-md py-1.5 transition-colors hover:bg-white/[0.08]',
+              'h-auto w-full justify-start rounded-md py-1.5 hover:bg-white/[0.08]',
               collapsed ? 'justify-center px-0' : 'gap-2 px-2',
             ]"
             title="Settings"
+            @click="handleHubSettings"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="shrink-0 text-muted-foreground"
-            >
-              <path
-                d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
-              ></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
+            <Settings class="size-4 shrink-0 text-muted-foreground" />
             <span v-if="!collapsed" class="text-xs text-white/40">Settings</span>
-          </button>
+          </Button>
         </TooltipTrigger>
         <TooltipContent side="right" :side-offset="4">
           Settings

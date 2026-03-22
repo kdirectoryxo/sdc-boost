@@ -579,7 +579,7 @@ function handleCloseGroupDialog(dialogId: string) {
         />
 
         <!-- Right Side - Chat Messages Area -->
-        <div class="flex-1 flex flex-col bg-background min-w-0 overflow-hidden">
+        <div class="flex-1 flex flex-col bg-card min-w-0 overflow-hidden">
           <ChatMessagesArea
             ref="chatMessagesAreaRef"
             :selected-chat="selectedChat"

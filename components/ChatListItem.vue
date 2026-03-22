@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed, ref, markRaw, nextTick } from 'vue';
 import { useDraggable } from '@vue-dnd-kit/core';
+import { MoreVertical } from 'lucide-vue-next';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,6 +9,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/lib/view-router/ui/dropdown-menu';
+import { Button } from '@/lib/view-router/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/lib/view-router/ui/avatar';
+import { Badge } from '@/lib/view-router/ui/badge';
 import TagBadge from '@/components/ui/TagBadge.vue';
 import ChatDragPreview from '@/components/chat/ChatDragPreview.vue';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
@@ -319,8 +323,8 @@ const displayDistance = computed(() => {
   <div
       ref="elementRef"
       :class="[
-        'px-4 py-3 cursor-pointer transition-colors hover:bg-background group relative',
-        selected ? 'bg-background' : '',
+        'px-4 py-3 cursor-pointer transition-colors hover:bg-card group relative',
+        selected ? 'bg-card' : '',
         openDropdownId === (chat.group_id as number | string) ? 'z-50' : 'z-auto',
         isDragging ? 'opacity-30 cursor-grabbing' : 'cursor-grab'
       ]"
@@ -331,22 +335,29 @@ const displayDistance = computed(() => {
     <div class="flex items-start gap-3">
       <!-- Avatar -->
       <div class="relative shrink-0">
-        <img
+        <Avatar
           v-if="!isGroup || (chat.primary_photo && chat.primary_photo !== '/thumbnail/' && chat.primary_photo.trim() !== '')"
-          :src="`https://pictures.sdc.com/photos/${chat.primary_photo}`"
-          :alt="isGroup ? chat.group_name : chat.account_id"
-          class="w-12 h-12 rounded-full object-cover"
-        />
-        <img
-          v-else-if="isGroup"
-          src="https://www.sdc.com/react/assets/group.8481d87a.svg"
-          :alt="chat.group_name"
-          class="w-12 h-12 rounded-full object-cover bg-white/[0.06] p-2"
-        />
+          class="size-12"
+        >
+          <AvatarImage
+            :src="`https://pictures.sdc.com/photos/${chat.primary_photo}`"
+            :alt="isGroup ? chat.group_name : chat.account_id"
+            class="object-cover"
+          />
+          <AvatarFallback class="text-xs">{{ (isGroup ? (chat.group_name ?? '') : chat.account_id).slice(0, 2) }}</AvatarFallback>
+        </Avatar>
+        <Avatar v-else-if="isGroup" class="size-12 bg-white/[0.06] p-2">
+          <AvatarImage
+            src="https://www.sdc.com/react/assets/group.8481d87a.svg"
+            :alt="chat.group_name"
+            class="object-cover"
+          />
+          <AvatarFallback>Gr</AvatarFallback>
+        </Avatar>
         <!-- Online Indicator -->
         <div
           v-if="chat.online === 1 && !chat.broadcast && !isGroup"
-          class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-sidebar rounded-full"
+          class="absolute right-0 bottom-0 size-3 rounded-full border-2 border-background bg-green-500"
         />
       </div>
 
@@ -371,9 +382,9 @@ const displayDistance = computed(() => {
             <span v-if="displayDistance" class="text-xs text-muted-foreground shrink-0">
               {{ displayDistance }}
             </span>
-            <span v-if="folderName" class="px-1.5 py-0.5 bg-white/[0.06] text-muted-foreground text-xs rounded shrink-0">
+            <Badge v-if="folderName" variant="secondary" class="shrink-0 px-1.5 py-0 text-xs font-normal text-muted-foreground">
               {{ folderName }}
-            </span>
+            </Badge>
             <!-- Tags -->
             <div v-if="chatTags.length > 0" class="flex items-center gap-1 shrink-0">
               <TagBadge
@@ -425,17 +436,15 @@ const displayDistance = computed(() => {
                 @update:open="handleDropdownToggle"
               >
                 <DropdownMenuTrigger as-child>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    class="group/btn shrink-0"
                     @click.stop
-                    class="p-0 rounded transition-colors flex items-center justify-center group/btn outline-none"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground group-hover/btn:text-white transition-colors">
-                      <circle cx="12" cy="12" r="1"></circle>
-                      <circle cx="12" cy="5" r="1"></circle>
-                      <circle cx="12" cy="19" r="1"></circle>
-                    </svg>
-                  </button>
+                    <MoreVertical class="size-4 text-muted-foreground transition-colors group-hover/btn:text-white" />
+                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   class="w-48 border border-white/[0.06] bg-background p-0 shadow-lg z-[100]"
@@ -507,15 +516,16 @@ const displayDistance = computed(() => {
             </div>
 
             <!-- Unread Badge -->
-            <span
+            <Badge
               v-if="chat.unread_counter > 0"
+              variant="destructive"
               :class="[
-                'h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center leading-none',
-                chat.unread_counter > 9 ? 'px-1.5 min-w-[20px]' : 'w-5'
+                'h-5 min-w-5 justify-center px-0 text-xs font-bold leading-none',
+                chat.unread_counter > 9 ? 'min-w-[20px] px-1.5' : 'w-5',
               ]"
             >
               {{ chat.unread_counter > 99 ? '99+' : chat.unread_counter }}
-            </span>
+            </Badge>
           </div>
         </div>
       </div>

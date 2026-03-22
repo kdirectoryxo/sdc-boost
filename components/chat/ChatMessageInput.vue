@@ -1,11 +1,15 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
+import { Plus, X } from 'lucide-vue-next';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/lib/view-router/ui/dropdown-menu';
+import { Button } from '@/lib/view-router/ui/button';
+import { Input } from '@/lib/view-router/ui/input';
+import { Card, CardContent } from '@/lib/view-router/ui/card';
 import type { MessengerMessage } from '@/lib/sdc-api-types';
 import { parseImageMessage, parseGalleryMessage, getImageUrl } from '@/lib/composables/chat/utils';
 
@@ -34,8 +38,8 @@ const emit = defineEmits<{
   'open-album-modal': [];
 }>();
 
-function handleInput(event: Event) {
-  emit('update:messageInput', (event.target as HTMLInputElement).value);
+function onMessageInput(v: string | number) {
+  emit('update:messageInput', String(v));
   emit('handle-message-input');
 }
 
@@ -65,7 +69,8 @@ const quotedGalleryMessage = computed(() => {
 <template>
   <div class="px-6 py-4 border-t border-white/[0.06] shrink-0">
     <!-- Quoted Message Indicator -->
-    <div v-if="quotedMessage" class="mb-2 px-3 py-2 bg-sidebar border border-white/[0.06] rounded-lg flex items-start gap-2">
+    <Card v-if="quotedMessage" class="mb-2 border-white/[0.06] bg-sidebar">
+      <CardContent class="flex items-start gap-2 p-3">
       <div class="flex-1 min-w-0">
         <div class="text-xs text-muted-foreground mb-1">Quoting {{ quotedMessage.account_id }}</div>
         <!-- Quoted Album -->
@@ -107,29 +112,19 @@ const quotedGalleryMessage = computed(() => {
         <!-- Quoted Regular Message -->
         <div v-else class="text-sm text-white line-clamp-2">{{ quotedMessage.message }}</div>
       </div>
-      <button
-        @click="$emit('cancel-quote')"
-        class="p-1 hover:bg-secondary rounded transition-colors shrink-0"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
-    </div>
+      <Button variant="ghost" size="icon-sm" class="shrink-0" @click="$emit('cancel-quote')">
+        <X class="size-4 text-muted-foreground" />
+      </Button>
+      </CardContent>
+    </Card>
     <!-- Uploaded Media Preview -->
-    <div v-if="uploadedMedia.length > 0" class="mb-2 px-3 py-2 bg-sidebar border border-white/[0.06] rounded-lg">
-      <div class="flex items-center justify-between mb-2">
+    <Card v-if="uploadedMedia.length > 0" class="mb-2 border-white/[0.06] bg-sidebar">
+      <CardContent class="p-3">
+      <div class="mb-2 flex items-center justify-between">
         <div class="text-xs text-muted-foreground">{{ uploadedMedia.length }} {{ uploadedMedia.length === 1 ? 'file' : 'files' }} ready to send</div>
-        <button
-          @click="$emit('clear-uploaded-media')"
-          class="p-1 hover:bg-secondary rounded transition-colors shrink-0"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
+        <Button variant="ghost" size="icon-sm" class="shrink-0" @click="$emit('clear-uploaded-media')">
+          <X class="size-4 text-muted-foreground" />
+        </Button>
       </div>
       <div class="grid gap-2" :class="uploadedMedia.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
         <div
@@ -149,44 +144,42 @@ const quotedGalleryMessage = computed(() => {
             class="w-full max-h-[200px] rounded object-cover"
             controls
           />
-          <button
+          <Button
+            variant="secondary"
+            size="icon-sm"
+            class="absolute top-1 right-1 opacity-0 transition-opacity group-hover:opacity-100"
             @click="$emit('remove-uploaded-media', index)"
-            class="absolute top-1 right-1 p-1 bg-background hover:bg-secondary rounded transition-colors opacity-0 group-hover:opacity-100"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
+            <X class="size-3.5 text-white" />
+          </Button>
         </div>
       </div>
-    </div>
+      </CardContent>
+    </Card>
     <div class="flex items-center gap-2">
-      <input
-        :value="messageInput"
-        @input="handleInput"
-        @keydown="handleKeydown"
+      <Input
+        :model-value="messageInput"
         type="text"
         placeholder="Type a message..."
         :disabled="!selectedChat || !isWebSocketConnected || isUploading"
-        class="flex-1 px-4 py-2 bg-sidebar border border-white/[0.06] rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        class="flex-1 border-white/[0.06] bg-sidebar text-white placeholder:text-white/40"
+        @update:model-value="onMessageInput"
+        @keydown="handleKeydown"
       />
       <DropdownMenu
         :open="isUploadDropdownOpen"
         @update:open="$emit('update:isUploadDropdownOpen', $event)"
       >
         <DropdownMenuTrigger as-child>
-          <button
+          <Button
             type="button"
-            @click.stop
+            variant="outline"
+            size="icon"
             :disabled="!selectedChat || !isWebSocketConnected || isUploading"
-            class="p-2 bg-background text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-white/[0.06]"
+            @click.stop
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-          </button>
+            <Plus class="size-5" />
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           side="top"
@@ -229,14 +222,13 @@ const quotedGalleryMessage = computed(() => {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <button
-        @click="$emit('send-message')"
+      <Button
         :disabled="!selectedChat || (!messageInput.trim() && uploadedMedia.length === 0) || !isWebSocketConnected || isUploading"
-        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        @click="$emit('send-message')"
       >
         <span v-if="isUploading">Uploading...</span>
         <span v-else>Send</span>
-      </button>
+      </Button>
     </div>
   </div>
 </template>

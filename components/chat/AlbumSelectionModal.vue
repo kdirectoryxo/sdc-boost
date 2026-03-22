@@ -1,19 +1,35 @@
 <script lang="ts" setup>
 import { ref, watch, onMounted } from 'vue';
+import { X } from 'lucide-vue-next';
 import type { Album } from '@/lib/sdc-api-types';
 import { loadAlbums } from '@/lib/sdc-api';
 import { getCurrentDBId } from '@/lib/sdc-api/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/lib/view-router/ui/dialog';
+import { Button } from '@/lib/view-router/ui/button';
+import { ScrollArea } from '@/lib/view-router/ui/scroll-area';
+import { Spinner } from '@/lib/view-router/ui/spinner';
+import { cn } from '@/lib/utils';
+import {
+  CHAT_NESTED_DIALOG_OVERLAY_CLASS,
+  CHAT_NESTED_DIALOG_CONTENT_CLASS,
+} from '@/lib/chat-ui/nested-dialog-classes';
 
 interface Props {
   visible: boolean;
-  dbId?: string; // Optional, defaults to current user's db_id
+  dbId?: string;
 }
 
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
-  'close': [];
-  'select': [albums: Album[]];
+  close: [];
+  select: [albums: Album[]];
 }>();
 
 const albums = ref<Album[]>([]);
@@ -55,7 +71,7 @@ function toggleAlbum(albumId: string) {
 }
 
 function handleSelect() {
-  const selected = albums.value.filter(album => selectedAlbums.value.has(album.id));
+  const selected = albums.value.filter((album) => selectedAlbums.value.has(album.id));
   if (selected.length > 0) {
     emit('select', selected);
     handleClose();
@@ -66,14 +82,23 @@ function handleClose() {
   emit('close');
 }
 
-watch(() => props.visible, (newValue) => {
-  if (newValue) {
-    selectedAlbums.value.clear();
-    albums.value = [];
-    error.value = null;
-    fetchAlbums();
+function onOpenChange(open: boolean) {
+  if (!open) {
+    handleClose();
   }
-});
+}
+
+watch(
+  () => props.visible,
+  (newValue) => {
+    if (newValue) {
+      selectedAlbums.value.clear();
+      albums.value = [];
+      error.value = null;
+      fetchAlbums();
+    }
+  },
+);
 
 onMounted(() => {
   if (props.visible) {
@@ -83,117 +108,99 @@ onMounted(() => {
 </script>
 
 <template>
-  <div
-    v-if="visible"
-    class="fixed inset-0 flex items-center justify-center backdrop-blur-sm"
-    style="pointer-events: auto; z-index: 10000000; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"
-    @click.self="handleClose"
-  >
-    <div
-      class="w-[90vw] max-w-md h-[80vh] bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden"
-      @click.stop
+  <Dialog :open="visible" @update:open="onOpenChange">
+    <DialogContent
+      :show-close-button="false"
+      :overlay-class="CHAT_NESTED_DIALOG_OVERLAY_CLASS"
+      :class="
+        cn(
+          CHAT_NESTED_DIALOG_CONTENT_CLASS,
+          '!flex !h-[80vh] !max-h-[80vh] !w-[90vw] !max-w-md flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-background p-0 shadow-2xl',
+        )
+      "
     >
-      <!-- Header -->
-      <div class="px-6 py-4 border-b border-white/[0.06] shrink-0 flex items-center justify-between">
-        <h2 class="text-white text-lg font-semibold">Select Albums</h2>
-        <button
-          @click="handleClose"
-          class="p-2 hover:bg-secondary rounded transition-colors"
-          title="Close"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
+      <DialogHeader class="flex shrink-0 flex-row items-center justify-between space-y-0 border-b border-white/[0.06] px-6 py-4 text-left">
+        <DialogTitle class="text-lg font-semibold text-white">Select Albums</DialogTitle>
+        <Button variant="ghost" size="icon" title="Close" @click="handleClose">
+          <X class="size-5 text-muted-foreground" />
+        </Button>
+      </DialogHeader>
 
-      <!-- Content -->
-      <div class="flex-1 overflow-y-auto p-6">
-        <!-- Loading State -->
-        <div v-if="isLoading" class="flex items-center justify-center h-full">
-          <div class="flex flex-col items-center gap-4">
-            <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <div class="text-muted-foreground">Loading albums...</div>
+      <ScrollArea class="min-h-0 flex-1">
+        <div class="p-6">
+          <div v-if="isLoading" class="flex min-h-[200px] items-center justify-center">
+            <div class="flex flex-col items-center gap-4">
+              <Spinner class="!size-12 text-blue-500" />
+              <div class="text-muted-foreground">Loading albums...</div>
+            </div>
           </div>
-        </div>
 
-        <!-- Error State -->
-        <div v-else-if="error" class="flex items-center justify-center h-full">
-          <div class="text-center">
-            <div class="text-red-500 text-lg font-semibold mb-2">{{ error }}</div>
-            <button
-              @click="fetchAlbums"
-              class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          <div v-else-if="error" class="flex min-h-[200px] flex-col items-center justify-center text-center">
+            <div class="mb-2 text-lg font-semibold text-red-500">{{ error }}</div>
+            <Button @click="fetchAlbums">Retry</Button>
+          </div>
+
+          <div v-else-if="albums.length > 0" class="space-y-2">
+            <div
+              v-for="album in albums"
+              :key="album.id"
+              :class="[
+                'cursor-pointer rounded-lg border px-4 py-3 transition-colors',
+                selectedAlbums.has(album.id)
+                  ? 'border-blue-500 bg-blue-500/20'
+                  : 'border-white/[0.06] bg-sidebar hover:bg-background',
+              ]"
+              @click="toggleAlbum(album.id)"
             >
-              Retry
-            </button>
-          </div>
-        </div>
-
-        <!-- Albums List -->
-        <div v-else-if="albums.length > 0" class="space-y-2">
-          <div
-            v-for="album in albums"
-            :key="album.id"
-            @click="toggleAlbum(album.id)"
-            :class="[
-              'px-4 py-3 rounded-lg border cursor-pointer transition-colors',
-              selectedAlbums.has(album.id)
-                ? 'bg-blue-500/20 border-blue-500'
-                : 'bg-sidebar border-white/[0.06] hover:bg-background'
-            ]"
-          >
-            <div class="flex items-center gap-3">
-              <div class="flex items-center justify-center w-5 h-5 border-2 rounded shrink-0" :class="selectedAlbums.has(album.id) ? 'border-blue-500 bg-blue-500' : 'border-white/[0.14]'">
-                <svg v-if="selectedAlbums.has(album.id)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-white">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="text-white font-medium truncate">{{ album.name }}</div>
-                <div class="text-xs text-muted-foreground mt-1">
-                  {{ album.counter_images }} {{ parseInt(album.counter_images) === 1 ? 'image' : 'images' }}
-                  <span v-if="parseInt(album.counter_videos) > 0">
-                    · {{ album.counter_videos }} {{ parseInt(album.counter_videos) === 1 ? 'video' : 'videos' }}
-                  </span>
+              <div class="flex items-center gap-3">
+                <div
+                  class="flex h-5 w-5 shrink-0 items-center justify-center rounded border-2"
+                  :class="selectedAlbums.has(album.id) ? 'border-blue-500 bg-blue-500' : 'border-white/[0.14]'"
+                >
+                  <svg
+                    v-if="selectedAlbums.has(album.id)"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="text-white"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="truncate font-medium text-white">{{ album.name }}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">
+                    {{ album.counter_images }} {{ parseInt(album.counter_images) === 1 ? 'image' : 'images' }}
+                    <span v-if="parseInt(album.counter_videos) > 0">
+                      · {{ album.counter_videos }}
+                      {{ parseInt(album.counter_videos) === 1 ? 'video' : 'videos' }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Empty State -->
-        <div v-else class="flex items-center justify-center h-full">
-          <div class="text-center text-muted-foreground">
+          <div v-else class="flex min-h-[200px] items-center justify-center text-muted-foreground">
             <p>No albums found</p>
           </div>
         </div>
-      </div>
+      </ScrollArea>
 
-      <!-- Footer -->
-      <div class="px-6 py-4 border-t border-white/[0.06] shrink-0 flex items-center justify-between">
+      <DialogFooter class="shrink-0 flex-row items-center justify-between border-t border-white/[0.06] px-6 py-4 sm:justify-between">
         <div class="text-sm text-muted-foreground">
           {{ selectedAlbums.size }} {{ selectedAlbums.size === 1 ? 'album' : 'albums' }} selected
         </div>
         <div class="flex gap-3">
-          <button
-            @click="handleClose"
-            class="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-white/[0.08] transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            @click="handleSelect"
-            :disabled="selectedAlbums.size === 0"
-            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Select
-          </button>
+          <Button variant="secondary" @click="handleClose">Cancel</Button>
+          <Button :disabled="selectedAlbums.size === 0" @click="handleSelect">Select</Button>
         </div>
-      </div>
-    </div>
-  </div>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
-
-

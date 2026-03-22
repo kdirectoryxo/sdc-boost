@@ -16,12 +16,18 @@ export function useHubCounters() {
     return countersManager.getRawApiMessengerCounter() ?? 0;
   }
 
+  function readFeedCounter(): number {
+    return countersManager.getCounter('feed_counter') ?? 0;
+  }
+
   const messenger = ref<number>(readMessengerCount());
+  const feedCounter = ref<number>(readFeedCounter());
 
   const off = countersManager.onUpdate(() => {
     messenger.value = countersManager.getRawApiMessengerCounter() ?? 0;
+    feedCounter.value = readFeedCounter();
   });
   onUnmounted(off);
 
-  return { messenger };
+  return { messenger, feedCounter };
 }

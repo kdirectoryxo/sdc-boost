@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { SelectContentEmits, SelectContentProps } from "reka-ui"
 import type { HTMLAttributes } from "vue"
+import { computed, inject } from "vue"
 import { reactiveOmit } from "@vueuse/core"
+import { UI_TELEPORT_TARGET } from "@/lib/ui/teleport-target"
 import {
   SelectContent,
   SelectPortal,
@@ -26,10 +28,13 @@ const emits = defineEmits<SelectContentEmits>()
 const delegatedProps = reactiveOmit(props, "class")
 
 const forwarded = useForwardPropsEmits(delegatedProps, emits)
+
+const teleportTarget = inject(UI_TELEPORT_TARGET, null)
+const portalTo = computed(() => teleportTarget?.value ?? "body")
 </script>
 
 <template>
-  <SelectPortal>
+  <SelectPortal :to="portalTo">
     <SelectContent
       data-slot="select-content"
       v-bind="{ ...$attrs, ...forwarded }"

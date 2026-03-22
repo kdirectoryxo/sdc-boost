@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { ref, watch, computed } from 'vue';
+import { X, Plus } from 'lucide-vue-next';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { 
 	getAllTags, 
@@ -12,6 +13,22 @@ import {
 import TagBadge from '@/components/ui/TagBadge.vue';
 import TagEditDialog from '@/components/chat/TagEditDialog.vue';
 import { useSDCDatabaseStore } from '@/lib/sdc-db/store';
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogFooter,
+} from '@/lib/view-router/ui/dialog';
+import { Button } from '@/lib/view-router/ui/button';
+import { Spinner } from '@/lib/view-router/ui/spinner';
+import { ScrollArea } from '@/lib/view-router/ui/scroll-area';
+import { cn } from '@/lib/utils';
+import {
+	CHAT_NESTED_DIALOG_OVERLAY_CLASS,
+	CHAT_NESTED_DIALOG_CONTENT_CLASS,
+} from '@/lib/chat-ui/nested-dialog-classes';
+import { confirm } from '@/lib/confirm';
 
 interface Props {
 	modelValue: boolean;
@@ -68,7 +85,7 @@ async function loadAllData() {
 		allTags.value = getAllTags();
 		
 		// Load tags assigned to current chat
-		const chatTags = getTagsForChat(props.chat.group_id);
+		const chatTags = getTagsForChat(props.chat.group_id as number);
 		chatTagIds.value = new Set(chatTags.map(t => t.id));
 	} catch (err) {
 		error.value = err instanceof Error ? err.message : 'Failed to load tags';
@@ -89,6 +106,12 @@ function resetState() {
 function handleClose() {
 	emit('update:modelValue', false);
 	resetState();
+}
+
+function onOpenChange(open: boolean) {
+	if (!open) {
+		handleClose();
+	}
 }
 
 function openCreateDialog() {
@@ -123,8 +146,10 @@ async function handleDeleteTag(tagId: number) {
 	// Check if tag is assigned to this chat
 	const isAssigned = chatTagIds.value.has(tagId);
 	
-	// Confirmation
-	if (!confirm(`Are you sure you want to delete this tag?${isAssigned ? '\n\nThis tag is currently assigned to this chat and will be removed.' : ''}\n\nThis will remove the tag from all chats that use it.`)) {
+	const ok = await confirm.confirm(
+		`Are you sure you want to delete this tag?${isAssigned ? '\n\nThis tag is currently assigned to this chat and will be removed.' : ''}\n\nThis will remove the tag from all chats that use it.`,
+	);
+	if (!ok) {
 		return;
 	}
 	
@@ -158,7 +183,7 @@ async function toggleTagAssignment(tagId: number) {
 				error.value = `Maximum ${MAX_TAGS_PER_CHAT} tags allowed per chat`;
 				return;
 			}
-			await linkTagToChat(props.chat.group_id, tagId);
+			await linkTagToChat(props.chat.group_id as number, tagId);
 			chatTagIds.value.add(tagId);
 		}
 		
@@ -171,46 +196,29 @@ async function toggleTagAssignment(tagId: number) {
 </script>
 
 <template>
-	<div
-		v-if="modelValue"
-		class="fixed inset-0 flex items-center justify-center backdrop-blur-sm z-[1000000]"
-		style="pointer-events: auto; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"
-		@click.self="handleClose"
-	>
-		<div
-			class="w-[90vw] max-w-2xl bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden border border-white/[0.06]"
-			@click.stop
+	<Dialog :open="modelValue" @update:open="onOpenChange">
+		<DialogContent
+			:show-close-button="false"
+			:overlay-class="CHAT_NESTED_DIALOG_OVERLAY_CLASS"
+			:class="
+				cn(
+					CHAT_NESTED_DIALOG_CONTENT_CLASS,
+					'!max-w-2xl !w-[90vw] flex max-h-[min(90vh,800px)] flex-col overflow-hidden rounded-lg bg-background',
+				)
+			"
 		>
-			<!-- Header -->
-			<div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-				<h2 class="text-xl font-semibold text-white">Manage Tags</h2>
-				<button
-					@click="handleClose"
-					class="p-1 hover:bg-white/[0.08] rounded transition-colors"
-					title="Close"
-				>
-					<svg
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						class="text-muted-foreground hover:text-white"
-					>
-						<line x1="18" y1="6" x2="6" y2="18"></line>
-						<line x1="6" y1="6" x2="18" y2="18"></line>
-					</svg>
-				</button>
-			</div>
+			<DialogHeader class="flex-row items-center justify-between space-y-0 border-b border-white/[0.06] px-6 py-4 text-left">
+				<DialogTitle class="text-xl font-semibold text-white">Manage Tags</DialogTitle>
+				<Button variant="ghost" size="icon" title="Close" @click="handleClose">
+					<X class="size-5 text-muted-foreground" />
+				</Button>
+			</DialogHeader>
 
-			<!-- Content -->
-			<div class="flex-1 overflow-y-auto p-6">
+			<ScrollArea class="min-h-0 flex-1">
+				<div class="p-6">
 				<!-- Loading State -->
 				<div v-if="isLoading" class="flex items-center justify-center py-8">
-					<div class="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+					<Spinner class="!size-8 text-blue-500" />
 				</div>
 
 				<!-- Error Message -->
@@ -226,24 +234,10 @@ async function toggleTagAssignment(tagId: number) {
 				<template v-else>
 					<!-- Create Tag Button -->
 					<div class="mb-6">
-						<button
-							@click="openCreateDialog"
-							class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center gap-2"
-						>
-							<svg
-								width="16"
-								height="16"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<path d="M12 5v14M5 12h14"></path>
-							</svg>
+						<Button @click="openCreateDialog">
+							<Plus class="size-4" />
 							Create Tag
-						</button>
+						</Button>
 					</div>
 
 					<!-- Available Tags Section -->
@@ -329,25 +323,19 @@ async function toggleTagAssignment(tagId: number) {
 						</div>
 					</div>
 				</template>
-			</div>
+				</div>
+			</ScrollArea>
 
-			<!-- Footer -->
-			<div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/[0.06]">
-				<button
-					@click="handleClose"
-					class="px-4 py-2 text-sm bg-secondary hover:bg-white/[0.08] text-white rounded transition-colors"
-				>
-					Close
-				</button>
-			</div>
-		</div>
+			<DialogFooter class="border-t border-white/[0.06] px-6 py-4 sm:justify-end">
+				<Button variant="secondary" @click="handleClose">Close</Button>
+			</DialogFooter>
+		</DialogContent>
+	</Dialog>
 
-		<!-- Nested Edit/Create Dialog -->
-		<TagEditDialog
-			:model-value="showEditDialog"
-			:tag="editingTag"
-			@update:model-value="handleEditDialogClose"
-			@save="handleEditDialogSave"
-		/>
-	</div>
+	<TagEditDialog
+		:model-value="showEditDialog"
+		:tag="editingTag"
+		@update:model-value="handleEditDialogClose"
+		@save="handleEditDialogSave"
+	/>
 </template>

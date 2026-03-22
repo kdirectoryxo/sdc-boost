@@ -1,8 +1,25 @@
 <script lang="ts" setup>
 import { ref, watch, computed } from 'vue';
+import { X } from 'lucide-vue-next';
 import { createTag, updateTag as updateTagGlobal, getAllTags, type Tag } from '@/lib/sdc-db/tags';
 import { TAG_COLOR_PALETTE, isValidHexColor, normalizeHexColor } from '@/lib/tag-colors';
 import TagBadge from '@/components/ui/TagBadge.vue';
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogFooter,
+} from '@/lib/view-router/ui/dialog';
+import { Button } from '@/lib/view-router/ui/button';
+import { Input } from '@/lib/view-router/ui/input';
+import { Label } from '@/lib/view-router/ui/label';
+import { Spinner } from '@/lib/view-router/ui/spinner';
+import { cn } from '@/lib/utils';
+import {
+	CHAT_SUBDIALOG_OVERLAY_CLASS,
+	CHAT_SUBDIALOG_CONTENT_CLASS,
+} from '@/lib/chat-ui/nested-dialog-classes';
 
 interface Props {
 	modelValue: boolean;
@@ -19,7 +36,7 @@ const emit = defineEmits<{
 }>();
 
 const tagText = ref('');
-const tagColor = ref(TAG_COLOR_PALETTE[0]);
+const tagColor = ref<string>(TAG_COLOR_PALETTE[0]);
 const showCustomColor = ref(false);
 const customColor = ref('#000000');
 const error = ref<string | null>(null);
@@ -86,6 +103,12 @@ function resetForm() {
 function handleClose() {
 	emit('update:modelValue', false);
 	resetForm();
+}
+
+function onOpenChange(open: boolean) {
+	if (!open) {
+		handleClose();
+	}
 }
 
 function validateTag(text: string, color: string): string | null {
@@ -163,45 +186,27 @@ function toggleCustomColor() {
 </script>
 
 <template>
-	<div
-		v-if="modelValue"
-		class="fixed inset-0 flex items-center justify-center backdrop-blur-sm z-[1000001]"
-		style="pointer-events: auto; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"
-		@click.self="handleClose"
-	>
-		<div
-			class="w-[90vw] max-w-md bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden border border-white/[0.06]"
-			@click.stop
+	<Dialog :open="modelValue" @update:open="onOpenChange">
+		<DialogContent
+			:show-close-button="false"
+			:overlay-class="CHAT_SUBDIALOG_OVERLAY_CLASS"
+			:class="
+				cn(
+					CHAT_SUBDIALOG_CONTENT_CLASS,
+					'!max-w-md !w-[90vw] flex flex-col overflow-hidden rounded-lg bg-background',
+				)
+			"
 		>
-			<!-- Header -->
-			<div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-				<h2 class="text-xl font-semibold text-white">
+			<DialogHeader class="flex-row items-center justify-between space-y-0 border-b border-white/[0.06] px-6 py-4 text-left">
+				<DialogTitle class="text-xl font-semibold text-white">
 					{{ isEditMode ? 'Edit Tag' : 'Create Tag' }}
-				</h2>
-				<button
-					@click="handleClose"
-					class="p-1 hover:bg-white/[0.08] rounded transition-colors"
-					title="Close"
-				>
-					<svg
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						class="text-muted-foreground hover:text-white"
-					>
-						<line x1="18" y1="6" x2="6" y2="18"></line>
-						<line x1="6" y1="6" x2="18" y2="18"></line>
-					</svg>
-				</button>
-			</div>
+				</DialogTitle>
+				<Button variant="ghost" size="icon" title="Close" @click="handleClose">
+					<X class="size-5 text-muted-foreground" />
+				</Button>
+			</DialogHeader>
 
-			<!-- Content -->
-			<div class="flex-1 overflow-y-auto p-6">
+			<div class="max-h-[70vh] flex-1 overflow-y-auto p-6">
 				<!-- Error Message -->
 				<div v-if="error" class="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded text-red-400 text-sm">
 					{{ error }}
@@ -209,14 +214,15 @@ function toggleCustomColor() {
 
 				<!-- Tag Text Input -->
 				<div class="mb-4">
-					<label class="block text-sm text-muted-foreground mb-2">Tag Text</label>
-					<input
+					<Label for="tag-text" class="mb-2 block text-muted-foreground">Tag Text</Label>
+					<Input
+						id="tag-text"
 						v-model="tagText"
 						type="text"
 						placeholder="Enter tag text..."
 						maxlength="50"
 						:disabled="isSaving"
-						class="w-full px-4 py-2 bg-sidebar border border-white/[0.06] rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						class="border-white/[0.06] bg-sidebar text-white placeholder:text-white/40"
 						@keydown.enter="handleSave"
 					/>
 				</div>
@@ -300,46 +306,18 @@ function toggleCustomColor() {
 				</div>
 			</div>
 
-			<!-- Footer -->
-			<div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/[0.06]">
-				<button
-					@click="handleClose"
-					:disabled="isSaving"
-					class="px-4 py-2 text-sm text-muted-foreground hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-				>
-					Cancel
-				</button>
-				<button
-					@click="handleSave"
-					:disabled="!canSave"
-					:class="[
-						'px-4 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors',
-						!canSave ? 'opacity-50 cursor-not-allowed' : ''
-					]"
-				>
+			<DialogFooter class="border-t border-white/[0.06] px-6 py-4 sm:justify-end">
+				<Button variant="ghost" :disabled="isSaving" @click="handleClose">Cancel</Button>
+				<Button :disabled="!canSave" @click="handleSave">
 					<template v-if="isSaving">
-						<span class="flex items-center gap-2">
-							<svg
-								width="14"
-								height="14"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								class="animate-spin"
-							>
-								<path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path>
-							</svg>
-							Saving...
-						</span>
+						<Spinner class="size-3.5" />
+						Saving...
 					</template>
 					<template v-else>
 						{{ isEditMode ? 'Update' : 'Create' }} Tag
 					</template>
-				</button>
-			</div>
-		</div>
-	</div>
+				</Button>
+			</DialogFooter>
+		</DialogContent>
+	</Dialog>
 </template>

@@ -1,7 +1,23 @@
 <script lang="ts" setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onMounted } from 'vue';
+import { X } from 'lucide-vue-next';
 import { getSetting, setSetting } from '@/lib/sdc-db/settings';
-import Button from '@/components/ui/Button.vue';
+import { Button } from '@/lib/view-router/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/lib/view-router/ui/dialog';
+import { ScrollArea } from '@/lib/view-router/ui/scroll-area';
+import { cn } from '@/lib/utils';
+import {
+  CHAT_NESTED_DIALOG_OVERLAY_CLASS,
+  CHAT_NESTED_DIALOG_CONTENT_CLASS,
+  CHAT_SUBDIALOG_OVERLAY_CLASS,
+  CHAT_SUBDIALOG_CONTENT_CLASS,
+} from '@/lib/chat-ui/nested-dialog-classes';
 
 interface Props {
   modelValue: boolean;
@@ -27,9 +43,6 @@ const validationStatus = ref<'idle' | 'valid' | 'invalid'>('idle');
 const validationError = ref<string>('');
 const contextDialogOpen = ref(false);
 const contextDialogText = ref('');
-
-let escapeHandler: ((e: KeyboardEvent) => void) | null = null;
-let contextDialogEscapeHandler: ((e: KeyboardEvent) => void) | null = null;
 
 function handleClose() {
   validationStatus.value = 'idle';
@@ -161,13 +174,14 @@ async function testApiKey() {
 
 async function saveApiKey() {
   if (saving.value) return;
-  
-  // Validate before saving if not already validated
-  if (validationStatus.value !== 'valid') {
+
+  let status: 'idle' | 'valid' | 'invalid' = validationStatus.value;
+  if (status !== 'valid') {
     await testApiKey();
-    if (validationStatus.value !== 'valid') {
-      return; // Don't save if validation failed
-    }
+    status = validationStatus.value;
+  }
+  if (status !== 'valid') {
+    return;
   }
   
   saving.value = true;
@@ -200,39 +214,17 @@ watch(() => props.modelValue, async (isOpen) => {
   }
 }, { immediate: true });
 
-// Close on Escape key
-watch(() => props.modelValue, (isOpen) => {
-  if (isOpen) {
-    escapeHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !contextDialogOpen.value) {
-        handleClose();
-      }
-    };
-    document.addEventListener('keydown', escapeHandler);
-  } else {
-    if (escapeHandler) {
-      document.removeEventListener('keydown', escapeHandler);
-      escapeHandler = null;
-    }
+function onSettingsOpenChange(open: boolean) {
+  if (!open) {
+    handleClose();
   }
-});
+}
 
-// Handle escape key for context dialog
-watch(() => contextDialogOpen.value, (isOpen) => {
-  if (isOpen) {
-    contextDialogEscapeHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        closeContextDialog();
-      }
-    };
-    document.addEventListener('keydown', contextDialogEscapeHandler);
-  } else {
-    if (contextDialogEscapeHandler) {
-      document.removeEventListener('keydown', contextDialogEscapeHandler);
-      contextDialogEscapeHandler = null;
-    }
+function onContextDialogOpenChange(open: boolean) {
+  if (!open) {
+    closeContextDialog();
   }
-});
+}
 
 onMounted(async () => {
   if (props.modelValue) {
@@ -241,53 +233,27 @@ onMounted(async () => {
   }
 });
 
-onUnmounted(() => {
-  if (escapeHandler) {
-    document.removeEventListener('keydown', escapeHandler);
-  }
-  if (contextDialogEscapeHandler) {
-    document.removeEventListener('keydown', contextDialogEscapeHandler);
-  }
-});
 </script>
 
 <template>
-  <div
-    v-if="modelValue"
-    class="fixed inset-0 flex items-center justify-center backdrop-blur-sm z-[1000000]"
-    style="pointer-events: auto; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"
-    @click.self="handleClose"
-  >
-    <div
-      class="bg-background border border-white/[0.06] rounded-lg shadow-2xl min-w-[400px] max-w-[500px] overflow-hidden"
-      @click.stop
+  <Dialog :open="modelValue" @update:open="onSettingsOpenChange">
+    <DialogContent
+      :show-close-button="false"
+      :overlay-class="CHAT_NESTED_DIALOG_OVERLAY_CLASS"
+      :class="
+        cn(
+          CHAT_NESTED_DIALOG_CONTENT_CLASS,
+          '!flex !min-w-[400px] !max-w-[500px] flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-background p-0 shadow-2xl',
+        )
+      "
     >
-      <!-- Header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-        <h3 class="text-lg font-semibold text-white">Chat Settings</h3>
-        <button
-          @click="handleClose"
-          class="p-1 hover:bg-white/[0.08] rounded transition-colors"
-          title="Close"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="text-muted-foreground hover:text-white"
-          >
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
+      <DialogHeader class="flex-row items-center justify-between space-y-0 border-b border-white/[0.06] px-6 py-4 text-left">
+        <DialogTitle class="text-lg font-semibold text-white">Chat Settings</DialogTitle>
+        <Button variant="ghost" size="icon" title="Close" @click="handleClose">
+          <X class="size-5 text-muted-foreground" />
+        </Button>
+      </DialogHeader>
 
-      <!-- Content -->
       <div class="p-6">
         <div v-if="loading" class="text-center py-8 text-muted-foreground">
           Loading...
@@ -412,91 +378,53 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Footer -->
-      <div class="px-6 py-4 border-t border-white/[0.06] flex justify-end">
-        <Button
-          @click="handleClose"
-          variant="ghost"
-          size="sm"
-        >
-          Close
-        </Button>
-      </div>
-    </div>
-  </div>
+      <DialogFooter class="border-t border-white/[0.06] px-6 py-4 sm:justify-end">
+        <Button variant="ghost" size="sm" @click="handleClose">Close</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 
-  <!-- Context Dialog -->
-  <div
-    v-if="contextDialogOpen"
-    class="fixed inset-0 flex items-center justify-center backdrop-blur-sm z-[1000001]"
-    style="pointer-events: auto; position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"
-    @click.self="closeContextDialog"
-  >
-    <div
-      class="bg-background border border-white/[0.06] rounded-lg shadow-2xl w-[90vw] max-w-[800px] h-[80vh] max-h-[600px] overflow-hidden flex flex-col"
-      @click.stop
+  <Dialog :open="contextDialogOpen" @update:open="onContextDialogOpenChange">
+    <DialogContent
+      :show-close-button="false"
+      :overlay-class="CHAT_SUBDIALOG_OVERLAY_CLASS"
+      :class="
+        cn(
+          CHAT_SUBDIALOG_CONTENT_CLASS,
+          '!flex !h-[min(80vh,600px)] !max-h-[600px] !w-[90vw] !max-w-[800px] flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-background p-0 shadow-2xl',
+        )
+      "
     >
-      <!-- Header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-        <h3 class="text-lg font-semibold text-white">Edit Context / Preferences</h3>
-        <button
-          @click="closeContextDialog"
-          class="p-1 hover:bg-white/[0.08] rounded transition-colors"
-          title="Close"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="text-muted-foreground hover:text-white"
-          >
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
+      <DialogHeader class="flex-row items-center justify-between space-y-0 border-b border-white/[0.06] px-6 py-4 text-left">
+        <DialogTitle class="text-lg font-semibold text-white">Edit Context / Preferences</DialogTitle>
+        <Button variant="ghost" size="icon" title="Close" @click="closeContextDialog">
+          <X class="size-5 text-muted-foreground" />
+        </Button>
+      </DialogHeader>
 
-      <!-- Content -->
-      <div class="flex-1 p-6 overflow-hidden flex flex-col">
-        <div class="flex flex-col gap-3 flex-1 overflow-hidden">
+      <ScrollArea class="min-h-0 flex-1">
+        <div class="flex flex-col gap-3 p-6">
           <label class="flex flex-col gap-1">
             <span class="text-sm font-medium text-white">Additional Context / Preferences</span>
             <span class="text-xs text-muted-foreground">
               Add preferences or context that you don't want to show on your profile. This will help the AI provide more personalized responses.
             </span>
           </label>
-          
+
           <textarea
             v-model="contextDialogText"
             placeholder="e.g., We prefer full-swap with active couples"
-            class="flex-1 w-full py-3 px-4 bg-secondary border border-white/[0.06] rounded-md text-white text-sm font-sans transition-all duration-200 focus:outline-none focus:bg-white/[0.08] focus:border-green-500 resize-none"
-          ></textarea>
+            class="min-h-[280px] w-full resize-none rounded-md border border-white/[0.06] bg-secondary py-3 px-4 text-sm text-white transition-all duration-200 focus:border-green-500 focus:bg-white/[0.08] focus:outline-none"
+          />
         </div>
-      </div>
+      </ScrollArea>
 
-      <!-- Footer -->
-      <div class="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-2">
-        <Button
-          @click="closeContextDialog"
-          variant="ghost"
-          size="sm"
-        >
-          Cancel
-        </Button>
-        <Button
-          @click="saveContextFromDialog"
-          :disabled="savingContext"
-          variant="default"
-          size="sm"
-        >
+      <DialogFooter class="border-t border-white/[0.06] px-6 py-4 sm:justify-end">
+        <Button variant="ghost" size="sm" @click="closeContextDialog">Cancel</Button>
+        <Button size="sm" :disabled="savingContext" @click="saveContextFromDialog">
           {{ savingContext ? 'Saving...' : savedContextStatus ? 'Saved!' : 'Save' }}
         </Button>
-      </div>
-    </div>
-  </div>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
