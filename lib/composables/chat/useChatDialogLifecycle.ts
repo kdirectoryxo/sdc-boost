@@ -11,6 +11,18 @@ import { startChat } from '@/lib/sdc-api/messenger';
 import { chatStorage } from '@/lib/chat-storage';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 
+/** Run after first paint, then in an idle slice so sync work does not extend the mount jank window. */
+function scheduleAfterPaintAndIdle(fn: () => void): void {
+  requestAnimationFrame(() => {
+    const ric = typeof requestIdleCallback !== 'undefined' ? requestIdleCallback : null;
+    if (ric) {
+      ric(fn, { timeout: 1500 });
+    } else {
+      setTimeout(fn, 0);
+    }
+  });
+}
+
 /**
  * Composable for managing chat surface lifecycle (open/close, URL watching, mounting).
  * @param isActive - When false, WebSocket cleanup runs; use `modelValue` for overlay or `ref(true)` for hub page while mounted.
@@ -133,26 +145,23 @@ export function useChatDialogLifecycle(
    */
   async function initializeDialog() {
     isInitialLoad.value = true;
-    
-    // Initialize SDC database first
-    try {
-      await dbStore.initialize();
-    } catch (error) {
+
+    // Load tags/settings from the profile note in the background. Chat list + messages use Dexie
+    // directly; blocking here delayed the whole Hub chat surface on network + decode.
+    void dbStore.initialize().catch((error) => {
       console.error('[ChatDialogLifecycle] Failed to initialize database:', error);
-      // Continue even if database init fails - UI can handle it
-    }
-    
+    });
+
     const chatIdFromURL = getChatIdFromURL();
-    
-    // Wait for reactive queries to populate from IndexedDB cache
-    await nextTick();
-    
-    // Setup WebSocket listeners early
+
+    // Setup WebSocket listeners early (do not await nextTick here: that waited for the entire
+    // ChatWorkspace first render — hundreds of ms with a large chat list — before sync could start.)
     setupEventListeners();
-    
+
     // If we have a chat ID in URL, try to open it IMMEDIATELY from cache
     // Don't wait for sync - the chat is likely already in IndexedDB
     if (chatIdFromURL) {
+      await nextTick();
       console.log('[ChatDialogLifecycle] Trying to open chat immediately from cache...');
       const chat = await findOrCreateChat(chatIdFromURL);
       
@@ -163,12 +172,15 @@ export function useChatDialogLifecycle(
       }
     }
     
-    // Now sync in background (don't block UI)
-    // Start sync but don't await - let it run in background
-    fetchFolders().catch(err => console.error('[ChatDialogLifecycle] Failed to fetch folders:', err));
-    fetchAllChats().then(() => {
-      isInitialLoad.value = false;
-    }).catch(err => console.error('[ChatDialogLifecycle] Failed to sync chats:', err));
+    // Cached chats already render from Dexie via live queries; full API sync can wait for idle.
+    scheduleAfterPaintAndIdle(() => {
+      fetchFolders().catch(err => console.error('[ChatDialogLifecycle] Failed to fetch folders:', err));
+      fetchAllChats()
+        .then(() => {
+          isInitialLoad.value = false;
+        })
+        .catch(err => console.error('[ChatDialogLifecycle] Failed to sync chats:', err));
+    });
     
     // If no chat ID was in URL, mark as loaded after a short delay
     // (to show loading state briefly while background sync starts)
@@ -212,21 +224,26 @@ export function useChatDialogLifecycle(
   }, { immediate: false });
 
   // Watch for active changes to fetch data when surface opens
-  watch(() => isActive.value, async (newValue) => {
-    if (newValue) {
-      await initializeDialog();
-    } else {
-      cleanupDialog();
-    }
-  }, { immediate: true });
+  watch(
+    () => isActive.value,
+    (newValue) => {
+      if (newValue) {
+        void initializeDialog().catch((err) =>
+          console.error('[ChatDialogLifecycle] initializeDialog failed:', err)
+        );
+      } else {
+        cleanupDialog();
+      }
+    },
+    { immediate: true }
+  );
 
-  onMounted(async () => {
+  onMounted(() => {
     injectLightboxStyles();
     window.addEventListener('popstate', updateURLSearchParams);
-    
-    if (isActive.value) {
-      await initializeDialog();
-    }
+    // Do not call initializeDialog() here: watch(isActive, { immediate: true }) already runs
+    // it when active is true, and running both caused duplicate DB init, duplicate WebSocket
+    // setup, and duplicate "open chat from cache" on the Hub chat page.
   });
 
   onUnmounted(() => {

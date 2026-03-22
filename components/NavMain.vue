@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import {
   IconEye,
+  IconLayoutDashboard,
   IconMessage,
   IconSparkles,
   IconUserPlus,
@@ -19,6 +20,7 @@ import {
 import { useHubCounters } from '@/lib/composables/useHubCounters';
 import {
   VIEW_ROUTER_CHAT_PATH,
+  VIEW_ROUTER_HUB_DASHBOARD_PATH,
   VIEW_ROUTER_PEOPLE_ONLINE_PATH,
   VIEW_ROUTER_PEOPLE_VISUALLY_PATH,
   VIEW_ROUTER_PEOPLE_FIELD_PATH,
@@ -38,8 +40,9 @@ const props = defineProps<{
   boostPath: string;
 }>();
 
-/** Chat + People — labels aligned with PeopleDialog / PeopleExplorer tabs (Dutch). */
+/** Hub home first, then chat + People — labels aligned with PeopleDialog / PeopleExplorer (Dutch). */
 const items = [
+  { title: 'Dashboard', path: VIEW_ROUTER_HUB_DASHBOARD_PATH, icon: IconLayoutDashboard },
   { title: 'Chat', path: VIEW_ROUTER_CHAT_PATH, icon: IconMessage },
   { title: 'Online', path: VIEW_ROUTER_PEOPLE_ONLINE_PATH, icon: IconUsers },
   { title: 'Bekeken', path: VIEW_ROUTER_PEOPLE_VISUALLY_PATH, icon: IconEye },
@@ -81,7 +84,7 @@ function go(path: string) {
           </SidebarMenuButton>
           <SidebarMenuBadge
             v-if="item.path === VIEW_ROUTER_CHAT_PATH && messengerBadgeLabel"
-            class="!h-[18px] !min-w-[18px] !rounded-full !border-0 !bg-rose-600 !px-1 !text-[10px] !font-semibold !leading-none !text-white !shadow-sm peer-hover/menu-button:!text-white peer-data-[active=true]/menu-button:!text-white group-data-[collapsible=icon]:!right-0.5 group-data-[collapsible=icon]:!top-0.5 group-data-[collapsible=icon]:!flex group-data-[collapsible=icon]:!h-[18px] group-data-[collapsible=icon]:!min-w-[18px] group-data-[collapsible=icon]:!text-[10px]"
+            class="!flex !h-[18px] !min-w-[18px] !items-center !justify-center !rounded-full !border-0 !bg-destructive !px-1 !text-[10px] !font-semibold !tabular-nums !leading-none !text-white !shadow-sm peer-hover/menu-button:!text-white peer-data-[active=true]/menu-button:!text-white group-data-[collapsible=icon]:!right-0.5 group-data-[collapsible=icon]:!top-0.5 group-data-[collapsible=icon]:!flex group-data-[collapsible=icon]:!h-[18px] group-data-[collapsible=icon]:!min-w-[18px] group-data-[collapsible=icon]:!items-center group-data-[collapsible=icon]:!justify-center group-data-[collapsible=icon]:!text-[10px]"
           >
             {{ messengerBadgeLabel }}
           </SidebarMenuBadge>

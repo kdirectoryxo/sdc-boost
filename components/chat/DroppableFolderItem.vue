@@ -83,14 +83,21 @@ function handleClick() {
       </svg>
       <span v-if="!collapsed" class="text-white text-sm truncate">{{ folderName }}</span>
     </div>
-    <div v-if="!collapsed" class="flex items-center gap-2 shrink-0">
-      <span v-if="unreadCount > 0" class="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
+    <div v-if="!collapsed" class="flex shrink-0 items-center gap-2">
+      <span
+        v-if="unreadCount > 0"
+        class="inline-flex h-5 shrink-0 items-center justify-center rounded-full bg-destructive text-xs font-bold tabular-nums leading-none text-white"
+        :class="
+          unreadCount > 99 ? 'min-w-[30px] px-1' : unreadCount > 9 ? 'min-w-[22px] px-1.5' : 'size-5 px-0'
+        "
+      >
         {{ unreadCount > 99 ? '99+' : unreadCount }}
       </span>
     </div>
     <span
       v-if="collapsed && unreadCount > 0"
-      class="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
+      class="absolute -right-0.5 -top-0.5 inline-flex items-center justify-center rounded-full bg-destructive font-bold tabular-nums leading-none text-white"
+      :class="unreadCount > 9 ? 'min-h-4 min-w-[18px] px-0.5 text-[10px]' : 'size-4 text-[10px]'"
     >
       {{ unreadCount > 9 ? '9+' : unreadCount }}
     </span>

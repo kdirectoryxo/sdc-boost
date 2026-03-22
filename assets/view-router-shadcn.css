@@ -36,7 +36,8 @@
   --muted-foreground: #999999;
   --accent: #1e2227;
   --accent-foreground: #fafafa;
-  --destructive: #7f1d1d;
+  /* Solid alert red (badges, delete); foreground is for text/icons on muted destructive surfaces */
+  --destructive: #ef4444;
   --destructive-foreground: #ef4444;
   --border: rgba(255, 255, 255, 0.06);
   --input: rgba(255, 255, 255, 0.06);

@@ -12,8 +12,11 @@ export const BOOST_VR_SEARCH_PARAM = 'sdc_boost_vr';
 /** Legacy: Boost home path (bare `/sdc`). */
 export const VIEW_ROUTER_HOME_PATH = '/sdc';
 
-/** Legacy: old charts/table route; redirects to people Online. */
-export const VIEW_ROUTER_DASHBOARD_PATH = '/sdc/dashboard';
+/** Hub home: main dashboard (`/sdc/dashboard`). */
+export const VIEW_ROUTER_HUB_DASHBOARD_PATH = '/sdc/dashboard';
+
+/** @deprecated Use {@link VIEW_ROUTER_HUB_DASHBOARD_PATH}. Kept for legacy `getViewRouterViewId`. */
+export const VIEW_ROUTER_DASHBOARD_PATH = VIEW_ROUTER_HUB_DASHBOARD_PATH;
 
 /** People explorer tabs (aligned with PeopleDialog `activeTab`). */
 export type PeopleTabId = 'online' | 'viewed' | 'latest' | 'featured';
@@ -29,8 +32,8 @@ export const VIEW_ROUTER_CHAT_PATH = '/sdc/chat';
 /** Member profile (view-router page, not the legacy modal). */
 export const VIEW_ROUTER_PROFILE_PREFIX = '/sdc/profile/';
 
-/** Default full-page Boost view: People Online. */
-export const VIEW_ROUTER_DEFAULT_PATH = VIEW_ROUTER_PEOPLE_ONLINE_PATH;
+/** Default full-page Boost view: Hub Dashboard. */
+export const VIEW_ROUTER_DEFAULT_PATH = VIEW_ROUTER_HUB_DASHBOARD_PATH;
 
 /**
  * Build the Boost path for a profile page (`/sdc/profile/:userId`).
@@ -47,6 +50,13 @@ export function getBoostProfilePath(userId: number): string {
  */
 export function isChatBoostPath(path: string): boolean {
   return normalizeBoostPathSegment(path) === VIEW_ROUTER_CHAT_PATH;
+}
+
+/**
+ * True when the Boost path is the Hub dashboard (`/sdc/dashboard`).
+ */
+export function isDashboardBoostPath(path: string): boolean {
+  return normalizeBoostPathSegment(path) === VIEW_ROUTER_HUB_DASHBOARD_PATH;
 }
 
 export function getProfileUserIdFromBoostPath(path: string): number | null {
@@ -187,7 +197,36 @@ export function getViewRouterViewId(path: string): ViewRouterViewId {
 }
 
 /**
- * Current Boost path: **query param first** (avoids SPA hash router), then hash, then pathname.
+ * Hash + pathname only (no query param, no session snapshot). Used to detect the host SPA route
+ * so we do not resurrect a stale snapshot on e.g. `#/init` after leaving Boost.
+ */
+function getBoostPathFromHashOrPathname(): string {
+  if (typeof location === 'undefined') {
+    return '/';
+  }
+
+  const hash = location.hash;
+  if (hash && hash.length > 1) {
+    const raw = hash.slice(1);
+    const path = raw.split('?')[0] || '/';
+    if (path === '') return '/';
+    return path.startsWith('/') ? path : `/${path}`;
+  }
+
+  const normalized =
+    (location.pathname || '/').replace(/\/+$/, '') || '/';
+  const segments = normalized.split('/').filter(Boolean);
+  if (segments.length > 0 && segments[segments.length - 1] === 'sdc') {
+    return '/sdc';
+  }
+
+  return '/';
+}
+
+/**
+ * Current Boost path: **query param first** (avoids SPA hash router), then hash/pathname when they
+ * identify a Boost or non-Boost route; **session snapshot** only when the URL is ambiguous (`/`)
+ * after the host strips `sdc_boost_vr` without updating the hash.
  */
 export function getBoostViewPathFromLocation(): string {
   if (typeof location === 'undefined') {
@@ -208,24 +247,22 @@ export function getBoostViewPathFromLocation(): string {
     /* ignore invalid URL */
   }
 
+  const fromHashOrPath = getBoostPathFromHashOrPathname();
+
+  if (isViewRouterActiveRoute(fromHashOrPath)) {
+    persistBoostPathSnapshot(fromHashOrPath);
+    return fromHashOrPath;
+  }
+
+  // Explicit host route (e.g. `#/init`, `#/messenger`) — do not show Boost UI from stale snapshot.
+  if (fromHashOrPath !== '/') {
+    clearBoostPathSnapshot();
+    return fromHashOrPath;
+  }
+
   const fromSnapshot = readBoostPathSnapshot();
   if (fromSnapshot != null) {
     return fromSnapshot;
-  }
-
-  const hash = location.hash;
-  if (hash && hash.length > 1) {
-    const raw = hash.slice(1);
-    const path = raw.split('?')[0] || '/';
-    if (path === '') return '/';
-    return path.startsWith('/') ? path : `/${path}`;
-  }
-
-  const normalized =
-    (location.pathname || '/').replace(/\/+$/, '') || '/';
-  const segments = normalized.split('/').filter(Boolean);
-  if (segments.length > 0 && segments[segments.length - 1] === 'sdc') {
-    return '/sdc';
   }
 
   return '/';
@@ -321,7 +358,7 @@ export function clearBoostViewRouterFromUrl(): void {
 /**
  * If the user opened a legacy hash-only Boost URL (`#/sdc`) but the query param is not set yet,
  * rewrite to `?sdc_boost_vr=...` and clear the hash so the site’s hash router stops fighting us.
- * Bare `/sdc` is normalized to `VIEW_ROUTER_DEFAULT_PATH` (People Online). Returns true if a rewrite happened.
+ * Bare `/sdc` is normalized to `VIEW_ROUTER_DEFAULT_PATH` (Hub Dashboard). Returns true if a rewrite happened.
  */
 export function migrateHashBoostRouteToQuery(): boolean {
   try {
@@ -344,8 +381,7 @@ export function migrateHashBoostRouteToQuery(): boolean {
 }
 
 /**
- * Rewrite legacy `?sdc_boost_vr=/sdc` or `/sdc/dashboard` to `VIEW_ROUTER_DEFAULT_PATH`
- * so bookmarks match the People-first shell.
+ * Rewrite legacy `?sdc_boost_vr=/sdc` to `VIEW_ROUTER_DEFAULT_PATH` (Hub Dashboard).
  */
 export function migrateLegacyDashboardBoostPath(): boolean {
   try {
@@ -354,7 +390,7 @@ export function migrateLegacyDashboardBoostPath(): boolean {
     if (fromQuery == null || fromQuery.trim() === '') return false;
     const p = fromQuery.trim().split('?')[0];
     const normalized = (p.startsWith('/') ? p : `/${p}`).replace(/\/$/, '') || '/';
-    if (normalized === VIEW_ROUTER_DASHBOARD_PATH || normalized === VIEW_ROUTER_HOME_PATH) {
+    if (normalized === VIEW_ROUTER_HOME_PATH) {
       u.searchParams.set(BOOST_VR_SEARCH_PARAM, VIEW_ROUTER_DEFAULT_PATH);
       u.hash = '';
       history.replaceState(null, '', u.toString());

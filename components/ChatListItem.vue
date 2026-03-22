@@ -520,8 +520,12 @@ const displayDistance = computed(() => {
               v-if="chat.unread_counter > 0"
               variant="destructive"
               :class="[
-                'h-5 min-w-5 justify-center px-0 text-xs font-bold leading-none',
-                chat.unread_counter > 9 ? 'min-w-[20px] px-1.5' : 'w-5',
+                'inline-flex shrink-0 items-center justify-center rounded-full border-0 font-bold tabular-nums leading-none text-xs',
+                chat.unread_counter > 99
+                  ? 'h-5 min-w-[30px] px-1'
+                  : chat.unread_counter > 9
+                    ? 'h-5 min-w-[22px] px-1'
+                    : 'size-5 px-0',
               ]"
             >
               {{ chat.unread_counter > 99 ? '99+' : chat.unread_counter }}

@@ -22,18 +22,20 @@ export const useChatWebSocket = createGlobalState(() => {
   let countersUnsubscribe: (() => void) | null = null;
   
   /**
-   * Set up WebSocket event listeners
+   * Set up WebSocket-related UI listeners (window, counters, typing).
+   * Does not block on the messenger WebSocket handshake — connect runs in the background so the
+   * chat shell can render immediately; real-time events arrive once the socket opens.
    */
-  async function setupEventListeners() {
-    // Ensure WebSocket is connected (connect() is safe to call multiple times)
+  function setupEventListeners() {
+    // Safe if initializeDialog runs more than once: tear down previous subscriptions first.
+    cleanupEventListeners();
+
     if (!websocketManager.connected) {
-      try {
-        await websocketManager.connect();
-      } catch (error) {
+      void websocketManager.connect().catch((error) => {
         console.error('[useChatWebSocket] Failed to connect WebSocket:', error);
-      }
+      });
     }
-    
+
     // Update WebSocket connection status
     const updateConnectionStatus = () => {
       isWebSocketConnected.value = websocketManager.connected;

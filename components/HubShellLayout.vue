@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 
 import AppSidebar from '@/components/AppSidebar.vue';
+import HubDashboardPanel from '@/components/HubDashboardPanel.vue';
 import ChatExplorerPanel from '@/components/chat-explorer/ChatExplorerPanel.vue';
 import PeopleExplorerPanel from '@/components/people-explorer/PeopleExplorerPanel.vue';
 import ProfileView from '@/components/profile-view/ProfileView.vue';
@@ -15,6 +16,7 @@ import {
   getPeopleTabFromBoostPathOrDefault,
   getProfileUserIdFromBoostPath,
   isChatBoostPath,
+  isDashboardBoostPath,
   navigateBoostViewRouterPath,
   VIEW_ROUTER_DEFAULT_PATH,
 } from '@/lib/view-router/routes';
@@ -28,6 +30,8 @@ const peopleTab = computed(() => getPeopleTabFromBoostPathOrDefault(props.boostP
 const profileUserId = computed(() => getProfileUserIdFromBoostPath(props.boostPath));
 
 const showChatPage = computed(() => isChatBoostPath(props.boostPath));
+
+const showDashboard = computed(() => isDashboardBoostPath(props.boostPath));
 
 const profileBreadcrumbTitle = ref<string | null>(null);
 
@@ -73,6 +77,7 @@ function handleProfileBack() {
           @profile-breadcrumb="profileBreadcrumbTitle = $event"
         />
         <ChatExplorerPanel v-else-if="showChatPage" :active="true" />
+        <HubDashboardPanel v-else-if="showDashboard" />
         <PeopleExplorerPanel
           v-else
           :active-tab="peopleTab"

@@ -3,6 +3,7 @@ import {
   getPeopleTabFromBoostPathOrDefault,
   getProfileUserIdFromBoostPath,
   isChatBoostPath,
+  isDashboardBoostPath,
   type PeopleTabId,
   VIEW_ROUTER_DEFAULT_PATH,
 } from '@/lib/view-router/routes';
@@ -85,6 +86,10 @@ export function buildSdcHubBreadcrumbs(
 
   if (isChatBoostPath(boostPath)) {
     return [{ label: 'SDC Hub', to: VIEW_ROUTER_DEFAULT_PATH }, { label: 'Chat' }];
+  }
+
+  if (isDashboardBoostPath(boostPath)) {
+    return [{ label: 'SDC Hub', to: VIEW_ROUTER_DEFAULT_PATH }, { label: 'Dashboard' }];
   }
 
   return [{ label: 'SDC Hub', to: VIEW_ROUTER_DEFAULT_PATH }, { label: 'People' }];

@@ -252,14 +252,24 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
             <Badge
               v-if="!collapsed && getTotalUnreadCount() > 0"
               variant="destructive"
-              class="min-w-[20px] justify-center px-2 py-0.5 text-center text-xs font-bold"
+              :class="[
+                'inline-flex shrink-0 items-center justify-center border-0 text-xs font-bold tabular-nums leading-none',
+                getTotalUnreadCount() > 99
+                  ? 'h-5 min-w-[30px] px-1'
+                  : getTotalUnreadCount() > 9
+                    ? 'h-5 min-w-[22px] px-1.5'
+                    : 'size-5 px-0',
+              ]"
             >
               {{ getTotalUnreadCount() > 99 ? '99+' : getTotalUnreadCount() }}
             </Badge>
             <Badge
               v-if="collapsed && getTotalUnreadCount() > 0"
               variant="destructive"
-              class="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center p-0 text-[10px] font-bold"
+              :class="[
+                'absolute -right-0.5 -top-0.5 inline-flex items-center justify-center border-0 p-0 font-bold tabular-nums leading-none text-white',
+                getTotalUnreadCount() > 9 ? 'min-h-4 min-w-[18px] px-0.5 text-[10px]' : 'size-4 text-[10px]',
+              ]"
             >
               {{ getTotalUnreadCount() > 9 ? '9+' : getTotalUnreadCount() }}
             </Badge>

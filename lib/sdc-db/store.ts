@@ -15,31 +15,47 @@ export const useSDCDatabaseStore = createGlobalState(() => {
   const isReady = ref(false);
   const error = ref<string | null>(null);
 
+  /** Coalesces concurrent initialize() calls (same in-flight work, one network/IndexedDB load). */
+  let initInFlight: Promise<void> | null = null;
+
   async function initialize() {
+    if (isReady.value) {
+      return;
+    }
+    if (initInFlight) {
+      return initInFlight;
+    }
+
     console.log('[SDCDB Store] initialize() called');
     console.log('[SDCDB Store] Current state:', { isLoading: isLoading.value, isReady: isReady.value, error: error.value });
-    
-    isLoading.value = true;
-    error.value = null;
-    console.log('[SDCDB Store] Set isLoading = true');
-    
-    try {
-      console.log('[SDCDB Store] Calling initDb()...');
-      await initDb();
-      console.log('[SDCDB Store] initDb() completed successfully');
-      
-      isLoading.value = false;
-      isReady.value = true;
+
+    initInFlight = (async () => {
+      isLoading.value = true;
       error.value = null;
-      console.log('[SDCDB Store] Updated state:', { isLoading: isLoading.value, isReady: isReady.value, error: error.value });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('[SDCDB Store] Initialization failed:', err);
-      isLoading.value = false;
-      isReady.value = false;
-      error.value = errorMessage;
-      console.log('[SDCDB Store] Error state:', { isLoading: isLoading.value, isReady: isReady.value, error: error.value });
-    }
+      console.log('[SDCDB Store] Set isLoading = true');
+
+      try {
+        console.log('[SDCDB Store] Calling initDb()...');
+        await initDb();
+        console.log('[SDCDB Store] initDb() completed successfully');
+
+        isLoading.value = false;
+        isReady.value = true;
+        error.value = null;
+        console.log('[SDCDB Store] Updated state:', { isLoading: isLoading.value, isReady: isReady.value, error: error.value });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error('[SDCDB Store] Initialization failed:', err);
+        isLoading.value = false;
+        isReady.value = false;
+        error.value = errorMessage;
+        console.log('[SDCDB Store] Error state:', { isLoading: isLoading.value, isReady: isReady.value, error: error.value });
+      } finally {
+        initInFlight = null;
+      }
+    })();
+
+    return initInFlight;
   }
 
   function reset() {
