@@ -214,18 +214,18 @@ onMounted(() => {
     @click.self="handleClose"
   >
     <div
-      class="w-[90vw] h-[90vh] bg-[#1a1a1a] rounded-lg shadow-2xl flex flex-col overflow-hidden"
+      class="w-[90vw] h-[90vh] bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden"
       @click.stop
     >
       <!-- Header -->
-      <div class="px-6 py-4 border-b border-[#333] shrink-0 flex items-center justify-between">
+      <div class="px-6 py-4 border-b border-white/[0.06] shrink-0 flex items-center justify-between">
         <h2 class="text-white text-lg font-semibold">{{ galleryName }}</h2>
         <button
           @click="handleClose"
-          class="p-2 hover:bg-[#2a2a2a] rounded transition-colors"
+          class="p-2 hover:bg-secondary rounded transition-colors"
           title="Close"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
@@ -243,7 +243,7 @@ onMounted(() => {
               @keydown="handlePasswordKeydown"
               type="password"
               placeholder="Enter password"
-              class="w-full px-4 py-2 bg-[#0f0f0f] border border-[#333] rounded-lg text-white placeholder-[#666] focus:outline-none focus:border-blue-500 transition-colors text-center"
+              class="w-full px-4 py-2 bg-sidebar border border-white/[0.06] rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500 transition-colors text-center"
               autofocus
             />
             <p v-if="passwordError" class="text-red-500 text-sm">{{ passwordError }}</p>
@@ -256,7 +256,7 @@ onMounted(() => {
               </button>
               <button
                 @click="handleClose"
-                class="px-4 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#333] transition-colors"
+                class="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-white/[0.08] transition-colors"
               >
                 Cancel
               </button>
@@ -268,7 +268,7 @@ onMounted(() => {
         <div v-else-if="isLoading" class="flex items-center justify-center h-full">
           <div class="flex flex-col items-center gap-4">
             <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <div class="text-[#999]">Loading gallery...</div>
+            <div class="text-muted-foreground">Loading gallery...</div>
           </div>
         </div>
 
@@ -292,7 +292,7 @@ onMounted(() => {
             v-for="(photo, index) in photos"
             :key="photo.id"
             @click="photo.type === 'vt' ? handleVideoClick(index) : handleImageClick(index)"
-            class="relative aspect-square bg-[#0f0f0f] rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity group"
+            class="relative aspect-square bg-sidebar rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity group"
           >
             <!-- Video Thumbnail -->
             <template v-if="photo.type === 'vt'">
@@ -305,8 +305,8 @@ onMounted(() => {
                 @error="(e) => handleThumbnailError(e, photo)"
                 @load="(e) => { (e.target as HTMLImageElement).style.display = 'block'; }"
               />
-              <div v-else class="w-full h-full flex items-center justify-center bg-[#0f0f0f]">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#666]">
+              <div v-else class="w-full h-full flex items-center justify-center bg-sidebar">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white/40">
                   <polygon points="5 3 19 12 5 21 5 3"></polygon>
                 </svg>
               </div>
@@ -314,7 +314,7 @@ onMounted(() => {
               <!-- Fallback for failed thumbnails -->
               <div
                 v-if="photo.thumbnail && failedThumbnails.has(photo.thumbnail)"
-                class="absolute inset-0 flex flex-col items-center justify-center bg-[#0f0f0f] text-[#666]"
+                class="absolute inset-0 flex flex-col items-center justify-center bg-sidebar text-white/40"
               >
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-1">
                   <polygon points="5 3 19 12 5 21 5 3"></polygon>
@@ -361,7 +361,7 @@ onMounted(() => {
 
         <!-- Empty State -->
         <div v-else class="flex items-center justify-center h-full">
-          <div class="text-center text-[#999]">
+          <div class="text-center text-muted-foreground">
             <p>No photos in this gallery</p>
           </div>
         </div>

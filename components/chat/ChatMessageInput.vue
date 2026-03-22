@@ -58,14 +58,14 @@ const quotedGalleryMessage = computed(() => {
 </script>
 
 <template>
-  <div class="px-6 py-4 border-t border-[#333] shrink-0">
+  <div class="px-6 py-4 border-t border-white/[0.06] shrink-0">
     <!-- Quoted Message Indicator -->
-    <div v-if="quotedMessage" class="mb-2 px-3 py-2 bg-[#0f0f0f] border border-[#333] rounded-lg flex items-start gap-2">
+    <div v-if="quotedMessage" class="mb-2 px-3 py-2 bg-sidebar border border-white/[0.06] rounded-lg flex items-start gap-2">
       <div class="flex-1 min-w-0">
-        <div class="text-xs text-[#999] mb-1">Quoting {{ quotedMessage.account_id }}</div>
+        <div class="text-xs text-muted-foreground mb-1">Quoting {{ quotedMessage.account_id }}</div>
         <!-- Quoted Album -->
         <div v-if="quotedGalleryMessage" class="flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 opacity-70 text-[#999]">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 opacity-70 text-muted-foreground">
             <rect x="3" y="3" width="7" height="7"></rect>
             <rect x="14" y="3" width="7" height="7"></rect>
             <rect x="14" y="14" width="7" height="7"></rect>
@@ -91,7 +91,7 @@ const quotedGalleryMessage = computed(() => {
               class="w-10 h-10 rounded object-cover"
               @error="(e) => { (e.target as HTMLImageElement).style.display = 'none'; }"
             />
-            <div v-if="quotedImageMessage.imageIds.length > 2" class="w-10 h-10 rounded bg-[#1a1a1a] flex items-center justify-center text-xs text-[#999]">
+            <div v-if="quotedImageMessage.imageIds.length > 2" class="w-10 h-10 rounded bg-background flex items-center justify-center text-xs text-muted-foreground">
               +{{ quotedImageMessage.imageIds.length - 2 }}
             </div>
           </div>
@@ -104,23 +104,23 @@ const quotedGalleryMessage = computed(() => {
       </div>
       <button
         @click="$emit('cancel-quote')"
-        class="p-1 hover:bg-[#2a2a2a] rounded transition-colors shrink-0"
+        class="p-1 hover:bg-secondary rounded transition-colors shrink-0"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999]">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
       </button>
     </div>
     <!-- Uploaded Media Preview -->
-    <div v-if="uploadedMedia.length > 0" class="mb-2 px-3 py-2 bg-[#0f0f0f] border border-[#333] rounded-lg">
+    <div v-if="uploadedMedia.length > 0" class="mb-2 px-3 py-2 bg-sidebar border border-white/[0.06] rounded-lg">
       <div class="flex items-center justify-between mb-2">
-        <div class="text-xs text-[#999]">{{ uploadedMedia.length }} {{ uploadedMedia.length === 1 ? 'file' : 'files' }} ready to send</div>
+        <div class="text-xs text-muted-foreground">{{ uploadedMedia.length }} {{ uploadedMedia.length === 1 ? 'file' : 'files' }} ready to send</div>
         <button
           @click="$emit('clear-uploaded-media')"
-          class="p-1 hover:bg-[#2a2a2a] rounded transition-colors shrink-0"
+          class="p-1 hover:bg-secondary rounded transition-colors shrink-0"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999]">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
@@ -146,7 +146,7 @@ const quotedGalleryMessage = computed(() => {
           />
           <button
             @click="$emit('remove-uploaded-media', index)"
-            class="absolute top-1 right-1 p-1 bg-[#1a1a1a] hover:bg-[#2a2a2a] rounded transition-colors opacity-0 group-hover:opacity-100"
+            class="absolute top-1 right-1 p-1 bg-background hover:bg-secondary rounded transition-colors opacity-0 group-hover:opacity-100"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
               <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -164,7 +164,7 @@ const quotedGalleryMessage = computed(() => {
         type="text"
         placeholder="Type a message..."
         :disabled="!selectedChat || !isWebSocketConnected || isUploading"
-        class="flex-1 px-4 py-2 bg-[#0f0f0f] border border-[#333] rounded-lg text-white placeholder-[#666] focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        class="flex-1 px-4 py-2 bg-sidebar border border-white/[0.06] rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       />
       <Dropdown
         :model-value="isUploadDropdownOpen"
@@ -178,7 +178,7 @@ const quotedGalleryMessage = computed(() => {
           <button
             @click.stop="toggle"
             :disabled="!selectedChat || !isWebSocketConnected || isUploading"
-            class="p-2 bg-[#1a1a1a] text-white rounded-lg hover:bg-[#2a2a2a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-[#333]"
+            class="p-2 bg-background text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-white/[0.06]"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -190,7 +190,7 @@ const quotedGalleryMessage = computed(() => {
           <div class="py-1">
             <button
               @click="$emit('trigger-photo-picker'); close()"
-              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -201,7 +201,7 @@ const quotedGalleryMessage = computed(() => {
             </button>
             <button
               @click="$emit('trigger-video-picker'); close()"
-              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="23 7 16 12 23 17 23 7"></polygon>
@@ -211,7 +211,7 @@ const quotedGalleryMessage = computed(() => {
             </button>
             <button
               @click="$emit('open-album-modal'); close()"
-              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="3" width="7" height="7"></rect>

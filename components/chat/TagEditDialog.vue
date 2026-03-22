@@ -170,17 +170,17 @@ function toggleCustomColor() {
 		@click.self="handleClose"
 	>
 		<div
-			class="w-[90vw] max-w-md bg-[#1a1a1a] rounded-lg shadow-2xl flex flex-col overflow-hidden border border-[#333]"
+			class="w-[90vw] max-w-md bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden border border-white/[0.06]"
 			@click.stop
 		>
 			<!-- Header -->
-			<div class="flex items-center justify-between px-6 py-4 border-b border-[#333]">
+			<div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
 				<h2 class="text-xl font-semibold text-white">
 					{{ isEditMode ? 'Edit Tag' : 'Create Tag' }}
 				</h2>
 				<button
 					@click="handleClose"
-					class="p-1 hover:bg-[#333] rounded transition-colors"
+					class="p-1 hover:bg-white/[0.08] rounded transition-colors"
 					title="Close"
 				>
 					<svg
@@ -192,7 +192,7 @@ function toggleCustomColor() {
 						stroke-width="2"
 						stroke-linecap="round"
 						stroke-linejoin="round"
-						class="text-[#999] hover:text-white"
+						class="text-muted-foreground hover:text-white"
 					>
 						<line x1="18" y1="6" x2="6" y2="18"></line>
 						<line x1="6" y1="6" x2="18" y2="18"></line>
@@ -209,21 +209,21 @@ function toggleCustomColor() {
 
 				<!-- Tag Text Input -->
 				<div class="mb-4">
-					<label class="block text-sm text-[#999] mb-2">Tag Text</label>
+					<label class="block text-sm text-muted-foreground mb-2">Tag Text</label>
 					<input
 						v-model="tagText"
 						type="text"
 						placeholder="Enter tag text..."
 						maxlength="50"
 						:disabled="isSaving"
-						class="w-full px-4 py-2 bg-[#0f0f0f] border border-[#333] rounded-lg text-white placeholder-[#666] focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						class="w-full px-4 py-2 bg-sidebar border border-white/[0.06] rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 						@keydown.enter="handleSave"
 					/>
 				</div>
 
 				<!-- Color Selection -->
 				<div class="mb-4">
-					<label class="block text-sm text-[#999] mb-2">Color</label>
+					<label class="block text-sm text-muted-foreground mb-2">Color</label>
 					
 					<!-- Color Palette -->
 					<div class="flex flex-wrap gap-2 mb-3">
@@ -236,7 +236,7 @@ function toggleCustomColor() {
 								'w-8 h-8 rounded border-2 transition-all',
 								!showCustomColor && tagColor === color
 									? 'border-white scale-110'
-									: 'border-[#333] hover:border-[#555]',
+									: 'border-white/[0.06] hover:border-white/[0.12]',
 								isSaving ? 'opacity-50 cursor-not-allowed' : ''
 							]"
 							:style="{ backgroundColor: color }"
@@ -248,8 +248,8 @@ function toggleCustomColor() {
 							:class="[
 								'w-8 h-8 rounded border-2 transition-all flex items-center justify-center',
 								showCustomColor
-									? 'border-white scale-110 bg-[#2a2a2a]'
-									: 'border-[#333] hover:border-[#555] bg-[#1a1a1a]',
+									? 'border-white scale-110 bg-secondary'
+									: 'border-white/[0.06] hover:border-white/[0.12] bg-background',
 								isSaving ? 'opacity-50 cursor-not-allowed' : ''
 							]"
 							title="Custom color"
@@ -263,7 +263,7 @@ function toggleCustomColor() {
 								stroke-width="2"
 								stroke-linecap="round"
 								stroke-linejoin="round"
-								class="text-[#999]"
+								class="text-muted-foreground"
 							>
 								<rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
 								<circle cx="9" cy="9" r="2"></circle>
@@ -278,7 +278,7 @@ function toggleCustomColor() {
 							v-model="customColor"
 							type="color"
 							:disabled="isSaving"
-							class="w-12 h-8 rounded border border-[#333] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+							class="w-12 h-8 rounded border border-white/[0.06] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 							@input="customColor = normalizeHexColor(customColor)"
 						/>
 						<input
@@ -287,25 +287,25 @@ function toggleCustomColor() {
 							placeholder="#000000"
 							maxlength="7"
 							:disabled="isSaving"
-							class="flex-1 px-3 py-1.5 bg-[#0f0f0f] border border-[#333] rounded text-white text-sm focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+							class="flex-1 px-3 py-1.5 bg-sidebar border border-white/[0.06] rounded text-white text-sm focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 							@input="customColor = normalizeHexColor(customColor)"
 						/>
 					</div>
 
 					<!-- Preview -->
 					<div class="mt-3 flex items-center gap-2">
-						<span class="text-sm text-[#999]">Preview:</span>
+						<span class="text-sm text-muted-foreground">Preview:</span>
 						<TagBadge :text="tagText || 'Tag text'" :color="currentColor" />
 					</div>
 				</div>
 			</div>
 
 			<!-- Footer -->
-			<div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#333]">
+			<div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/[0.06]">
 				<button
 					@click="handleClose"
 					:disabled="isSaving"
-					class="px-4 py-2 text-sm text-[#999] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					class="px-4 py-2 text-sm text-muted-foreground hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					Cancel
 				</button>

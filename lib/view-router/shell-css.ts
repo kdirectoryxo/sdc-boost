@@ -11,7 +11,7 @@ export const VIEW_ROUTER_SHELL_STYLE_ID = 'sdc-boost-view-router-shell-style';
  */
 export const VIEW_ROUTER_SHELL_CSS = `
 html.sdc-boost-view-router-active {
-  background-color: #0a0c10 !important;
+  background-color: #131517 !important;
 }
 html.sdc-boost-view-router-active #root {
   display: none !important;

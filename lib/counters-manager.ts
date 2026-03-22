@@ -8,6 +8,12 @@ import type { CountersInfo } from './sdc-api-types';
 import { websocketManager } from './websocket-manager';
 import { chatStorage } from './chat-storage';
 
+/** How often to poll the counters API (hub + global badge state). */
+export const COUNTERS_POLL_INTERVAL_MS = 30_000;
+
+/** Debounce refresh when many WebSocket events arrive in a burst. */
+const WEBSOCKET_COUNTERS_REFRESH_DEBOUNCE_MS = 500;
+
 type CounterUpdateCallback = (counters: CountersInfo) => void;
 type CounterChangeCallback = (key: string, oldValue: number, newValue: number) => void;
 
@@ -17,10 +23,14 @@ class CountersManager {
     private updateCallbacks: Set<CounterUpdateCallback> = new Set();
     private changeCallbacks: Set<CounterChangeCallback> = new Set();
     private refreshInterval: ReturnType<typeof setInterval> | null = null;
+    private websocketRefreshDebounceTimer: ReturnType<typeof setTimeout> | null = null;
     private isInitialized = false;
     private unsubscribeMessage: (() => void) | null = null;
     private unsubscribeSeen: (() => void) | null = null;
     private unsubscribeUnseen: (() => void) | null = null;
+    private unsubscribeWildcard: (() => void) | null = null;
+    /** Coalesce concurrent refresh() calls into a single network request */
+    private refreshInFlight: Promise<void> | null = null;
 
     /**
      * Initialize counters manager
@@ -36,10 +46,10 @@ class CountersManager {
         // Set up WebSocket listeners for counter updates
         this.setupWebSocketListeners();
 
-        // Set up periodic refresh (every 5 minutes)
+        // Periodic refresh so hub badges (e.g. chatroom) stay in sync with the API
         this.refreshInterval = setInterval(() => {
             this.refresh().catch(console.error);
-        }, 5 * 60 * 1000);
+        }, COUNTERS_POLL_INTERVAL_MS);
 
         this.isInitialized = true;
         console.log('[CountersManager] Initialized');
@@ -63,17 +73,29 @@ class CountersManager {
     }
 
     /**
-     * Refresh counters from API
+     * Refresh counters from API. Concurrent callers await the same in-flight request.
      */
     async refresh(): Promise<void> {
+        if (this.refreshInFlight) {
+            return this.refreshInFlight;
+        }
+        this.refreshInFlight = this.runRefresh();
+        try {
+            await this.refreshInFlight;
+        } finally {
+            this.refreshInFlight = null;
+        }
+    }
+
+    private async runRefresh(): Promise<void> {
         try {
             const response = await getCounters();
             if (response.info.code === 200) {
                 const oldCounters = this.counters;
                 this.counters = response.info;
 
-                // Store raw API messenger counter before any modifications
-                this.rawApiMessengerCounter = this.counters.messenger || 0;
+                // Store raw API messenger counter before any modifications (use ?? so 0 is kept)
+                this.rawApiMessengerCounter = this.counters.messenger ?? 0;
 
                 // Calculate messenger counter from stored chats
                 // The original SDC site calculates it by summing unread_counter from all chats
@@ -160,6 +182,21 @@ class CountersManager {
                 }
             }
         });
+
+        // Any Socket.IO event (chatroom, etc.) — refresh counters from API after a short debounce
+        this.unsubscribeWildcard = websocketManager.on('*', () => {
+            this.scheduleDebouncedRefreshFromWebSocket();
+        });
+    }
+
+    private scheduleDebouncedRefreshFromWebSocket(): void {
+        if (this.websocketRefreshDebounceTimer != null) {
+            return;
+        }
+        this.websocketRefreshDebounceTimer = setTimeout(() => {
+            this.websocketRefreshDebounceTimer = null;
+            this.refresh().catch(console.error);
+        }, WEBSOCKET_COUNTERS_REFRESH_DEBOUNCE_MS);
     }
 
     /**
@@ -330,6 +367,11 @@ class CountersManager {
             this.refreshInterval = null;
         }
 
+        if (this.websocketRefreshDebounceTimer != null) {
+            clearTimeout(this.websocketRefreshDebounceTimer);
+            this.websocketRefreshDebounceTimer = null;
+        }
+
         if (this.unsubscribeMessage) {
             this.unsubscribeMessage();
             this.unsubscribeMessage = null;
@@ -343,6 +385,11 @@ class CountersManager {
         if (this.unsubscribeUnseen) {
             this.unsubscribeUnseen();
             this.unsubscribeUnseen = null;
+        }
+
+        if (this.unsubscribeWildcard) {
+            this.unsubscribeWildcard();
+            this.unsubscribeWildcard = null;
         }
 
         this.updateCallbacks.clear();

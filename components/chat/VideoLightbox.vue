@@ -628,8 +628,8 @@ onUnmounted(() => {
               @error="handleThumbnailError"
               @load="handleThumbnailLoad"
             />
-            <div v-else class="w-full h-full flex items-center justify-center bg-[#0f0f0f]">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#666]">
+            <div v-else class="w-full h-full flex items-center justify-center bg-sidebar">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white/40">
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
               </svg>
             </div>
@@ -647,7 +647,7 @@ onUnmounted(() => {
             <!-- Fallback for failed thumbnails -->
             <div
               v-if="video.thumbnail && thumbnailErrors.has(video.thumbnail)"
-              class="absolute inset-0 flex flex-col items-center justify-center bg-[#0f0f0f] text-[#666]"
+              class="absolute inset-0 flex flex-col items-center justify-center bg-sidebar text-white/40"
             >
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-1">
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>

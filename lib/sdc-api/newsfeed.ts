@@ -2,7 +2,7 @@
  * SDC API Newsfeed Functions
  * Functions for fetching and working with newsfeed data
  */
-import { getCurrentMuid } from './utils';
+import { resolveMuidOrAwait } from './session-credentials';
 
 export interface NewsfeedFilterOptions {
     likes_rec: boolean;
@@ -124,7 +124,7 @@ export async function getNewsfeedFilters(
     muid?: string | null,
     t1?: number
 ): Promise<NewsfeedFilterResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch newsfeed filters.');
@@ -168,7 +168,7 @@ export async function updateNewsfeedFilters(
     filters: Partial<NewsfeedFilterOptions>,
     muid?: string | null
 ): Promise<{ info: { code: number; message: string } }> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot update newsfeed filters.');
@@ -260,7 +260,7 @@ export async function getNewsfeed(
     time_zone?: number,
     signal?: AbortSignal
 ): Promise<NewsfeedResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch newsfeed.');
@@ -323,7 +323,7 @@ export async function getAdminFeed(
     client_token: string = '0',
     signal?: AbortSignal
 ): Promise<AdminFeedResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch admin feed.');

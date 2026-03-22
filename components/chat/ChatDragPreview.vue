@@ -54,7 +54,7 @@ const styleOverlay = computed<CSSProperties>(() => {
 }
 
 .preview-content {
-  background: #1a1a1a;
+  background: var(--background);
   border: 2px solid #4a9eff;
   border-radius: 8px;
   overflow: hidden;

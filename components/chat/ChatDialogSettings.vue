@@ -259,15 +259,15 @@ onUnmounted(() => {
     @click.self="handleClose"
   >
     <div
-      class="bg-[#1a1a1a] border border-[#333] rounded-lg shadow-2xl min-w-[400px] max-w-[500px] overflow-hidden"
+      class="bg-background border border-white/[0.06] rounded-lg shadow-2xl min-w-[400px] max-w-[500px] overflow-hidden"
       @click.stop
     >
       <!-- Header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-[#333]">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
         <h3 class="text-lg font-semibold text-white">Chat Settings</h3>
         <button
           @click="handleClose"
-          class="p-1 hover:bg-[#333] rounded transition-colors"
+          class="p-1 hover:bg-white/[0.08] rounded transition-colors"
           title="Close"
         >
           <svg
@@ -279,7 +279,7 @@ onUnmounted(() => {
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
-            class="text-[#999] hover:text-white"
+            class="text-muted-foreground hover:text-white"
           >
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -289,7 +289,7 @@ onUnmounted(() => {
 
       <!-- Content -->
       <div class="p-6">
-        <div v-if="loading" class="text-center py-8 text-[#999]">
+        <div v-if="loading" class="text-center py-8 text-muted-foreground">
           Loading...
         </div>
         
@@ -298,7 +298,7 @@ onUnmounted(() => {
           <div class="flex flex-col gap-3">
             <label class="flex flex-col gap-1">
               <span class="text-sm font-medium text-white">OpenRouter API Key</span>
-              <span class="text-xs text-[#999]">
+              <span class="text-xs text-muted-foreground">
                 Your API key is stored locally and never sent to any server except OpenRouter.
               </span>
             </label>
@@ -309,8 +309,8 @@ onUnmounted(() => {
                 type="password"
                 placeholder="sk-or-..."
                 :class="[
-                  'flex-1 py-2 px-3 bg-[#2a2a2a] border rounded-md text-white text-sm font-sans transition-all duration-200 focus:outline-none focus:bg-[#333]',
-                  validationStatus === 'valid' ? 'border-green-500' : validationStatus === 'invalid' ? 'border-red-500' : 'border-[#333] focus:border-green-500'
+                  'flex-1 py-2 px-3 bg-secondary border rounded-md text-white text-sm font-sans transition-all duration-200 focus:outline-none focus:bg-white/[0.08]',
+                  validationStatus === 'valid' ? 'border-green-500' : validationStatus === 'invalid' ? 'border-red-500' : 'border-white/[0.06] focus:border-green-500'
                 ]"
                 @input="validationStatus = 'idle'; validationError = ''"
               />
@@ -350,10 +350,10 @@ onUnmounted(() => {
               <div
                 :class="[
                   'w-2 h-2 rounded-full',
-                  hasApiKey() ? 'bg-green-500' : 'bg-[#666]'
+                  hasApiKey() ? 'bg-green-500' : 'bg-white/40'
                 ]"
               ></div>
-              <span :class="hasApiKey() ? 'text-green-400' : 'text-[#999]'">
+              <span :class="hasApiKey() ? 'text-green-400' : 'text-muted-foreground'">
                 {{ hasApiKey() ? 'API key configured' : 'No API key configured' }}
               </span>
             </div>
@@ -363,7 +363,7 @@ onUnmounted(() => {
           <div class="flex flex-col gap-3">
             <label class="flex flex-col gap-1">
               <span class="text-sm font-medium text-white">Additional Context / Preferences</span>
-              <span class="text-xs text-[#999]">
+              <span class="text-xs text-muted-foreground">
                 Add preferences or context that you don't want to show on your profile. This will help the AI provide more personalized responses.
               </span>
             </label>
@@ -374,7 +374,7 @@ onUnmounted(() => {
                   v-model="context"
                   placeholder="e.g., We prefer full-swap with active couples"
                   rows="4"
-                  class="flex-1 py-2 px-3 bg-[#2a2a2a] border border-[#333] rounded-md text-white text-sm font-sans transition-all duration-200 focus:outline-none focus:bg-[#333] focus:border-green-500 resize-y"
+                  class="flex-1 py-2 px-3 bg-secondary border border-white/[0.06] rounded-md text-white text-sm font-sans transition-all duration-200 focus:outline-none focus:bg-white/[0.08] focus:border-green-500 resize-y"
                 ></textarea>
                 <Button
                   @click="openContextDialog"
@@ -413,7 +413,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Footer -->
-      <div class="px-6 py-4 border-t border-[#333] flex justify-end">
+      <div class="px-6 py-4 border-t border-white/[0.06] flex justify-end">
         <Button
           @click="handleClose"
           variant="ghost"
@@ -433,15 +433,15 @@ onUnmounted(() => {
     @click.self="closeContextDialog"
   >
     <div
-      class="bg-[#1a1a1a] border border-[#333] rounded-lg shadow-2xl w-[90vw] max-w-[800px] h-[80vh] max-h-[600px] overflow-hidden flex flex-col"
+      class="bg-background border border-white/[0.06] rounded-lg shadow-2xl w-[90vw] max-w-[800px] h-[80vh] max-h-[600px] overflow-hidden flex flex-col"
       @click.stop
     >
       <!-- Header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-[#333]">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
         <h3 class="text-lg font-semibold text-white">Edit Context / Preferences</h3>
         <button
           @click="closeContextDialog"
-          class="p-1 hover:bg-[#333] rounded transition-colors"
+          class="p-1 hover:bg-white/[0.08] rounded transition-colors"
           title="Close"
         >
           <svg
@@ -453,7 +453,7 @@ onUnmounted(() => {
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
-            class="text-[#999] hover:text-white"
+            class="text-muted-foreground hover:text-white"
           >
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -466,7 +466,7 @@ onUnmounted(() => {
         <div class="flex flex-col gap-3 flex-1 overflow-hidden">
           <label class="flex flex-col gap-1">
             <span class="text-sm font-medium text-white">Additional Context / Preferences</span>
-            <span class="text-xs text-[#999]">
+            <span class="text-xs text-muted-foreground">
               Add preferences or context that you don't want to show on your profile. This will help the AI provide more personalized responses.
             </span>
           </label>
@@ -474,13 +474,13 @@ onUnmounted(() => {
           <textarea
             v-model="contextDialogText"
             placeholder="e.g., We prefer full-swap with active couples"
-            class="flex-1 w-full py-3 px-4 bg-[#2a2a2a] border border-[#333] rounded-md text-white text-sm font-sans transition-all duration-200 focus:outline-none focus:bg-[#333] focus:border-green-500 resize-none"
+            class="flex-1 w-full py-3 px-4 bg-secondary border border-white/[0.06] rounded-md text-white text-sm font-sans transition-all duration-200 focus:outline-none focus:bg-white/[0.08] focus:border-green-500 resize-none"
           ></textarea>
         </div>
       </div>
 
       <!-- Footer -->
-      <div class="px-6 py-4 border-t border-[#333] flex justify-end gap-2">
+      <div class="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-2">
         <Button
           @click="closeContextDialog"
           variant="ghost"

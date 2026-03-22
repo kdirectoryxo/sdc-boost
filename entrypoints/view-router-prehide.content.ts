@@ -2,7 +2,11 @@
  * Runs at document_start so we can hide #root before first paint on direct loads of #/sdc,
  * avoiding a flash of MUI chrome / loading UI before the main content script mounts Vue.
  */
-import { getBoostViewPathFromLocation, isViewRouterActiveRoute } from '@/lib/view-router/routes';
+import {
+  getBoostViewPathFromLocation,
+  isViewRouterActiveRoute,
+  persistBoostPathFromCurrentLocationEarly,
+} from '@/lib/view-router/routes';
 import { VIEW_ROUTER_SHELL_STYLE_ID, VIEW_ROUTER_SHELL_CSS } from '@/lib/view-router/shell-css';
 import { logShellCssDebug } from '@/lib/view-router/shell-debug';
 import { viewRouterLog } from '@/lib/view-router/logger';
@@ -11,6 +15,7 @@ export default defineContentScript({
   matches: ['*://*.sdc.com/*', '*://sdc.com/*'],
   runAt: 'document_start',
   main() {
+    persistBoostPathFromCurrentLocationEarly();
     const boostPath = getBoostViewPathFromLocation();
     const active = isViewRouterActiveRoute(boostPath);
 

@@ -72,8 +72,8 @@ export const useChatSync = createGlobalState(() => {
     try {
       // Sync chats - reactivity will handle UI updates
       await syncInboxChats();
-      // Refresh counters to update the count immediately
-      await countersManager.refresh();
+      // Messenger badge from IndexedDB (avoid duplicate /v1/counters vs initialize())
+      await countersManager.recalculateMessengerCounter();
       // Folder counts are now reactive
     } catch (err) {
       console.error('[useChatSync] Failed to sync inbox chats:', err);
@@ -96,8 +96,7 @@ export const useChatSync = createGlobalState(() => {
     try {
       // Sync chats - reactivity will handle UI updates
       await syncFolderChats(folderId);
-      // Refresh counters to update the count immediately
-      await countersManager.refresh();
+      await countersManager.recalculateMessengerCounter();
       // Folder counts are now reactive
     } catch (err) {
       console.error(`[useChatSync] Failed to sync folder ${folderId} chats:`, err);
@@ -119,8 +118,7 @@ export const useChatSync = createGlobalState(() => {
     try {
       // Sync chats - reactivity will handle UI updates
       await syncArchivesChats();
-      // Refresh counters to update the count immediately
-      await countersManager.refresh();
+      await countersManager.recalculateMessengerCounter();
     } catch (err) {
       console.error('[useChatSync] Failed to sync archived chats:', err);
     } finally {
@@ -142,8 +140,7 @@ export const useChatSync = createGlobalState(() => {
     try {
       // Sync chats - reactivity will handle UI updates
       await syncAllChats();
-      // Refresh counters to update the count immediately
-      await countersManager.refresh();
+      await countersManager.recalculateMessengerCounter();
       // Folder counts are now reactive
     } catch (err) {
       console.error('[useChatSync] Failed to sync chats:', err);
@@ -354,7 +351,7 @@ export const useChatSync = createGlobalState(() => {
         }
       );
       
-      await countersManager.refresh();
+      await countersManager.recalculateMessengerCounter();
       
       if (progressToast) {
         progressToast.dismiss();
@@ -440,7 +437,7 @@ export const useChatSync = createGlobalState(() => {
         }
       );
       
-      await countersManager.refresh();
+      await countersManager.recalculateMessengerCounter();
       
       // Phase 2: Sync all messages for all chats (including archived)
       const allChats = await chatStorage.getAllChats();

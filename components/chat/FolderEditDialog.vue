@@ -116,17 +116,17 @@ function handleSave() {
 		@click.self="handleClose"
 	>
 		<div
-			class="w-[90vw] max-w-md bg-[#1a1a1a] rounded-lg shadow-2xl flex flex-col overflow-hidden border border-[#333]"
+			class="w-[90vw] max-w-md bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden border border-white/[0.06]"
 			@click.stop
 		>
 			<!-- Header -->
-			<div class="flex items-center justify-between px-6 py-4 border-b border-[#333]">
+			<div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
 				<h2 class="text-xl font-semibold text-white">
 					{{ isEditMode ? 'Edit Folder' : 'Create Folder' }}
 				</h2>
 				<button
 					@click="handleClose"
-					class="p-1 hover:bg-[#333] rounded transition-colors"
+					class="p-1 hover:bg-white/[0.08] rounded transition-colors"
 					title="Close"
 				>
 					<svg
@@ -138,7 +138,7 @@ function handleSave() {
 						stroke-width="2"
 						stroke-linecap="round"
 						stroke-linejoin="round"
-						class="text-[#999] hover:text-white"
+						class="text-muted-foreground hover:text-white"
 					>
 						<line x1="18" y1="6" x2="6" y2="18"></line>
 						<line x1="6" y1="6" x2="18" y2="18"></line>
@@ -155,14 +155,14 @@ function handleSave() {
 
 				<!-- Folder Name Input -->
 				<div class="mb-4">
-					<label class="block text-sm text-[#999] mb-2">Folder Name</label>
+					<label class="block text-sm text-muted-foreground mb-2">Folder Name</label>
 					<input
 						v-model="folderName"
 						type="text"
 						placeholder="Enter folder name..."
 						maxlength="100"
 						:disabled="isSaving"
-						class="w-full px-4 py-2 bg-[#0f0f0f] border border-[#333] rounded-lg text-white placeholder-[#666] focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						class="w-full px-4 py-2 bg-sidebar border border-white/[0.06] rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 						@keydown.enter="handleSave"
 						@keydown.esc="handleClose"
 					/>
@@ -170,11 +170,11 @@ function handleSave() {
 			</div>
 
 			<!-- Footer -->
-			<div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#333]">
+			<div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/[0.06]">
 				<button
 					@click="handleClose"
 					:disabled="isSaving"
-					class="px-4 py-2 text-sm text-[#999] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					class="px-4 py-2 text-sm text-muted-foreground hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					Cancel
 				</button>

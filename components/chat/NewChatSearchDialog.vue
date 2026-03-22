@@ -123,15 +123,15 @@ function formatAge(age: string): string {
     @click.self="handleClose"
   >
     <div
-      class="w-[90vw] max-w-md h-[80vh] max-h-[600px] bg-[#1a1a1a] rounded-lg shadow-2xl flex flex-col overflow-hidden border border-[#333]"
+      class="w-[90vw] max-w-md h-[80vh] max-h-[600px] bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden border border-white/[0.06]"
       @click.stop
     >
             <!-- Header -->
-            <div class="flex items-center justify-between px-6 py-4 border-b border-[#333] shrink-0">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] shrink-0">
               <h2 class="text-xl font-semibold text-white">New Chat</h2>
               <button
                 @click="handleClose"
-                class="p-2 hover:bg-[#333] rounded-md transition-colors"
+                class="p-2 hover:bg-white/[0.08] rounded-md transition-colors"
                 title="Close"
               >
                 <svg
@@ -143,7 +143,7 @@ function formatAge(age: string): string {
                   stroke-width="2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  class="text-[#999] hover:text-white"
+                  class="text-muted-foreground hover:text-white"
                 >
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -152,9 +152,9 @@ function formatAge(age: string): string {
             </div>
 
             <!-- Search Input -->
-            <div class="px-6 py-4 border-b border-[#333] shrink-0">
-              <div class="relative flex items-center gap-2 bg-[#0f0f0f] border border-[#333] rounded-lg px-4 py-2 focus-within:border-blue-500 transition-colors">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#666] shrink-0">
+            <div class="px-6 py-4 border-b border-white/[0.06] shrink-0">
+              <div class="relative flex items-center gap-2 bg-sidebar border border-white/[0.06] rounded-lg px-4 py-2 focus-within:border-blue-500 transition-colors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white/40 shrink-0">
                   <circle cx="11" cy="11" r="8"></circle>
                   <path d="m21 21-4.35-4.35"></path>
                 </svg>
@@ -162,16 +162,16 @@ function formatAge(age: string): string {
                   v-model="searchQuery"
                   type="text"
                   placeholder="Search by username..."
-                  class="flex-1 bg-transparent text-white placeholder-[#666] focus:outline-none min-w-0"
+                  class="flex-1 bg-transparent text-white placeholder-white/40 focus:outline-none min-w-0"
                   autofocus
                 />
                 <button
                   v-if="searchQuery.trim()"
                   @click="searchQuery = ''"
-                  class="p-0.5 hover:bg-[#2a2a2a] rounded transition-colors shrink-0"
+                  class="p-0.5 hover:bg-secondary rounded transition-colors shrink-0"
                   title="Clear search"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
                   </svg>
@@ -185,7 +185,7 @@ function formatAge(age: string): string {
               <div v-if="isSearching" class="flex items-center justify-center h-full">
                 <div class="flex flex-col items-center gap-4">
                   <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <div class="text-[#999] text-sm">Searching...</div>
+                  <div class="text-muted-foreground text-sm">Searching...</div>
                 </div>
               </div>
 
@@ -205,25 +205,25 @@ function formatAge(age: string): string {
               <!-- Empty State (no search yet) -->
               <div v-else-if="!searchQuery.trim()" class="flex items-center justify-center h-full">
                 <div class="text-center px-6">
-                  <div class="text-[#999] text-sm">Type a username to search for people</div>
+                  <div class="text-muted-foreground text-sm">Type a username to search for people</div>
                 </div>
               </div>
 
               <!-- No Results -->
               <div v-else-if="searchResults.length === 0 && !isSearching" class="flex items-center justify-center h-full">
                 <div class="text-center px-6">
-                  <div class="text-[#999] text-sm">No users found</div>
+                  <div class="text-muted-foreground text-sm">No users found</div>
                 </div>
               </div>
 
               <!-- Results List -->
-              <div v-else class="divide-y divide-[#333]">
+              <div v-else class="divide-y divide-white/[0.06]">
                 <button
                   v-for="user in searchResults"
                   :key="user.db_id"
                   @click="handleSelectUser(user)"
                   :disabled="isStartingChat"
-                  class="w-full px-6 py-4 hover:bg-[#2a2a2a] transition-colors flex items-center gap-4 text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="w-full px-6 py-4 hover:bg-secondary transition-colors flex items-center gap-4 text-left disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <!-- Avatar -->
                   <div class="relative shrink-0">
@@ -235,7 +235,7 @@ function formatAge(age: string): string {
                     <!-- Online Indicator -->
                     <div
                       v-if="user.online === 1"
-                      class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1a1a1a]"
+                      class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background"
                     ></div>
                   </div>
 
@@ -245,7 +245,7 @@ function formatAge(age: string): string {
                       <div class="text-white font-medium truncate">{{ user.account_id }}</div>
                       <div v-if="user.lifetime_status" class="text-yellow-400 text-xs" title="Lifetime Member">⭐</div>
                     </div>
-                    <div class="flex items-center gap-3 text-sm text-[#999]">
+                    <div class="flex items-center gap-3 text-sm text-muted-foreground">
                       <span v-if="formatAge(user.age)">{{ formatAge(user.age) }} jaar</span>
                       <span v-if="user.location">{{ user.location }}</span>
                     </div>
@@ -261,7 +261,7 @@ function formatAge(age: string): string {
                     stroke-width="2"
                     stroke-linecap="round"
                     stroke-linejoin="round"
-                    class="text-[#666] shrink-0"
+                    class="text-white/40 shrink-0"
                   >
                     <line x1="5" y1="12" x2="19" y2="12"></line>
                     <polyline points="12 5 19 12 12 19"></polyline>

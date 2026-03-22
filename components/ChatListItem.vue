@@ -313,8 +313,8 @@ const displayDistance = computed(() => {
   <div
       ref="elementRef"
       :class="[
-        'px-4 py-3 cursor-pointer transition-colors hover:bg-[#1a1a1a] group relative',
-        selected ? 'bg-[#1a1a1a]' : '',
+        'px-4 py-3 cursor-pointer transition-colors hover:bg-background group relative',
+        selected ? 'bg-background' : '',
         openDropdownId === (chat.group_id as number | string) ? 'z-50' : 'z-auto',
         isDragging ? 'opacity-30 cursor-grabbing' : 'cursor-grab'
       ]"
@@ -335,12 +335,12 @@ const displayDistance = computed(() => {
           v-else-if="isGroup"
           src="https://www.sdc.com/react/assets/group.8481d87a.svg"
           :alt="chat.group_name"
-          class="w-12 h-12 rounded-full object-cover bg-[#333] p-2"
+          class="w-12 h-12 rounded-full object-cover bg-white/[0.06] p-2"
         />
         <!-- Online Indicator -->
         <div
           v-if="chat.online === 1 && !chat.broadcast && !isGroup"
-          class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#0f0f0f] rounded-full"
+          class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-sidebar rounded-full"
         />
       </div>
 
@@ -362,10 +362,10 @@ const displayDistance = computed(() => {
               </span>
             </div>
             <!-- Distance -->
-            <span v-if="displayDistance" class="text-xs text-[#999] shrink-0">
+            <span v-if="displayDistance" class="text-xs text-muted-foreground shrink-0">
               {{ displayDistance }}
             </span>
-            <span v-if="folderName" class="px-1.5 py-0.5 bg-[#333] text-[#999] text-xs rounded shrink-0">
+            <span v-if="folderName" class="px-1.5 py-0.5 bg-white/[0.06] text-muted-foreground text-xs rounded shrink-0">
               {{ folderName }}
             </span>
             <!-- Tags -->
@@ -376,18 +376,18 @@ const displayDistance = computed(() => {
                 :text="tag.text"
                 :color="tag.color"
               />
-              <span v-if="chatTags.length > 2" class="text-xs text-[#666]">
+              <span v-if="chatTags.length > 2" class="text-xs text-white/40">
                 +{{ chatTags.length - 2 }}
               </span>
             </div>
           </div>
-          <span :class="['text-xs shrink-0 ml-2', chat.unread_counter > 0 ? 'text-red-500' : 'text-[#666]']">
+          <span :class="['text-xs shrink-0 ml-2', chat.unread_counter > 0 ? 'text-red-500' : 'text-white/40']">
             {{ chat.time_elapsed }}
           </span>
         </div>
 
         <div class="flex items-center justify-between gap-2">
-          <p class="text-sm truncate flex-1" :class="chat.isBlocked ? 'text-red-500' : 'text-[#999]'">
+          <p class="text-sm truncate flex-1" :class="chat.isBlocked ? 'text-red-500' : 'text-muted-foreground'">
             <span v-if="chat.broadcast || chat.type === 100" class="inline-block mr-1">📢</span>
             <span v-if="isTyping" class="italic text-blue-400">typing...</span>
             <span v-else>{{ displayMessage }}</span>
@@ -428,7 +428,7 @@ const displayDistance = computed(() => {
                     @click.stop="toggle"
                     class="p-0 rounded transition-colors flex items-center justify-center group/btn"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] group-hover/btn:text-white transition-colors">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground group-hover/btn:text-white transition-colors">
                       <circle cx="12" cy="12" r="1"></circle>
                       <circle cx="12" cy="5" r="1"></circle>
                       <circle cx="12" cy="19" r="1"></circle>
@@ -437,12 +437,12 @@ const displayDistance = computed(() => {
                 </template>
                 <template #content="{ close }">
                   <div
-                    class="w-48 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
+                    class="w-48 rounded-md shadow-lg bg-background border border-white/[0.06] py-1"
                     @click.stop
                   >
                     <button
                       @click.stop="handleTogglePin(); close()"
-                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="12" y1="17" x2="12" y2="22"></line>
@@ -453,7 +453,7 @@ const displayDistance = computed(() => {
                     </button>
                     <button
                       @click.stop="handleToggleMarkUnread(); close()"
-                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -462,7 +462,7 @@ const displayDistance = computed(() => {
                     </button>
                     <button
                       @click.stop="handleOpenTags(close)"
-                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
@@ -470,11 +470,11 @@ const displayDistance = computed(() => {
                       </svg>
                       Tags
                     </button>
-                    <div class="border-t border-[#333] my-1"></div>
+                    <div class="border-t border-white/[0.06] my-1"></div>
                     <button
                       v-if="!chat.folder_id"
                       @click.stop="handleMoveToFolder(close)"
-                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
@@ -486,7 +486,7 @@ const displayDistance = computed(() => {
                     <button
                       v-if="chat.folder_id"
                       @click.stop="handleRemoveFromFolder(close)"
-                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
@@ -495,10 +495,10 @@ const displayDistance = computed(() => {
                       </svg>
                       Remove from folder
                     </button>
-                    <div class="border-t border-[#333] my-1"></div>
+                    <div class="border-t border-white/[0.06] my-1"></div>
                     <button
                       @click.stop="handleDeleteChat(close)"
-                      class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                      class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-secondary transition-colors flex items-center gap-2"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="3 6 5 6 21 6"></polyline>

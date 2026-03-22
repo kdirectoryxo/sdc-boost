@@ -91,12 +91,12 @@ function handleClearSort(e: Event) {
 </script>
 
 <template>
-  <div class="w-[35%] border-r border-[#333] flex flex-col bg-[#0f0f0f]">
+  <div class="w-[35%] border-r border-white/[0.06] flex flex-col bg-sidebar">
     <!-- Search Bar and Filter -->
-    <div class="p-3 border-b border-[#333] shrink-0 relative z-10">
+    <div class="p-3 border-b border-white/[0.06] shrink-0 relative z-10">
       <div class="flex items-center gap-2 flex-wrap">
-        <div class="relative flex items-center gap-1 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-1.5 focus-within:border-blue-500 transition-colors min-w-0 flex-1 basis-[120px]">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#666] shrink-0">
+        <div class="relative flex items-center gap-1 bg-background border border-white/[0.06] rounded-lg px-3 py-1.5 focus-within:border-blue-500 transition-colors min-w-0 flex-1 basis-[120px]">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white/40 shrink-0">
             <circle cx="11" cy="11" r="8"></circle>
             <path d="m21 21-4.35-4.35"></path>
           </svg>
@@ -105,15 +105,15 @@ function handleClearSort(e: Event) {
             @input="emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
             type="text"
             placeholder="Search..."
-            class="flex-1 bg-transparent text-white text-sm placeholder-[#666] focus:outline-none min-w-0"
+            class="flex-1 bg-transparent text-white text-sm placeholder-white/40 focus:outline-none min-w-0"
           />
           <button
             v-if="searchQuery.trim()"
             @click="emit('clear-search')"
-            class="p-0.5 hover:bg-[#2a2a2a] rounded transition-colors shrink-0"
+            class="p-0.5 hover:bg-secondary rounded transition-colors shrink-0"
             title="Clear search"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
@@ -124,7 +124,7 @@ function handleClearSort(e: Event) {
           <!-- Plus Button - New Chat -->
           <button
             @click="emit('new-chat')" 
-            class="p-1.5 rounded-md border bg-[#1a1a1a] border-[#333] text-[#999] hover:border-[#444] hover:text-white transition-colors"
+            class="p-1.5 rounded-md border bg-background border-white/[0.06] text-muted-foreground hover:border-white/[0.10] hover:text-white transition-colors"
             title="New chat"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -149,7 +149,7 @@ function handleClearSort(e: Event) {
                   'p-1.5 rounded-md border transition-colors relative',
                   hasActiveSort
                     ? 'bg-blue-500/20 border-blue-500 text-blue-400'
-                    : 'bg-[#1a1a1a] border-[#333] text-[#999] hover:border-[#444] hover:text-white'
+                    : 'bg-background border-white/[0.06] text-muted-foreground hover:border-white/[0.10] hover:text-white'
                 ]"
                 title="Sort chats"
               >
@@ -176,8 +176,8 @@ function handleClearSort(e: Event) {
           <template #content="{ close }">
             <div class="flex flex-col max-h-[350px]">
               <!-- Header with clear button -->
-              <div class="flex items-center justify-between px-3 py-2 border-b border-[#333] bg-[#151515] sticky top-0 z-10">
-                <span class="text-xs font-medium text-[#999] uppercase tracking-wider">Sort</span>
+              <div class="flex items-center justify-between px-3 py-2 border-b border-white/[0.06] bg-sidebar sticky top-0 z-10">
+                <span class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Sort</span>
                 <button
                   v-if="hasActiveSort"
                   @click="handleClearSort"
@@ -190,16 +190,16 @@ function handleClearSort(e: Event) {
               <!-- Scrollable content -->
               <div class="overflow-y-auto flex-1 py-1">
                 <!-- Sort by Online -->
-                <div class="px-3 py-1.5 text-[10px] font-medium text-[#666] uppercase tracking-wider">Online Status</div>
+                <div class="px-3 py-1.5 text-[10px] font-medium text-white/40 uppercase tracking-wider">Online Status</div>
                 <div class="px-1">
                   <button
                     @click="emit('toggle-sort-online')"
                     :class="[
                       'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
-                      sortByOnline !== null ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                      sortByOnline !== null ? 'bg-blue-500/15 text-blue-400' : 'text-foreground hover:bg-secondary'
                     ]"
                   >
-                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', sortByOnline !== null ? 'bg-blue-500' : 'bg-[#333]']">
+                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', sortByOnline !== null ? 'bg-blue-500' : 'bg-white/[0.06]']">
                       <svg v-if="sortByOnline !== null" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                       </svg>
@@ -224,17 +224,17 @@ function handleClearSort(e: Event) {
                 </div>
                 
                 <!-- Sort by Distance -->
-                <div class="mt-1 pt-1 border-t border-[#2a2a2a]">
-                  <div class="px-3 py-1.5 text-[10px] font-medium text-[#666] uppercase tracking-wider">Distance</div>
+                <div class="mt-1 pt-1 border-t border-white/[0.06]">
+                  <div class="px-3 py-1.5 text-[10px] font-medium text-white/40 uppercase tracking-wider">Distance</div>
                   <div class="px-1">
                     <button
                       @click="emit('toggle-sort-distance')"
                       :class="[
                         'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
-                        sortByDistance !== null ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                        sortByDistance !== null ? 'bg-blue-500/15 text-blue-400' : 'text-foreground hover:bg-secondary'
                       ]"
                     >
-                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', sortByDistance !== null ? 'bg-blue-500' : 'bg-[#333]']">
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', sortByDistance !== null ? 'bg-blue-500' : 'bg-white/[0.06]']">
                         <svg v-if="sortByDistance !== null" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                           <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
@@ -263,17 +263,17 @@ function handleClearSort(e: Event) {
                 </div>
                 
                 <!-- Pinned Sort Options -->
-                <div class="mt-1 pt-1 border-t border-[#2a2a2a]">
-                  <div class="px-3 py-1.5 text-[10px] font-medium text-[#666] uppercase tracking-wider">Options</div>
+                <div class="mt-1 pt-1 border-t border-white/[0.06]">
+                  <div class="px-3 py-1.5 text-[10px] font-medium text-white/40 uppercase tracking-wider">Options</div>
                   <div class="px-1">
                     <button
                       @click="emit('toggle-disable-pinned-sort')"
                       :class="[
                         'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
-                        disablePinnedSort ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                        disablePinnedSort ? 'bg-blue-500/15 text-blue-400' : 'text-foreground hover:bg-secondary'
                       ]"
                     >
-                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', disablePinnedSort ? 'bg-blue-500' : 'bg-[#333]']">
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', disablePinnedSort ? 'bg-blue-500' : 'bg-white/[0.06]']">
                         <svg v-if="disablePinnedSort" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                           <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
@@ -309,7 +309,7 @@ function handleClearSort(e: Event) {
                   'p-1.5 rounded-md border transition-colors relative',
                   hasActiveFilters
                     ? 'bg-blue-500/20 border-blue-500 text-blue-400'
-                    : 'bg-[#1a1a1a] border-[#333] text-[#999] hover:border-[#444] hover:text-white'
+                    : 'bg-background border-white/[0.06] text-muted-foreground hover:border-white/[0.10] hover:text-white'
                 ]"
                 title="Filter chats"
               >
@@ -341,8 +341,8 @@ function handleClearSort(e: Event) {
           <template #content="{ close }">
             <div class="flex flex-col max-h-[450px]">
               <!-- Header with clear button -->
-              <div class="flex items-center justify-between px-3 py-2 border-b border-[#333] bg-[#151515] sticky top-0 z-10">
-                <span class="text-xs font-medium text-[#999] uppercase tracking-wider">Filters</span>
+              <div class="flex items-center justify-between px-3 py-2 border-b border-white/[0.06] bg-sidebar sticky top-0 z-10">
+                <span class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Filters</span>
                 <button
                   v-if="hasActiveFilters"
                   @click="handleClearFilters"
@@ -360,10 +360,10 @@ function handleClearSort(e: Event) {
                     @click="emit('update:filterUnread', !filterUnread)"
                     :class="[
                       'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
-                      filterUnread ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                      filterUnread ? 'bg-blue-500/15 text-blue-400' : 'text-foreground hover:bg-secondary'
                     ]"
                   >
-                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterUnread ? 'bg-blue-500' : 'bg-[#333]']">
+                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterUnread ? 'bg-blue-500' : 'bg-white/[0.06]']">
                       <svg v-if="filterUnread" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                       </svg>
@@ -381,10 +381,10 @@ function handleClearSort(e: Event) {
                     @click="emit('update:filterPinned', !filterPinned)"
                     :class="[
                       'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
-                      filterPinned ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                      filterPinned ? 'bg-blue-500/15 text-blue-400' : 'text-foreground hover:bg-secondary'
                     ]"
                   >
-                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterPinned ? 'bg-blue-500' : 'bg-[#333]']">
+                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterPinned ? 'bg-blue-500' : 'bg-white/[0.06]']">
                       <svg v-if="filterPinned" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                       </svg>
@@ -402,10 +402,10 @@ function handleClearSort(e: Event) {
                     @click="emit('update:filterOnline', !filterOnline)"
                     :class="[
                       'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
-                      filterOnline ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                      filterOnline ? 'bg-blue-500/15 text-blue-400' : 'text-foreground hover:bg-secondary'
                     ]"
                   >
-                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterOnline ? 'bg-blue-500' : 'bg-[#333]']">
+                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterOnline ? 'bg-blue-500' : 'bg-white/[0.06]']">
                       <svg v-if="filterOnline" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                       </svg>
@@ -420,10 +420,10 @@ function handleClearSort(e: Event) {
                     @click="emit('update:filterBlocked', !filterBlocked)"
                     :class="[
                       'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
-                      filterBlocked ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                      filterBlocked ? 'bg-blue-500/15 text-blue-400' : 'text-foreground hover:bg-secondary'
                     ]"
                   >
-                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterBlocked ? 'bg-blue-500' : 'bg-[#333]']">
+                    <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterBlocked ? 'bg-blue-500' : 'bg-white/[0.06]']">
                       <svg v-if="filterBlocked" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                       </svg>
@@ -439,17 +439,17 @@ function handleClearSort(e: Event) {
                 </div>
                 
                 <!-- Profile Type -->
-                <div class="mt-1 pt-1 border-t border-[#2a2a2a]">
-                  <div class="px-3 py-1.5 text-[10px] font-medium text-[#666] uppercase tracking-wider">Profile Type</div>
+                <div class="mt-1 pt-1 border-t border-white/[0.06]">
+                  <div class="px-3 py-1.5 text-[10px] font-medium text-white/40 uppercase tracking-wider">Profile Type</div>
                   <div class="px-1">
                     <button
                       @click="emit('update:filterCouples', !filterCouples)"
                       :class="[
                         'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
-                        filterCouples ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                        filterCouples ? 'bg-blue-500/15 text-blue-400' : 'text-foreground hover:bg-secondary'
                       ]"
                     >
-                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterCouples ? 'bg-blue-500' : 'bg-[#333]']">
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterCouples ? 'bg-blue-500' : 'bg-white/[0.06]']">
                         <svg v-if="filterCouples" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                           <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
@@ -469,10 +469,10 @@ function handleClearSort(e: Event) {
                       @click="emit('update:filterFemales', !filterFemales)"
                       :class="[
                         'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
-                        filterFemales ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                        filterFemales ? 'bg-blue-500/15 text-blue-400' : 'text-foreground hover:bg-secondary'
                       ]"
                     >
-                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterFemales ? 'bg-blue-500' : 'bg-[#333]']">
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterFemales ? 'bg-blue-500' : 'bg-white/[0.06]']">
                         <svg v-if="filterFemales" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                           <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
@@ -490,17 +490,17 @@ function handleClearSort(e: Event) {
                 </div>
                 
                 <!-- Message Filters -->
-                <div class="mt-1 pt-1 border-t border-[#2a2a2a]">
-                  <div class="px-3 py-1.5 text-[10px] font-medium text-[#666] uppercase tracking-wider">Last Message</div>
+                <div class="mt-1 pt-1 border-t border-white/[0.06]">
+                  <div class="px-3 py-1.5 text-[10px] font-medium text-white/40 uppercase tracking-wider">Last Message</div>
                   <div class="px-1">
                     <button
                       @click="emit('update:filterLastMessageByMe', !filterLastMessageByMe)"
                       :class="[
                         'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
-                        filterLastMessageByMe ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                        filterLastMessageByMe ? 'bg-blue-500/15 text-blue-400' : 'text-foreground hover:bg-secondary'
                       ]"
                     >
-                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterLastMessageByMe ? 'bg-blue-500' : 'bg-[#333]']">
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterLastMessageByMe ? 'bg-blue-500' : 'bg-white/[0.06]']">
                         <svg v-if="filterLastMessageByMe" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                           <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
@@ -518,10 +518,10 @@ function handleClearSort(e: Event) {
                       @click="emit('update:filterLastMessageByOther', !filterLastMessageByOther)"
                       :class="[
                         'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
-                        filterLastMessageByOther ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                        filterLastMessageByOther ? 'bg-blue-500/15 text-blue-400' : 'text-foreground hover:bg-secondary'
                       ]"
                     >
-                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterLastMessageByOther ? 'bg-blue-500' : 'bg-[#333]']">
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterLastMessageByOther ? 'bg-blue-500' : 'bg-white/[0.06]']">
                         <svg v-if="filterLastMessageByOther" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                           <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
@@ -539,10 +539,10 @@ function handleClearSort(e: Event) {
                       @click="emit('update:filterOnlyMyMessages', !filterOnlyMyMessages)"
                       :class="[
                         'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all',
-                        filterOnlyMyMessages ? 'bg-blue-500/15 text-blue-400' : 'text-[#e0e0e0] hover:bg-[#252525]'
+                        filterOnlyMyMessages ? 'bg-blue-500/15 text-blue-400' : 'text-foreground hover:bg-secondary'
                       ]"
                     >
-                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterOnlyMyMessages ? 'bg-blue-500' : 'bg-[#333]']">
+                      <div :class="['w-5 h-5 rounded flex items-center justify-center transition-colors', filterOnlyMyMessages ? 'bg-blue-500' : 'bg-white/[0.06]']">
                         <svg v-if="filterOnlyMyMessages" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                           <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
@@ -565,7 +565,7 @@ function handleClearSort(e: Event) {
     </div>
 
     <!-- Tag Filters -->
-    <div v-if="dbIsReady && allTags.length > 0" class="px-4 py-2 border-b border-[#333] bg-[#151515] overflow-x-auto shrink-0">
+    <div v-if="dbIsReady && allTags.length > 0" class="px-4 py-2 border-b border-white/[0.06] bg-sidebar overflow-x-auto shrink-0">
       <div class="flex gap-2">
         <button
           v-for="tag in allTags"
@@ -585,7 +585,7 @@ function handleClearSort(e: Event) {
               } 
             : { 
                 color: tag.color, 
-                borderColor: '#333'
+                borderColor: 'rgba(255,255,255,0.06)'
               }"
         >
           {{ tag.text }}
@@ -600,7 +600,7 @@ function handleClearSort(e: Event) {
           <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           <div class="text-center">
             <div class="text-white text-lg font-semibold mb-2">Syncing your chats</div>
-            <div class="text-[#999] text-sm">Please wait while we load your conversations...</div>
+            <div class="text-muted-foreground text-sm">Please wait while we load your conversations...</div>
           </div>
         </div>
       </div>
@@ -610,10 +610,10 @@ function handleClearSort(e: Event) {
       </div>
 
       <div v-else-if="filteredChats.length === 0" class="flex items-center justify-center h-full">
-        <div class="text-[#999]">No chats found</div>
+        <div class="text-muted-foreground">No chats found</div>
       </div>
 
-      <div v-else class="divide-y divide-[#333]">
+      <div v-else class="divide-y divide-white/[0.06]">
         <ChatListItem
           v-for="chat in filteredChats"
           :key="getChatKey(chat)"

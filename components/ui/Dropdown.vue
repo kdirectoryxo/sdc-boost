@@ -555,7 +555,7 @@ const zIndexStyle = computed(() => ({
       :class="[
         positionClasses,
         width,
-        'bg-[#1a1a1a] border border-[#333] rounded-lg shadow-lg overflow-hidden'
+        'bg-background border border-white/[0.06] rounded-lg shadow-lg overflow-hidden'
       ]"
       :style="zIndexStyle"
       @click.stop

@@ -87,22 +87,34 @@ export function getTargetDBId(): string | null {
 /**
  * Get current user's DB_ID from localStorage or cookies
  */
+function pickNumericId(value: unknown): string | null {
+    if (value === undefined || value === null) return null;
+    const s = String(value).trim();
+    if (s === '' || s === '0') return null;
+    return /^\d+$/.test(s) ? s : null;
+}
+
 export function getCurrentDBId(): string | null {
     try {
         const userInfoStr = localStorage.getItem('user_info');
         if (userInfoStr) {
-            const userInfo = JSON.parse(userInfoStr);
+            const userInfo = JSON.parse(userInfoStr) as Record<string, unknown>;
             // Check directly on userInfo first (snake_case)
-            if (userInfo.db_id) {
-                return String(userInfo.db_id);
+            const topDb = pickNumericId(userInfo.db_id) ?? pickNumericId(userInfo.dbId);
+            if (topDb) {
+                return topDb;
+            }
+            // Some builds expose numeric id at root or under `user`
+            const topId = pickNumericId(userInfo.id);
+            if (topId) {
+                return topId;
             }
             // Check inside user object (both snake_case and camelCase)
-            if (userInfo.user) {
-                if (userInfo.user.db_id) {
-                    return String(userInfo.user.db_id);
-                }
-                if (userInfo.user.dbId) {
-                    return String(userInfo.user.dbId);
+            if (userInfo.user && typeof userInfo.user === 'object') {
+                const u = userInfo.user as Record<string, unknown>;
+                const uDb = pickNumericId(u.db_id) ?? pickNumericId(u.dbId) ?? pickNumericId(u.id);
+                if (uDb) {
+                    return uDb;
                 }
             }
         }

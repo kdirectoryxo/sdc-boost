@@ -12,10 +12,11 @@ import { chatStorage } from '@/lib/chat-storage';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 
 /**
- * Composable for managing ChatDialog lifecycle (open/close, URL watching, mounting)
+ * Composable for managing chat surface lifecycle (open/close, URL watching, mounting).
+ * @param isActive - When false, WebSocket cleanup runs; use `modelValue` for overlay or `ref(true)` for hub page while mounted.
  */
 export function useChatDialogLifecycle(
-  modelValue: Ref<boolean>,
+  isActive: Ref<boolean>,
   onClose?: () => void
 ) {
   const { 
@@ -190,7 +191,7 @@ export function useChatDialogLifecycle(
 
   // Watch for URL changes to update selected chat
   watch(urlSearchParams, async () => {
-    if (modelValue.value && chatList.value.length > 0) {
+    if (isActive.value && chatList.value.length > 0) {
       const chatIdFromURL = getChatIdFromURL();
       const currentChatId = selectedChat.value ? String(selectedChat.value.group_id) : null;
       
@@ -210,8 +211,8 @@ export function useChatDialogLifecycle(
     }
   }, { immediate: false });
 
-  // Watch for modelValue changes to fetch data when dialog opens
-  watch(() => modelValue.value, async (newValue) => {
+  // Watch for active changes to fetch data when surface opens
+  watch(() => isActive.value, async (newValue) => {
     if (newValue) {
       await initializeDialog();
     } else {
@@ -223,7 +224,7 @@ export function useChatDialogLifecycle(
     injectLightboxStyles();
     window.addEventListener('popstate', updateURLSearchParams);
     
-    if (modelValue.value) {
+    if (isActive.value) {
       await initializeDialog();
     }
   });

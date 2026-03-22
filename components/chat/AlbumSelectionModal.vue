@@ -90,18 +90,18 @@ onMounted(() => {
     @click.self="handleClose"
   >
     <div
-      class="w-[90vw] max-w-md h-[80vh] bg-[#1a1a1a] rounded-lg shadow-2xl flex flex-col overflow-hidden"
+      class="w-[90vw] max-w-md h-[80vh] bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden"
       @click.stop
     >
       <!-- Header -->
-      <div class="px-6 py-4 border-b border-[#333] shrink-0 flex items-center justify-between">
+      <div class="px-6 py-4 border-b border-white/[0.06] shrink-0 flex items-center justify-between">
         <h2 class="text-white text-lg font-semibold">Select Albums</h2>
         <button
           @click="handleClose"
-          class="p-2 hover:bg-[#2a2a2a] rounded transition-colors"
+          class="p-2 hover:bg-secondary rounded transition-colors"
           title="Close"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
@@ -114,7 +114,7 @@ onMounted(() => {
         <div v-if="isLoading" class="flex items-center justify-center h-full">
           <div class="flex flex-col items-center gap-4">
             <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <div class="text-[#999]">Loading albums...</div>
+            <div class="text-muted-foreground">Loading albums...</div>
           </div>
         </div>
 
@@ -141,18 +141,18 @@ onMounted(() => {
               'px-4 py-3 rounded-lg border cursor-pointer transition-colors',
               selectedAlbums.has(album.id)
                 ? 'bg-blue-500/20 border-blue-500'
-                : 'bg-[#0f0f0f] border-[#333] hover:bg-[#1a1a1a]'
+                : 'bg-sidebar border-white/[0.06] hover:bg-background'
             ]"
           >
             <div class="flex items-center gap-3">
-              <div class="flex items-center justify-center w-5 h-5 border-2 rounded shrink-0" :class="selectedAlbums.has(album.id) ? 'border-blue-500 bg-blue-500' : 'border-[#666]'">
+              <div class="flex items-center justify-center w-5 h-5 border-2 rounded shrink-0" :class="selectedAlbums.has(album.id) ? 'border-blue-500 bg-blue-500' : 'border-white/[0.14]'">
                 <svg v-if="selectedAlbums.has(album.id)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-white">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
               </div>
               <div class="flex-1 min-w-0">
                 <div class="text-white font-medium truncate">{{ album.name }}</div>
-                <div class="text-xs text-[#999] mt-1">
+                <div class="text-xs text-muted-foreground mt-1">
                   {{ album.counter_images }} {{ parseInt(album.counter_images) === 1 ? 'image' : 'images' }}
                   <span v-if="parseInt(album.counter_videos) > 0">
                     · {{ album.counter_videos }} {{ parseInt(album.counter_videos) === 1 ? 'video' : 'videos' }}
@@ -165,21 +165,21 @@ onMounted(() => {
 
         <!-- Empty State -->
         <div v-else class="flex items-center justify-center h-full">
-          <div class="text-center text-[#999]">
+          <div class="text-center text-muted-foreground">
             <p>No albums found</p>
           </div>
         </div>
       </div>
 
       <!-- Footer -->
-      <div class="px-6 py-4 border-t border-[#333] shrink-0 flex items-center justify-between">
-        <div class="text-sm text-[#999]">
+      <div class="px-6 py-4 border-t border-white/[0.06] shrink-0 flex items-center justify-between">
+        <div class="text-sm text-muted-foreground">
           {{ selectedAlbums.size }} {{ selectedAlbums.size === 1 ? 'album' : 'albums' }} selected
         </div>
         <div class="flex gap-3">
           <button
             @click="handleClose"
-            class="px-4 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#333] transition-colors"
+            class="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-white/[0.08] transition-colors"
           >
             Cancel
           </button>

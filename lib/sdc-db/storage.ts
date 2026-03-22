@@ -3,6 +3,7 @@
  * Handles encoding/decoding and note I/O
  */
 
+import { awaitSessionCredentials } from '../sdc-api/session-credentials';
 import { getCurrentDBId, getCurrentMuid } from '../sdc-api/utils';
 import { getCurrentNote } from '../sdc-api/profile';
 import type { Database } from './types';
@@ -72,7 +73,9 @@ export function decodeDatabase(encoded: string): Database | null {
  */
 export async function loadDatabase(): Promise<Database | null> {
   console.log('[SDCDB Storage] loadDatabase() called');
-  
+
+  await awaitSessionCredentials();
+
   const dbId = getCurrentDBId();
   const muid = getCurrentMuid();
   console.log('[SDCDB Storage] Credentials:', { dbId: dbId ? 'present' : 'missing', muid: muid ? 'present' : 'missing' });
@@ -103,7 +106,9 @@ export async function loadDatabase(): Promise<Database | null> {
  */
 export async function saveDatabase(db: Database): Promise<void> {
   console.log('[SDCDB Storage] saveDatabase() called');
-  
+
+  await awaitSessionCredentials();
+
   const dbId = getCurrentDBId();
   const muid = getCurrentMuid();
 

@@ -3,7 +3,7 @@ import { VIEW_ROUTER_SHELL_STYLE_ID } from '@/lib/view-router/shell-css';
 
 /**
  * Snapshot DOM + computed styles to debug why shell CSS might not hide #root.
- * All logs use [SDC-Boost:ViewRouter] prefix via viewRouterLog.
+ * All logs use [SDC-Boost:SDCHub] prefix via viewRouterLog.
  */
 export function logShellCssDebug(label: string): void {
   try {

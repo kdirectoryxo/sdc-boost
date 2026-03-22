@@ -2,10 +2,18 @@
 import { computed, ref, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 import type { OnlineV2Member, ViewedV2Member } from '@/lib/sdc-api-types';
+import { getBoostProfilePath, navigateBoostViewRouterPath } from '@/lib/view-router/routes';
 
 interface Props {
   member: OnlineV2Member | ViewedV2Member;
   isOnline?: boolean;
+  /**
+   * View-router: full page URL (`?sdc_boost_vr=/sdc/profile/…`). Renders a real `<a>` so
+   * middle-click / ctrl+click open a new tab; plain click uses in-app navigation.
+   */
+  profileHref?: string;
+  /** When set (no `profileHref`), called instead of the global profile dialog hook. */
+  openProfile?: (userId: number) => void;
 }
 
 const props = defineProps<Props>();
@@ -108,15 +116,32 @@ const hasLifetimeStatus = computed(() => props.member.lifetime_status === true);
 // Check if member has speed dating active
 const hasSpeedDating = computed(() => props.member.speed === 1);
 
-// Handle card click
-const handleClick = () => {
-  const profileDialog = (window as any).__sdcBoostOpenProfileDialog;
-  if (profileDialog && props.member.db_id) {
-    profileDialog(props.member.db_id);
-  } else {
-    window.open(`https://www.sdc.com/react/#/profile?idUser=${props.member.db_id}`, '_blank');
+// Handle card click / link activation
+function handleClick(e: MouseEvent) {
+  const id = props.member.db_id;
+  if (!id) return;
+
+  if (props.profileHref) {
+    // Middle-click and modified primary clicks: browser follows `href` (new tab)
+    if (e.button !== 0) return;
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    navigateBoostViewRouterPath(getBoostProfilePath(id));
+    return;
   }
-};
+
+  if (props.openProfile) {
+    props.openProfile(id);
+    return;
+  }
+  const w = window as unknown as { __sdcBoostOpenProfileDialog?: (uid: number) => void };
+  const profileDialog = w.__sdcBoostOpenProfileDialog;
+  if (profileDialog) {
+    profileDialog(id);
+  } else {
+    window.open(`https://www.sdc.com/react/#/profile?idUser=${id}`, '_blank');
+  }
+}
 
 // Profile type indicator color
 const profileTypeColor = computed(() => {
@@ -208,7 +233,12 @@ const lookingForIcons = computed((): LookingForIcon[] => {
 </script>
 
 <template>
-  <div class="card" @click="handleClick">
+  <component
+    :is="profileHref ? 'a' : 'div'"
+    :href="profileHref || undefined"
+    class="card"
+    @click="handleClick"
+  >
     <!-- Photo -->
     <div class="card-photo">
       <img 
@@ -305,7 +335,7 @@ const lookingForIcons = computed((): LookingForIcon[] => {
         </span>
       </div>
     </div>
-  </div>
+  </component>
 </template>
 
 <style scoped>
@@ -316,6 +346,13 @@ const lookingForIcons = computed((): LookingForIcon[] => {
   cursor: pointer;
   transition: all 0.2s ease;
   border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+a.card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  outline: none;
 }
 
 .card:hover {

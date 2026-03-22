@@ -3,7 +3,7 @@
  * Functions for fetching and working with user profiles
  */
 import type { ProfileV2Response, ValidationsV2Response } from '../sdc-api-types';
-import { getCurrentMuid } from './utils';
+import { resolveMuidOrAwait } from './session-credentials';
 
 /**
  * Get profile_v2 data for a user
@@ -12,7 +12,7 @@ import { getCurrentMuid } from './utils';
  * @returns Profile data including note
  */
 export async function getProfileV2(dbId: string, muid?: string | null): Promise<ProfileV2Response> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch profile data.');
@@ -93,7 +93,7 @@ export async function updateProfileNote(
     note: string,
     muid?: string | null
 ): Promise<{ info: { code: number; message?: string } }> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot update profile note.');
@@ -148,7 +148,7 @@ export async function getValidationsV2(
     muid?: string | null,
     page: number = 0
 ): Promise<ValidationsV2Response> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch validations.');

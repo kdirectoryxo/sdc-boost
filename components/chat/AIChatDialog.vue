@@ -549,11 +549,11 @@ onMounted(() => {
     @click.self="handleClose"
   >
     <div
-      class="w-[80vw] max-w-6xl h-[90vh] bg-[#1a1a1a] rounded-lg shadow-2xl flex flex-col overflow-hidden border border-[#333]"
+      class="w-[80vw] max-w-6xl h-[90vh] bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden border border-white/[0.06]"
       @click.stop
     >
       <!-- Header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-[#333] shrink-0">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] shrink-0">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shrink-0">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
@@ -568,10 +568,10 @@ onMounted(() => {
           <div>
             <h2 class="text-xl font-semibold text-white">
               AI Chat
-              <span v-if="selectedChat && !selectedChat.broadcast && !isGroupChat" class="text-sm text-[#999] font-normal">
+              <span v-if="selectedChat && !selectedChat.broadcast && !isGroupChat" class="text-sm text-muted-foreground font-normal">
                 with {{ selectedChat.account_id }}
               </span>
-              <span v-else-if="selectedChat && isGroupChat && groupInfo" class="text-sm text-[#999] font-normal">
+              <span v-else-if="selectedChat && isGroupChat && groupInfo" class="text-sm text-muted-foreground font-normal">
                 for {{ groupInfo.name }}
               </span>
             </h2>
@@ -582,7 +582,7 @@ onMounted(() => {
           <!-- Reset Button -->
           <button
             @click="handleResetChat"
-            class="p-2 hover:bg-[#333] rounded-md transition-colors shrink-0"
+            class="p-2 hover:bg-white/[0.08] rounded-md transition-colors shrink-0"
             title="Reset conversation"
           >
             <svg
@@ -594,7 +594,7 @@ onMounted(() => {
               stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
-              class="text-[#999] hover:text-white"
+              class="text-muted-foreground hover:text-white"
             >
               <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
               <path d="M21 3v5h-5"></path>
@@ -605,7 +605,7 @@ onMounted(() => {
           <!-- Close Button -->
           <button
             @click="handleClose"
-            class="p-2 hover:bg-[#333] rounded-md transition-colors shrink-0"
+            class="p-2 hover:bg-white/[0.08] rounded-md transition-colors shrink-0"
             title="Close"
           >
             <svg
@@ -617,7 +617,7 @@ onMounted(() => {
               stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
-              class="text-[#999] hover:text-white"
+              class="text-muted-foreground hover:text-white"
             >
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -644,9 +644,9 @@ onMounted(() => {
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 mb-1">
                 <span class="text-xs font-semibold text-blue-400 uppercase tracking-wide">Focused Message</span>
-                <span class="text-xs text-[#999]">from {{ focusedMessage.account_id }}</span>
-                <span class="text-xs text-[#666]">•</span>
-                <span class="text-xs text-[#999]">{{ new Date(focusedMessage.date2 * 1000).toLocaleString() }}</span>
+                <span class="text-xs text-muted-foreground">from {{ focusedMessage.account_id }}</span>
+                <span class="text-xs text-white/40">•</span>
+                <span class="text-xs text-muted-foreground">{{ new Date(focusedMessage.date2 * 1000).toLocaleString() }}</span>
               </div>
               <div class="text-sm text-white/90 whitespace-pre-wrap break-words">
                 {{ formatFocusedMessage(focusedMessage).text }}
@@ -659,7 +659,7 @@ onMounted(() => {
         <div v-if="(!profileData && !isGroupChat) && (!groupInfo && isGroupChat) && !error" class="flex items-center justify-center h-full">
           <div class="flex flex-col items-center gap-4">
             <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <div class="text-[#999] text-sm">{{ isGroupChat ? 'Loading group info and messages...' : 'Loading profile and messages...' }}</div>
+            <div class="text-muted-foreground text-sm">{{ isGroupChat ? 'Loading group info and messages...' : 'Loading profile and messages...' }}</div>
           </div>
         </div>
 
@@ -691,7 +691,7 @@ onMounted(() => {
                 'max-w-[70%] rounded-lg px-4 py-2 relative group',
                 msg.role === 'user'
                   ? 'bg-blue-500 text-white'
-                  : 'bg-[#2a2a2a] text-white border border-[#333]'
+                  : 'bg-secondary text-white border border-white/[0.06]'
               ]"
             >
               <!-- Edit Mode -->
@@ -699,7 +699,7 @@ onMounted(() => {
                 <textarea
                   v-model="editingMessageText"
                   rows="3"
-                  class="w-full bg-[#0f0f0f] border border-[#333] rounded-lg px-3 py-2 text-white placeholder-[#666] focus:outline-none focus:border-blue-400 resize-none"
+                  class="w-full bg-sidebar border border-white/[0.06] rounded-lg px-3 py-2 text-white placeholder-white/40 focus:outline-none focus:border-blue-400 resize-none"
                   @keydown.enter.exact.prevent="handleSaveEdit(index)"
                   @keydown.escape="handleCancelEdit"
                 ></textarea>
@@ -712,7 +712,7 @@ onMounted(() => {
                   </button>
                   <button
                     @click="handleCancelEdit"
-                    class="px-3 py-1 bg-[#333] hover:bg-[#444] rounded text-sm text-white transition-colors"
+                    class="px-3 py-1 bg-white/[0.06] hover:bg-white/[0.10] rounded text-sm text-white transition-colors"
                   >
                     Cancel
                   </button>
@@ -725,7 +725,7 @@ onMounted(() => {
                   <div
                     :class="[
                       'text-xs ai-timestamp',
-                      msg.role === 'user' ? 'text-blue-100' : 'text-[#666]'
+                      msg.role === 'user' ? 'text-blue-100' : 'text-white/40'
                     ]"
                   >
                     {{ msg.timestamp.toLocaleTimeString() }}
@@ -759,10 +759,10 @@ onMounted(() => {
 
           <!-- Loading Indicator -->
           <div v-if="isLoading" class="flex justify-start">
-            <div class="bg-[#2a2a2a] border border-[#333] rounded-lg px-4 py-2">
+            <div class="bg-secondary border border-white/[0.06] rounded-lg px-4 py-2">
               <div class="flex items-center gap-2">
                 <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <span class="text-sm text-[#999]">AI is thinking...</span>
+                <span class="text-sm text-muted-foreground">AI is thinking...</span>
               </div>
             </div>
           </div>
@@ -770,7 +770,7 @@ onMounted(() => {
       </div>
 
       <!-- Input Area -->
-      <div class="px-6 py-4 border-t border-[#333] shrink-0">
+      <div class="px-6 py-4 border-t border-white/[0.06] shrink-0">
         <div class="flex items-end gap-2">
           <textarea
             v-model="inputMessage"
@@ -778,7 +778,7 @@ onMounted(() => {
             :disabled="isLoading || (!profileData && !isGroupChat) || (isGroupChat && !groupInfo) || !!error"
             :placeholder="isGroupChat ? 'Ask me anything about this group chat and its participants...' : 'Ask me anything about this profile and chat history...'"
             rows="1"
-            class="flex-1 bg-[#0f0f0f] border border-[#333] rounded-lg px-4 py-2 text-white placeholder-[#666] focus:outline-none focus:border-blue-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+            class="flex-1 bg-sidebar border border-white/[0.06] rounded-lg px-4 py-2 text-white placeholder-white/40 focus:outline-none focus:border-blue-500 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
             style="min-height: 40px; max-height: 120px;"
             @input="(e) => {
               const target = e.target as HTMLTextAreaElement;
@@ -812,7 +812,7 @@ onMounted(() => {
             v-else
             @click="handleSendMessage"
             :disabled="!inputMessage.trim() || (!profileData && !isGroupChat) || (isGroupChat && !groupInfo) || !!error"
-            class="p-2 bg-blue-500 hover:bg-blue-600 disabled:bg-[#333] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors shrink-0"
+            class="p-2 bg-blue-500 hover:bg-blue-600 disabled:bg-white/[0.08] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors shrink-0"
             title="Send message"
           >
             <svg
@@ -831,7 +831,7 @@ onMounted(() => {
             </svg>
           </button>
         </div>
-        <p class="text-xs text-[#666] mt-2">
+        <p class="text-xs text-white/40 mt-2">
           Press Enter to send, Shift+Enter for new line
         </p>
       </div>

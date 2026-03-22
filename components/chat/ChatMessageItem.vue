@@ -99,7 +99,7 @@ function handleVideoError(event: Event, videoUrl: string, index: number) {
   if (container) {
     videoElement.style.display = 'none';
     const errorDiv = document.createElement('div');
-    errorDiv.className = 'p-4 text-center text-[#999] text-sm';
+    errorDiv.className = 'p-4 text-center text-muted-foreground text-sm';
     errorDiv.textContent = 'Video unavailable';
     container.appendChild(errorDiv);
   }
@@ -153,8 +153,8 @@ const isSystemJoinMessage = computed(() => {
     :data-message-id="message.message_id"
     class="flex justify-center items-center py-2"
   >
-    <div class="px-4 py-1.5 bg-[#1a1a1a] border border-[#333] rounded-full">
-      <span class="text-xs text-[#999]">
+    <div class="px-4 py-1.5 bg-background border border-white/[0.06] rounded-full">
+      <span class="text-xs text-muted-foreground">
         <span
           @click.stop="handleOpenProfile"
           :class="['font-semibold cursor-pointer hover:text-blue-400 transition-colors', senderNameColor]"
@@ -162,7 +162,7 @@ const isSystemJoinMessage = computed(() => {
         >
           {{ message.account_id }}
         </span>
-        <span class="text-[#666]"> doet mee met de groep</span>
+        <span class="text-white/40"> doet mee met de groep</span>
       </span>
     </div>
   </div>
@@ -175,7 +175,7 @@ const isSystemJoinMessage = computed(() => {
     :class="[
       'flex gap-3 min-w-0 w-full group',
       isOwnMessage(message) ? 'flex-row-reverse' : 'flex-row',
-      isHighlighted ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#1a1a1a] rounded-lg p-1' : ''
+      isHighlighted ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-background rounded-lg p-1' : ''
     ]"
   >
     <!-- Avatar (only for other user, hidden in group chats) -->
@@ -214,8 +214,8 @@ const isSystemJoinMessage = computed(() => {
         :class="[
           'px-3 py-2 rounded-lg text-sm border-l-2 min-w-0 w-full cursor-pointer transition-colors',
           isOwnMessage(message)
-            ? 'bg-[#2a2a2a] border-blue-500 text-[#ccc] hover:bg-[#333]'
-            : 'bg-[#0f0f0f] border-[#444] text-[#999] hover:bg-[#1a1a1a]'
+            ? 'bg-secondary border-blue-500 text-white/80 hover:bg-white/[0.08]'
+            : 'bg-sidebar border-white/[0.08] text-muted-foreground hover:bg-background'
         ]"
       >
         <div class="font-semibold text-xs mb-1 truncate">
@@ -249,11 +249,11 @@ const isSystemJoinMessage = computed(() => {
               class="w-12 h-12 rounded object-cover shrink-0"
               @error="(e) => { (e.target as HTMLImageElement).style.display = 'none'; }"
             />
-            <div v-if="quotedImageMessage.imageIds.length > 2" class="w-12 h-12 rounded bg-[#1a1a1a] flex items-center justify-center text-xs text-[#999] shrink-0">
+            <div v-if="quotedImageMessage.imageIds.length > 2" class="w-12 h-12 rounded bg-background flex items-center justify-center text-xs text-muted-foreground shrink-0">
               +{{ quotedImageMessage.imageIds.length - 2 }}
             </div>
           </div>
-          <div v-if="quotedImageMessage.text" class="text-xs line-clamp-1 wrap-break-word text-[#999]">
+          <div v-if="quotedImageMessage.text" class="text-xs line-clamp-1 wrap-break-word text-muted-foreground">
             {{ quotedImageMessage.text }}
           </div>
         </div>
@@ -267,7 +267,7 @@ const isSystemJoinMessage = computed(() => {
           'px-4 py-2 rounded-lg min-w-0 w-full',
           isOwnMessage(message)
             ? 'bg-blue-500 text-white'
-            : 'bg-[#2a2a2a] text-white'
+            : 'bg-secondary text-white'
         ]"
       >
         <!-- Gallery Message -->
@@ -330,7 +330,7 @@ const isSystemJoinMessage = computed(() => {
               <div
                 v-for="(videoUrl, idx) in videoUrls"
                 :key="idx"
-                class="relative bg-[#0f0f0f] rounded-lg overflow-hidden w-full"
+                class="relative bg-sidebar rounded-lg overflow-hidden w-full"
               >
                 <video
                   :src="videoUrl"
@@ -360,9 +360,9 @@ const isSystemJoinMessage = computed(() => {
       </div>
 
       <!-- Message Meta -->
-      <div class="flex items-center gap-2 text-xs text-[#666] shrink-0">
+      <div class="flex items-center gap-2 text-xs text-white/40 shrink-0">
         <span class="whitespace-nowrap">{{ formatMessageDate(message) }}</span>
-        <span v-if="isOwnMessage(message)" class="relative inline-flex items-center shrink-0 ml-1" :class="message.seen === 1 ? 'text-blue-400' : 'text-[#666]'">
+        <span v-if="isOwnMessage(message)" class="relative inline-flex items-center shrink-0 ml-1" :class="message.seen === 1 ? 'text-blue-400' : 'text-white/40'">
           <!-- Single checkmark for sent messages -->
           <svg v-if="message.seen !== 1" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
             <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/>
@@ -394,11 +394,11 @@ const isSystemJoinMessage = computed(() => {
             <button
               @click.stop="toggle"
               :class="[
-                'p-1.5 rounded hover:bg-[#2a2a2a] transition-opacity',
+                'p-1.5 rounded hover:bg-secondary transition-opacity',
                 isOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
               ]"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
                 <circle cx="12" cy="12" r="1"></circle>
                 <circle cx="12" cy="5" r="1"></circle>
                 <circle cx="12" cy="19" r="1"></circle>
@@ -407,12 +407,12 @@ const isSystemJoinMessage = computed(() => {
           </template>
           <template #content="{ close }">
             <div
-              class="w-32 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
+              class="w-32 rounded-md shadow-lg bg-background border border-white/[0.06] py-1"
               @click.stop
             >
               <button
                 @click.stop="handleCopy(); close()"
-                class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -422,7 +422,7 @@ const isSystemJoinMessage = computed(() => {
               </button>
               <button
                 @click.stop="handleQuote(); close()"
-                class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
@@ -432,7 +432,7 @@ const isSystemJoinMessage = computed(() => {
               </button>
               <button
                 @click.stop="handleDelete(); close()"
-                class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+                class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-secondary transition-colors flex items-center gap-2"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="3 6 5 6 21 6"></polyline>
@@ -461,11 +461,11 @@ const isSystemJoinMessage = computed(() => {
           <button
             @click.stop="toggle"
             :class="[
-              'p-1.5 rounded hover:bg-[#2a2a2a] transition-opacity',
+              'p-1.5 rounded hover:bg-secondary transition-opacity',
               isOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
             ]"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999] hover:text-white">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
               <circle cx="12" cy="12" r="1"></circle>
               <circle cx="12" cy="5" r="1"></circle>
               <circle cx="12" cy="19" r="1"></circle>
@@ -474,12 +474,12 @@ const isSystemJoinMessage = computed(() => {
         </template>
         <template #content="{ close }">
           <div
-            class="w-44 rounded-md shadow-lg bg-[#1a1a1a] border border-[#333] py-1"
+            class="w-44 rounded-md shadow-lg bg-background border border-white/[0.06] py-1"
             @click.stop
           >
             <button
               @click.stop="handleCopy(); close()"
-              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -489,7 +489,7 @@ const isSystemJoinMessage = computed(() => {
             </button>
             <button
               @click.stop="handleQuote(); close()"
-              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
@@ -499,7 +499,7 @@ const isSystemJoinMessage = computed(() => {
             </button>
             <button
               @click.stop="handleRespondWithAI(); close()"
-              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#2a2a2a] transition-colors flex items-center gap-2"
+              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 3v3m0 12v3m9-9h-3m-12 0H3m15.364 6.364l-2.121-2.121M6.757 6.757L4.636 4.636m14.728 0l-2.121 2.121M6.757 17.243l-2.121 2.121"></path>

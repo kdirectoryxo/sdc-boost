@@ -3,7 +3,7 @@
  * Handles file uploads to SDC API
  */
 
-import { getCurrentMuid } from './sdc-api/utils';
+import { resolveMuidOrAwait } from './sdc-api/session-credentials';
 
 /**
  * Upload multiple images/videos to SDC API
@@ -88,10 +88,7 @@ export async function uploadFiles(
   targetId: string,
   groupId: string
 ): Promise<string[]> {
-  const muid = getCurrentMuid();
-  if (!muid) {
-    throw new Error('MUID not found. Cannot upload files.');
-  }
+  const muid = await resolveMuidOrAwait();
   return uploadMultipleMedia(files, muid, targetId, groupId);
 }
 

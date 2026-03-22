@@ -3,7 +3,7 @@
  * Functions for fetching and working with counters
  */
 import type { CountersResponse } from '../sdc-api-types';
-import { getCurrentMuid } from './utils';
+import { resolveMuidOrAwait } from './session-credentials';
 
 /**
  * Get counters data
@@ -11,7 +11,7 @@ import { getCurrentMuid } from './utils';
  * @returns Counters data
  */
 export async function getCounters(muid?: string | null): Promise<CountersResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch counters.');

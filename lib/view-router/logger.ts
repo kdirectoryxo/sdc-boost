@@ -1,5 +1,5 @@
-/** Console prefix for View Router — all logs from this feature use this. */
-export const VIEW_ROUTER_LOG_PREFIX = '[SDC-Boost:ViewRouter]';
+/** Console prefix for SDC Hub — all logs from this feature use this. */
+export const VIEW_ROUTER_LOG_PREFIX = '[SDC-Boost:SDCHub]';
 
 export function viewRouterLog(...args: unknown[]): void {
   console.log(VIEW_ROUTER_LOG_PREFIX, ...args);

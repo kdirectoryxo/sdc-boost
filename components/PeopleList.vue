@@ -32,6 +32,10 @@ interface Props {
   onlineFilters?: OnlineFilters;
   latestMembersFilters?: LatestMembersFilters;
   clientSideFilters?: ClientSideFilters;
+  /** Real URLs for `<a href>` (view router); enables middle-click / new tab. */
+  getProfileHref?: (userId: number) => string;
+  /** Legacy: callback when `getProfileHref` is not used. */
+  openProfile?: (userId: number) => void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -419,6 +423,8 @@ watch(() => props.clientSideFilters, async () => {
         :key="member.db_id"
         :member="member"
         :is-online="activeTab === 'online'"
+        :profile-href="getProfileHref?.(member.db_id)"
+        :open-profile="openProfile"
       />
     </div>
 

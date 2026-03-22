@@ -178,15 +178,15 @@ async function toggleTagAssignment(tagId: number) {
 		@click.self="handleClose"
 	>
 		<div
-			class="w-[90vw] max-w-2xl bg-[#1a1a1a] rounded-lg shadow-2xl flex flex-col overflow-hidden border border-[#333]"
+			class="w-[90vw] max-w-2xl bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden border border-white/[0.06]"
 			@click.stop
 		>
 			<!-- Header -->
-			<div class="flex items-center justify-between px-6 py-4 border-b border-[#333]">
+			<div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
 				<h2 class="text-xl font-semibold text-white">Manage Tags</h2>
 				<button
 					@click="handleClose"
-					class="p-1 hover:bg-[#333] rounded transition-colors"
+					class="p-1 hover:bg-white/[0.08] rounded transition-colors"
 					title="Close"
 				>
 					<svg
@@ -198,7 +198,7 @@ async function toggleTagAssignment(tagId: number) {
 						stroke-width="2"
 						stroke-linecap="round"
 						stroke-linejoin="round"
-						class="text-[#999] hover:text-white"
+						class="text-muted-foreground hover:text-white"
 					>
 						<line x1="18" y1="6" x2="6" y2="18"></line>
 						<line x1="6" y1="6" x2="18" y2="18"></line>
@@ -248,30 +248,30 @@ async function toggleTagAssignment(tagId: number) {
 
 					<!-- Available Tags Section -->
 					<div>
-						<h3 class="text-sm font-medium text-[#999] mb-3">
+						<h3 class="text-sm font-medium text-muted-foreground mb-3">
 							Available Tags ({{ assignedTagsCount }}/{{ MAX_TAGS_PER_CHAT }} assigned to this chat)
 						</h3>
-						<div v-if="allTags.length === 0" class="text-sm text-[#666] mb-4 py-8 text-center">
+						<div v-if="allTags.length === 0" class="text-sm text-white/40 mb-4 py-8 text-center">
 							No tags available. Click "Create Tag" to add your first tag.
 						</div>
 						<div v-else class="flex flex-wrap gap-2">
 							<label
 								v-for="tag in allTags"
 								:key="tag.id"
-								class="flex items-center gap-2 px-3 py-2 bg-[#2a2a2a] rounded-lg border transition-colors cursor-pointer"
-								:class="chatTagIds.has(tag.id) ? 'border-blue-500 bg-blue-500/10' : 'border-[#333] hover:border-[#555]'"
+								class="flex items-center gap-2 px-3 py-2 bg-secondary rounded-lg border transition-colors cursor-pointer"
+								:class="chatTagIds.has(tag.id) ? 'border-blue-500 bg-blue-500/10' : 'border-white/[0.06] hover:border-white/[0.12]'"
 							>
 								<input
 									type="checkbox"
 									:checked="chatTagIds.has(tag.id)"
 									:disabled="!chatTagIds.has(tag.id) && assignedTagsCount >= MAX_TAGS_PER_CHAT"
 									@change="toggleTagAssignment(tag.id)"
-									class="w-4 h-4 rounded border-[#555] bg-[#1a1a1a] text-blue-500 focus:ring-blue-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+									class="w-4 h-4 rounded border-white/[0.10] bg-background text-blue-500 focus:ring-blue-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
 								/>
 								<TagBadge :text="tag.text" :color="tag.color" />
 								<button
 									@click.stop="openEditDialog(tag.id)"
-									class="p-1 hover:bg-[#3a3a3a] rounded transition-colors ml-1"
+									class="p-1 hover:bg-white/[0.10] rounded transition-colors ml-1"
 									title="Edit tag"
 								>
 									<svg
@@ -283,7 +283,7 @@ async function toggleTagAssignment(tagId: number) {
 										stroke-width="2"
 										stroke-linecap="round"
 										stroke-linejoin="round"
-										class="text-[#999] hover:text-white"
+										class="text-muted-foreground hover:text-white"
 									>
 										<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
 										<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
@@ -332,10 +332,10 @@ async function toggleTagAssignment(tagId: number) {
 			</div>
 
 			<!-- Footer -->
-			<div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#333]">
+			<div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/[0.06]">
 				<button
 					@click="handleClose"
-					class="px-4 py-2 text-sm bg-[#2a2a2a] hover:bg-[#333] text-white rounded transition-colors"
+					class="px-4 py-2 text-sm bg-secondary hover:bg-white/[0.08] text-white rounded transition-colors"
 				>
 					Close
 				</button>

@@ -60,55 +60,55 @@ onUnmounted(() => {
     @click.self="handleClose"
   >
     <div
-      class="bg-[#1a1a1a] border border-[#333] rounded-lg shadow-2xl min-w-[400px] max-w-[500px] overflow-hidden"
+      class="bg-background border border-white/[0.06] rounded-lg shadow-2xl min-w-[400px] max-w-[500px] overflow-hidden"
       @click.stop
     >
       <!-- Header -->
-      <div class="px-6 py-4 border-b border-[#333]">
+      <div class="px-6 py-4 border-b border-white/[0.06]">
         <h3 class="text-lg font-semibold text-white">Sync All Chat</h3>
-        <p class="text-sm text-[#999] mt-1">Choose how you want to sync chats</p>
+        <p class="text-sm text-muted-foreground mt-1">Choose how you want to sync chats</p>
       </div>
 
       <!-- Options -->
       <div class="p-4 space-y-2">
         <button
           @click="handleSelect('sync-unsynced')"
-          class="w-full px-4 py-3 text-left bg-[#0f0f0f] hover:bg-[#2a2a2a] active:bg-[#333] active:scale-[0.98] border border-[#333] rounded-lg transition-all duration-150 group cursor-pointer"
+          class="w-full px-4 py-3 text-left bg-sidebar hover:bg-secondary active:bg-white/[0.08] active:scale-[0.98] border border-white/[0.06] rounded-lg transition-all duration-150 group cursor-pointer"
         >
           <div class="font-medium text-white mb-1">Sync unsynced</div>
-          <div class="text-sm text-[#999]">Sync all chats that have no sync date</div>
+          <div class="text-sm text-muted-foreground">Sync all chats that have no sync date</div>
         </button>
 
         <button
           @click="handleSelect('resync-all')"
-          class="w-full px-4 py-3 text-left bg-[#0f0f0f] hover:bg-[#2a2a2a] active:bg-[#333] active:scale-[0.98] border border-[#333] rounded-lg transition-all duration-150 group cursor-pointer"
+          class="w-full px-4 py-3 text-left bg-sidebar hover:bg-secondary active:bg-white/[0.08] active:scale-[0.98] border border-white/[0.06] rounded-lg transition-all duration-150 group cursor-pointer"
         >
           <div class="font-medium text-white mb-1">Resync all</div>
-          <div class="text-sm text-[#999]">Force resync all chats (all pages)</div>
+          <div class="text-sm text-muted-foreground">Force resync all chats (all pages)</div>
         </button>
 
         <button
           @click="handleSelect('resync-newest')"
-          class="w-full px-4 py-3 text-left bg-[#0f0f0f] hover:bg-[#2a2a2a] active:bg-[#333] active:scale-[0.98] border border-[#333] rounded-lg transition-all duration-150 group cursor-pointer"
+          class="w-full px-4 py-3 text-left bg-sidebar hover:bg-secondary active:bg-white/[0.08] active:scale-[0.98] border border-white/[0.06] rounded-lg transition-all duration-150 group cursor-pointer"
         >
           <div class="font-medium text-white mb-1">Resync newest</div>
-          <div class="text-sm text-[#999]">Force resync first page of all chats</div>
+          <div class="text-sm text-muted-foreground">Force resync first page of all chats</div>
         </button>
 
         <button
           @click="handleSyncProfiles"
-          class="w-full px-4 py-3 text-left bg-[#0f0f0f] hover:bg-[#2a2a2a] active:bg-[#333] active:scale-[0.98] border border-[#333] rounded-lg transition-all duration-150 group cursor-pointer"
+          class="w-full px-4 py-3 text-left bg-sidebar hover:bg-secondary active:bg-white/[0.08] active:scale-[0.98] border border-white/[0.06] rounded-lg transition-all duration-150 group cursor-pointer"
         >
           <div class="font-medium text-white mb-1">Sync Profile Data</div>
-          <div class="text-sm text-[#999]">Sync profile data for chats (hold Shift to reset and resync all)</div>
+          <div class="text-sm text-muted-foreground">Sync profile data for chats (hold Shift to reset and resync all)</div>
         </button>
       </div>
 
       <!-- Footer -->
-      <div class="px-6 py-4 border-t border-[#333] flex justify-end">
+      <div class="px-6 py-4 border-t border-white/[0.06] flex justify-end">
         <button
           @click="handleClose"
-          class="px-4 py-2 text-sm text-[#999] hover:text-white active:text-[#ccc] transition-colors cursor-pointer"
+          class="px-4 py-2 text-sm text-muted-foreground hover:text-white active:text-white/80 transition-colors cursor-pointer"
         >
           Cancel
         </button>

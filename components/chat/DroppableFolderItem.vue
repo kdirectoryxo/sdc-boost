@@ -42,8 +42,8 @@ function handleClick() {
     ref="elementRef"
     @click="handleClick"
     :class="[
-      'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#1a1a1a] transition-colors relative',
-      selected ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : '',
+      'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-background transition-colors relative',
+      selected ? 'bg-background border-l-2 border-blue-500' : '',
       isOvered ? 'bg-blue-500/20 border-l-2 border-blue-500' : ''
     ]"
     style="min-width: 0; max-width: 100%; box-sizing: border-box; width: 100%;"
@@ -60,7 +60,7 @@ function handleClick() {
         stroke-width="2"
         stroke-linecap="round"
         stroke-linejoin="round"
-        class="text-[#999] shrink-0"
+        class="text-muted-foreground shrink-0"
       >
         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
         <polyline points="22,6 12,13 2,6"></polyline>
@@ -76,7 +76,7 @@ function handleClick() {
         stroke-width="2"
         stroke-linecap="round"
         stroke-linejoin="round"
-        class="text-[#999] shrink-0"
+        class="text-muted-foreground shrink-0"
       >
         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
       </svg>

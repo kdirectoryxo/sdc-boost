@@ -3,7 +3,7 @@
  * Functions for fetching online and viewed members
  */
 import type { OnlineV2Response, ViewedV2Response, LatestMembersV2Response, FeaturedMembersV2Response } from '../sdc-api-types';
-import { getCurrentDBId } from './utils';
+import { resolvePeopleApiMuid } from './session-credentials';
 
 export interface OnlineV2Params {
     muid?: string | null;
@@ -54,7 +54,7 @@ export interface FeaturedMembersV2Params {
  * @returns Online members response
  */
 export async function getOnlineV2(params: OnlineV2Params = {}): Promise<OnlineV2Response> {
-    const currentMuid = params.muid || getCurrentDBId();
+    const currentMuid = await resolvePeopleApiMuid(params.muid ?? null);
 
     if (!currentMuid) {
         throw new Error('MUID (DB_ID) not found. Cannot fetch online members.');
@@ -109,7 +109,7 @@ export async function getOnlineV2(params: OnlineV2Params = {}): Promise<OnlineV2
  * @returns Viewed members response
  */
 export async function getViewedV2(params: ViewedV2Params = {}): Promise<ViewedV2Response> {
-    const currentMuid = params.muid || getCurrentDBId();
+    const currentMuid = await resolvePeopleApiMuid(params.muid ?? null);
 
     if (!currentMuid) {
         throw new Error('MUID (DB_ID) not found. Cannot fetch viewed members.');
@@ -158,7 +158,7 @@ export async function getViewedV2(params: ViewedV2Params = {}): Promise<ViewedV2
  * @returns Latest members response
  */
 export async function getLatestMembersV2(params: LatestMembersV2Params = {}): Promise<LatestMembersV2Response> {
-    const currentMuid = params.muid || getCurrentDBId();
+    const currentMuid = await resolvePeopleApiMuid(params.muid ?? null);
 
     if (!currentMuid) {
         throw new Error('MUID (DB_ID) not found. Cannot fetch latest members.');
@@ -206,7 +206,7 @@ export async function getLatestMembersV2(params: LatestMembersV2Params = {}): Pr
  * @returns Featured members response
  */
 export async function getFeaturedMembersV2(params: FeaturedMembersV2Params = {}): Promise<FeaturedMembersV2Response> {
-    const currentMuid = params.muid || getCurrentDBId();
+    const currentMuid = await resolvePeopleApiMuid(params.muid ?? null);
 
     if (!currentMuid) {
         throw new Error('MUID (DB_ID) not found. Cannot fetch featured members.');

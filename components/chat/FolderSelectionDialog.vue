@@ -65,17 +65,17 @@ const inboxValue = null;
 		@click.self="handleClose"
 	>
 		<div
-			class="w-[90vw] max-w-md bg-[#1a1a1a] rounded-lg shadow-2xl flex flex-col overflow-hidden border border-[#333]"
+			class="w-[90vw] max-w-md bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden border border-white/[0.06]"
 			@click.stop
 		>
 			<!-- Header -->
-			<div class="flex items-center justify-between px-6 py-4 border-b border-[#333]">
+			<div class="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
 				<h2 class="text-xl font-semibold text-white">
 					Move to Folder
 				</h2>
 				<button
 					@click="handleClose"
-					class="p-1 hover:bg-[#333] rounded transition-colors"
+					class="p-1 hover:bg-white/[0.08] rounded transition-colors"
 					title="Close"
 				>
 					<svg
@@ -87,7 +87,7 @@ const inboxValue = null;
 						stroke-width="2"
 						stroke-linecap="round"
 						stroke-linejoin="round"
-						class="text-[#999] hover:text-white"
+						class="text-muted-foreground hover:text-white"
 					>
 						<line x1="18" y1="6" x2="6" y2="18"></line>
 						<line x1="6" y1="6" x2="18" y2="18"></line>
@@ -110,7 +110,7 @@ const inboxValue = null;
 							'flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all',
 							selectedFolderId === inboxValue
 								? 'bg-blue-500/10 border-blue-500/50'
-								: 'bg-[#0f0f0f] border-[#333] hover:border-[#444] hover:bg-[#1a1a1a]'
+								: 'bg-sidebar border-white/[0.06] hover:border-white/[0.10] hover:bg-background'
 						]"
 						@click="selectedFolderId = inboxValue"
 					>
@@ -120,7 +120,7 @@ const inboxValue = null;
 								'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all',
 								selectedFolderId === inboxValue
 									? 'border-blue-500 bg-blue-500'
-									: 'border-[#555] bg-transparent'
+									: 'border-white/[0.10] bg-transparent'
 							]"
 						>
 							<div
@@ -129,7 +129,7 @@ const inboxValue = null;
 							></div>
 						</div>
 						<div class="flex items-center gap-2 flex-1">
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999]">
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
 								<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
 								<polyline points="22,6 12,13 2,6"></polyline>
 							</svg>
@@ -145,7 +145,7 @@ const inboxValue = null;
 							'flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all',
 							selectedFolderId === folder.id
 								? 'bg-blue-500/10 border-blue-500/50'
-								: 'bg-[#0f0f0f] border-[#333] hover:border-[#444] hover:bg-[#1a1a1a]'
+								: 'bg-sidebar border-white/[0.06] hover:border-white/[0.10] hover:bg-background'
 						]"
 						@click="selectedFolderId = folder.id"
 					>
@@ -155,7 +155,7 @@ const inboxValue = null;
 								'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all',
 								selectedFolderId === folder.id
 									? 'border-blue-500 bg-blue-500'
-									: 'border-[#555] bg-transparent'
+									: 'border-white/[0.10] bg-transparent'
 							]"
 						>
 							<div
@@ -164,7 +164,7 @@ const inboxValue = null;
 							></div>
 						</div>
 						<div class="flex items-center gap-2 flex-1">
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999]">
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
 								<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
 							</svg>
 							<span class="text-white text-sm">{{ folder.name }}</span>
@@ -174,10 +174,10 @@ const inboxValue = null;
 			</div>
 
 			<!-- Footer -->
-			<div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#333]">
+			<div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/[0.06]">
 				<button
 					@click="handleClose"
-					class="px-4 py-2 text-sm text-[#999] hover:text-white transition-colors"
+					class="px-4 py-2 text-sm text-muted-foreground hover:text-white transition-colors"
 				>
 					Cancel
 				</button>

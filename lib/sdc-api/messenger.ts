@@ -3,7 +3,7 @@
  * Functions for fetching and working with messenger/chat data
  */
 import type { MessengerLatestResponse, MessengerIOV2Response, MessengerFoldersResponse, MessengerChatDetailsResponse, GalleryPhotosResponse, AlbumsResponse, PinChatResponse, MarkUnreadResponse, SearchGlobalV2Response, MessengerGroupContactsResponse, MessengerGroupInfoResponse } from '../sdc-api-types';
-import { getCurrentMuid } from './utils';
+import { resolveMuidOrAwait } from './session-credentials';
 import { chatStorage } from '../chat-storage';
 import { folderStorage } from '../folder-storage';
 
@@ -17,7 +17,7 @@ export async function getMessengerLatest(
     page: number = 0,
     muid?: string | null
 ): Promise<MessengerLatestResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch messenger data.');
@@ -56,8 +56,7 @@ export async function getMessengerLatest(
  * @returns WebSocket connection parameters
  */
 export async function getMessengerIOV2(muid?: string | null): Promise<MessengerIOV2Response> {
-    const { getCurrentMuid } = await import('./utils');
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch messenger IO data.');
@@ -95,7 +94,7 @@ export async function getMessengerIOV2(muid?: string | null): Promise<MessengerI
  * @returns Messenger folders data
  */
 export async function getMessengerFolders(muid?: string | null): Promise<MessengerFoldersResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch messenger folders.');
@@ -139,7 +138,7 @@ export async function getMessengerFolderItems(
     page: number = 0,
     muid?: string | null
 ): Promise<MessengerLatestResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch messenger folder items.');
@@ -421,7 +420,7 @@ export async function getMessengerChatDetails(
     page: number = 0,
     muid?: string | null
 ): Promise<MessengerChatDetailsResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch chat details.');
@@ -513,7 +512,7 @@ export async function getMessengerArchives(
     page: number = 0,
     muid?: string | null
 ): Promise<MessengerLatestResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch messenger archives.');
@@ -800,7 +799,7 @@ export async function deleteMessage(
     messageId: number,
     muid?: string | null
 ): Promise<{ info: { code: number; message: string; last_message: string } }> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot delete message.');
@@ -848,7 +847,7 @@ export async function getGalleryPhotos(
     password?: string,
     muid?: string | null
 ): Promise<GalleryPhotosResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch gallery photos.');
@@ -978,7 +977,7 @@ export async function pinChat(
     pin: 0 | 1,
     muid?: string | null
 ): Promise<PinChatResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot pin/unpin chat.');
@@ -1030,7 +1029,7 @@ export async function markChatUnread(
     action: 0 | 1,
     muid?: string | null
 ): Promise<MarkUnreadResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot mark chat as read/unread.');
@@ -1084,7 +1083,7 @@ export async function searchGlobalV2(
     page: number = 0,
     muid?: string | null
 ): Promise<SearchGlobalV2Response> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot search users.');
@@ -1131,7 +1130,7 @@ export async function startChat(
     dbId: number,
     muid?: string | null
 ): Promise<MessengerChatDetailsResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot start chat.');
@@ -1198,7 +1197,7 @@ export async function deleteBroadcast(
     broadcastId: number,
     muid?: string | null
 ): Promise<{ info: { code: number | string; message: string } }> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot delete broadcast.');
@@ -1252,7 +1251,7 @@ export async function deleteConversation(
     dbId: number,
     muid?: string | null
 ): Promise<{ info: { code: number | string; message: string } }> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot delete conversation.');
@@ -1307,7 +1306,7 @@ export async function getMessengerGroups(
     t1?: number,
     muid?: string | null
 ): Promise<MessengerLatestResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch messenger groups.');
@@ -1357,7 +1356,7 @@ export async function getMessengerGroupChatDetails(
     page: number = 0,
     muid?: string | null
 ): Promise<MessengerChatDetailsResponse> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch group chat details.');
@@ -1412,7 +1411,7 @@ export async function getMessengerGroupContacts(
     muid?: string | null
 ): Promise<MessengerGroupContactsResponse> {
     // Use target_db_id as muid if provided, otherwise fall back to current muid
-    const currentMuid = targetDbId ? targetDbId.toString() : (muid || getCurrentMuid());
+    const currentMuid = targetDbId ? targetDbId.toString() : await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch group contacts.');
@@ -1463,7 +1462,7 @@ export async function getMessengerGroupInfo(
     muid?: string | null
 ): Promise<MessengerGroupInfoResponse> {
     // Use target_db_id as muid if provided, otherwise fall back to current muid
-    const currentMuid = targetDbId ? targetDbId.toString() : (muid || getCurrentMuid());
+    const currentMuid = targetDbId ? targetDbId.toString() : await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot fetch group info.');
@@ -1510,7 +1509,7 @@ export async function editFolder(
     name: string,
     muid?: string | null
 ): Promise<{ info: { code: number; message: string } }> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot edit folder.');
@@ -1563,7 +1562,7 @@ export async function createFolder(
     name: string,
     muid?: string | null
 ): Promise<{ info: { code: number; message: string } }> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot create folder.');
@@ -1615,7 +1614,7 @@ export async function deleteFolder(
     folderId: number,
     muid?: string | null
 ): Promise<{ info: { code: number; message: string } }> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot delete folder.');
@@ -1669,7 +1668,7 @@ export async function addChatToFolder(
     folderId: number,
     muid?: string | null
 ): Promise<{ info: { code: number; message: string } }> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot add chat to folder.');
@@ -1724,7 +1723,7 @@ export async function removeChatFromFolder(
     folderId: number,
     muid?: string | null
 ): Promise<{ info: { code: number; message: string } }> {
-    const currentMuid = muid || getCurrentMuid();
+    const currentMuid = await resolveMuidOrAwait(muid);
 
     if (!currentMuid) {
         throw new Error('MUID not found. Cannot remove chat from folder.');

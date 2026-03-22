@@ -16,14 +16,32 @@ interface Props {
   getTotalUnreadCount: () => number;
   getInboxUnreadCount: () => number;
   getFolderUnreadCount: (folderId: number) => number;
+  /** Hub page: connection + sync/settings in this sidebar (no chat dialog header). */
+  showHubToolbar?: boolean;
+  isWebSocketConnected?: boolean;
+  isSyncingMessages?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  showHubToolbar: false,
+  isWebSocketConnected: true,
+  isSyncingMessages: false,
+});
 
 const emit = defineEmits<{
   'select-folder': [folderId: number | null];
   'select-archives': [];
+  'sync-all-chats': [];
+  'open-settings': [];
 }>();
+
+function handleHubSync() {
+  emit('sync-all-chats');
+}
+
+function handleHubSettings() {
+  emit('open-settings');
+}
 
 const { updateFolderName, createFolder, deleteFolder, moveChatToFolder } = useChatFolders();
 
@@ -176,21 +194,21 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
 </script>
 
 <template>
-  <div class="w-[200px] border-r border-[#333] flex flex-col bg-[#0f0f0f] overflow-y-auto shrink-0">
-    <div class="p-4 border-b border-[#333] shrink-0">
-      <h3 class="text-sm font-semibold text-[#999] uppercase tracking-wide">Folders</h3>
+  <div class="flex h-full min-h-0 w-[200px] shrink-0 flex-col border-r border-white/[0.06] bg-sidebar">
+    <div class="shrink-0 border-b border-white/[0.06] p-4">
+      <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Folders</h3>
     </div>
-    <div class="flex-1 overflow-y-auto">
+    <div class="min-h-0 flex-1 overflow-y-auto">
       <!-- All Chats -->
       <button
         @click="handleSelectAll"
         :class="[
-          'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#1a1a1a] transition-colors',
-          selectedFolderId === null && !showArchives ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
+          'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-background transition-colors',
+          selectedFolderId === null && !showArchives ? 'bg-background border-l-2 border-blue-500' : ''
         ]"
       >
         <div class="flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999]">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           </svg>
           <span class="text-white text-sm">All Chats</span>
@@ -213,7 +231,7 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
 
       <!-- Folder List -->
       <template v-for="folder in folders" :key="`folder-${folder.id}`">
-        <div class="border-t border-[#333] group">
+        <div class="border-t border-white/[0.06] group">
           <div class="relative flex items-center w-full">
             <DroppableFolderItem
               :folder-id="folder.id"
@@ -250,7 +268,7 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
                     stroke-width="2"
                     stroke-linecap="round"
                     stroke-linejoin="round"
-                    class="text-[#999] group-hover/btn:text-white transition-colors"
+                    class="text-muted-foreground group-hover/btn:text-white transition-colors"
                   >
                     <circle cx="12" cy="12" r="1"></circle>
                     <circle cx="12" cy="5" r="1"></circle>
@@ -262,7 +280,7 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
                 <div class="py-1">
                   <button
                     @click="handleEditFolder(folder); close()"
-                    class="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333] transition-colors flex items-center gap-2"
+                    class="w-full px-4 py-2 text-left text-sm text-white hover:bg-white/[0.08] transition-colors flex items-center gap-2"
                   >
                     <svg
                       width="14"
@@ -273,7 +291,7 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
                       stroke-width="2"
                       stroke-linecap="round"
                       stroke-linejoin="round"
-                      class="text-[#999]"
+                      class="text-muted-foreground"
                     >
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
@@ -282,7 +300,7 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
                   </button>
                   <button
                     @click="handleDeleteFolder(folder); close()"
-                    class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#333] transition-colors flex items-center gap-2"
+                    class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-white/[0.08] transition-colors flex items-center gap-2"
                   >
                     <svg
                       width="14"
@@ -311,10 +329,10 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
       </template>
 
       <!-- New Folder Button -->
-      <div class="border-t border-[#333]">
+      <div class="border-t border-white/[0.06]">
         <button
           @click="handleNewFolder"
-          class="w-full px-4 py-2.5 text-left flex items-center gap-2 hover:bg-[#1a1a1a] transition-colors group/new-folder"
+          class="w-full px-4 py-2.5 text-left flex items-center gap-2 hover:bg-background transition-colors group/new-folder"
           title="New folder"
         >
           <svg
@@ -326,34 +344,117 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
-            class="text-[#666] group-hover/new-folder:text-[#999] transition-colors"
+            class="text-white/40 group-hover/new-folder:text-muted-foreground transition-colors"
           >
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          <span class="text-[#666] text-sm group-hover/new-folder:text-[#999] transition-colors">New Folder</span>
+          <span class="text-white/40 text-sm group-hover/new-folder:text-muted-foreground transition-colors">New Folder</span>
         </button>
       </div>
 
       <!-- Divider before Archives -->
-      <div class="border-t border-[#333] my-2"></div>
+      <div class="border-t border-white/[0.06] my-2"></div>
 
       <!-- Archives -->
       <button
         @click="handleSelectArchives"
         :class="[
-          'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-[#1a1a1a] transition-colors',
-          showArchives ? 'bg-[#1a1a1a] border-l-2 border-blue-500' : ''
+          'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-background transition-colors',
+          showArchives ? 'bg-background border-l-2 border-blue-500' : ''
         ]"
       >
         <div class="flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999]">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
             <polyline points="9 22 9 12 15 12 15 22"></polyline>
           </svg>
           <span class="text-white text-sm">Archives</span>
         </div>
       </button>
+    </div>
+
+    <!-- Hub: connection + sync / settings (replaces chat dialog header) -->
+    <div
+      v-if="showHubToolbar"
+      class="shrink-0 space-y-2 border-t border-white/[0.06] px-3 py-3"
+    >
+      <div class="flex min-w-0 items-center gap-2">
+        <div
+          :class="[
+            'h-2 w-2 shrink-0 rounded-full',
+            isWebSocketConnected ? 'bg-green-500' : 'bg-red-500',
+          ]"
+          :title="isWebSocketConnected ? 'WebSocket Connected' : 'WebSocket Disconnected'"
+        />
+        <span class="truncate text-xs text-white/40">
+          {{ isWebSocketConnected ? 'Live' : 'Offline' }}
+        </span>
+      </div>
+      <div class="flex items-center gap-1">
+        <button
+          type="button"
+          @click="handleHubSync"
+          :disabled="isSyncingMessages"
+          :class="[
+            'rounded-md p-2 transition-colors hover:bg-white/[0.08]',
+            isSyncingMessages ? 'cursor-not-allowed opacity-50' : '',
+          ]"
+          :title="isSyncingMessages ? 'Syncing messages...' : 'Sync messages for unsynced chats'"
+        >
+          <svg
+            v-if="!isSyncingMessages"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="text-muted-foreground hover:text-white"
+          >
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path>
+          </svg>
+          <svg
+            v-else
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="animate-spin text-blue-500"
+          >
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path>
+          </svg>
+        </button>
+        <button
+          type="button"
+          @click="handleHubSettings"
+          class="rounded-md p-2 transition-colors hover:bg-white/[0.08]"
+          title="Settings"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="text-muted-foreground hover:text-white"
+          >
+            <path
+              d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+            ></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- Folder Edit Dialog -->

@@ -121,7 +121,7 @@ function handleOpenProfile(userId: number) {
     @click.self="handleClose"
   >
         <div
-          class="w-[80vw] max-w-6xl h-[90vh] bg-[#1a1a1a] rounded-lg shadow-2xl flex flex-col overflow-hidden border border-[#333]"
+          class="w-[80vw] max-w-6xl h-[90vh] bg-background rounded-lg shadow-2xl flex flex-col overflow-hidden border border-white/[0.06]"
           :style="{
             transform: stackLevel > 0 ? `scale(${1 - stackLevel * 0.05})` : 'scale(1)',
             transition: 'transform 0.2s ease',
@@ -129,13 +129,13 @@ function handleOpenProfile(userId: number) {
           @click.stop
         >
           <!-- Header -->
-          <div class="px-6 py-4 border-b border-[#333] shrink-0 flex items-center justify-between">
+          <div class="px-6 py-4 border-b border-white/[0.06] shrink-0 flex items-center justify-between">
             <h2 class="text-xl font-semibold text-white">Group Info</h2>
             <button
               @click="handleClose"
-              class="p-2 hover:bg-[#2a2a2a] rounded transition-colors"
+              class="p-2 hover:bg-secondary rounded transition-colors"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#999]">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
@@ -168,11 +168,11 @@ function handleOpenProfile(userId: number) {
                   v-else
                   src="https://www.sdc.com/react/assets/group.8481d87a.svg"
                   :alt="groupInfo.name"
-                  class="w-20 h-20 rounded-lg object-cover bg-[#333] p-4"
+                  class="w-20 h-20 rounded-lg object-cover bg-white/[0.06] p-4"
                 />
                 <div class="flex-1">
                   <h3 class="text-2xl font-semibold text-white mb-2">{{ groupInfo.name }}</h3>
-                  <p class="text-[#999]">{{ groupInfo.participants }} participants</p>
+                  <p class="text-muted-foreground">{{ groupInfo.participants }} participants</p>
                   <p v-if="groupInfo.muted === '1'" class="text-yellow-400 text-sm mt-1">🔇 Muted</p>
                 </div>
               </div>
@@ -185,7 +185,7 @@ function handleOpenProfile(userId: number) {
                     v-for="admin in groupInfo.admins"
                     :key="admin.db_id"
                     @click="handleOpenProfile(Number(admin.db_id))"
-                    class="flex items-center gap-3 p-3 bg-[#1a1a1a] border border-[#333] rounded-lg cursor-pointer hover:bg-[#2a2a2a] transition-colors"
+                    class="flex items-center gap-3 p-3 bg-background border border-white/[0.06] rounded-lg cursor-pointer hover:bg-secondary transition-colors"
                   >
                     <img
                       :src="`https://pictures.sdc.com/photos/${admin.primary_photo}`"
@@ -194,7 +194,7 @@ function handleOpenProfile(userId: number) {
                     />
                     <div class="flex-1 min-w-0">
                       <p class="font-semibold text-white truncate">{{ admin.account_id }}</p>
-                      <p class="text-sm text-[#999] truncate">{{ admin.location }}</p>
+                      <p class="text-sm text-muted-foreground truncate">{{ admin.location }}</p>
                     </div>
                     <span v-if="admin.owner === 1" class="text-xs text-yellow-400">Owner</span>
                   </div>
@@ -209,7 +209,7 @@ function handleOpenProfile(userId: number) {
                     v-for="user in groupInfo.users"
                     :key="user.db_id"
                     @click="handleOpenProfile(Number(user.db_id))"
-                    class="flex items-center gap-3 p-3 bg-[#1a1a1a] border border-[#333] rounded-lg cursor-pointer hover:bg-[#2a2a2a] transition-colors"
+                    class="flex items-center gap-3 p-3 bg-background border border-white/[0.06] rounded-lg cursor-pointer hover:bg-secondary transition-colors"
                   >
                     <img
                       :src="`https://pictures.sdc.com/photos/${user.primary_photo}`"
@@ -218,7 +218,7 @@ function handleOpenProfile(userId: number) {
                     />
                     <div class="flex-1 min-w-0">
                       <p class="font-semibold text-white truncate">{{ user.account_id }}</p>
-                      <p class="text-sm text-[#999] truncate">{{ user.location }}</p>
+                      <p class="text-sm text-muted-foreground truncate">{{ user.location }}</p>
                     </div>
                   </div>
                 </div>
