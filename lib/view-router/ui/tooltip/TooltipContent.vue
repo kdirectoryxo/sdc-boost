@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { TooltipContentEmits, TooltipContentProps } from "reka-ui"
 import type { HTMLAttributes } from "vue"
+import { computed, inject } from "vue"
 import { reactiveOmit } from "@vueuse/core"
 import { TooltipArrow, TooltipContent, TooltipPortal, useForwardPropsEmits } from "reka-ui"
+import { UI_TELEPORT_TARGET } from "@/lib/ui/teleport-target"
 import { cn } from "@/lib/utils"
 
 defineOptions({
@@ -17,10 +19,14 @@ const emits = defineEmits<TooltipContentEmits>()
 
 const delegatedProps = reactiveOmit(props, "class")
 const forwarded = useForwardPropsEmits(delegatedProps, emits)
+
+const teleportTarget = inject(UI_TELEPORT_TARGET, null)
+/** Shadow DOM apps must teleport inside the shadow root or tooltip content has no styles. */
+const portalTo = computed(() => teleportTarget?.value ?? "body")
 </script>
 
 <template>
-  <TooltipPortal>
+  <TooltipPortal :to="portalTo">
     <TooltipContent
       data-slot="tooltip-content"
       v-bind="{ ...forwarded, ...$attrs }"

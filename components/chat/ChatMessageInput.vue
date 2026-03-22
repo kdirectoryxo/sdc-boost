@@ -1,6 +1,11 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
-import Dropdown from '@/components/ui/Dropdown.vue';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/lib/view-router/ui/dropdown-menu';
 import type { MessengerMessage } from '@/lib/sdc-api-types';
 import { parseImageMessage, parseGalleryMessage, getImageUrl } from '@/lib/composables/chat/utils';
 
@@ -166,17 +171,14 @@ const quotedGalleryMessage = computed(() => {
         :disabled="!selectedChat || !isWebSocketConnected || isUploading"
         class="flex-1 px-4 py-2 bg-sidebar border border-white/[0.06] rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       />
-      <Dropdown
-        :model-value="isUploadDropdownOpen"
-        @update:model-value="$emit('update:isUploadDropdownOpen', $event)"
-        placement="top"
-        alignment="end"
-        width="w-48"
-        offset="mb-2"
+      <DropdownMenu
+        :open="isUploadDropdownOpen"
+        @update:open="$emit('update:isUploadDropdownOpen', $event)"
       >
-        <template #trigger="{ toggle }">
+        <DropdownMenuTrigger as-child>
           <button
-            @click.stop="toggle"
+            type="button"
+            @click.stop
             :disabled="!selectedChat || !isWebSocketConnected || isUploading"
             class="p-2 bg-background text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-white/[0.06]"
           >
@@ -185,45 +187,48 @@ const quotedGalleryMessage = computed(() => {
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
           </button>
-        </template>
-        <template #content="{ close }">
-          <div class="py-1">
-            <button
-              @click="$emit('trigger-photo-picker'); close()"
-              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                <polyline points="21 15 16 10 5 21"></polyline>
-              </svg>
-              Photo's
-            </button>
-            <button
-              @click="$emit('trigger-video-picker'); close()"
-              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="23 7 16 12 23 17 23 7"></polygon>
-                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-              </svg>
-              Video's
-            </button>
-            <button
-              @click="$emit('open-album-modal'); close()"
-              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="7" height="7"></rect>
-                <rect x="14" y="3" width="7" height="7"></rect>
-                <rect x="14" y="14" width="7" height="7"></rect>
-                <rect x="3" y="14" width="7" height="7"></rect>
-              </svg>
-              SDC Album
-            </button>
-          </div>
-        </template>
-      </Dropdown>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          side="top"
+          align="end"
+          :side-offset="8"
+          class="w-48 border border-white/[0.06] bg-background p-0 shadow-lg"
+        >
+          <DropdownMenuItem
+            class="cursor-pointer text-white focus:bg-secondary"
+            @click="$emit('trigger-photo-picker')"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            Photo's
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            class="cursor-pointer text-white focus:bg-secondary"
+            @click="$emit('trigger-video-picker')"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+              <polygon points="23 7 16 12 23 17 23 7"></polygon>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+            </svg>
+            Video's
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            class="cursor-pointer text-white focus:bg-secondary"
+            @click="$emit('open-album-modal')"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            SDC Album
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <button
         @click="$emit('send-message')"
         :disabled="!selectedChat || (!messageInput.trim() && uploadedMedia.length === 0) || !isWebSocketConnected || isUploading"

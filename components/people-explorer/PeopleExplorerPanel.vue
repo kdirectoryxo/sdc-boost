@@ -1,7 +1,11 @@
 <script lang="ts" setup>
 import { Icon } from '@iconify/vue';
 import PeopleList from '@/components/PeopleList.vue';
-import Dropdown from '@/components/ui/Dropdown.vue';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/lib/view-router/ui/dropdown-menu';
 import { usePeopleExplorerState } from '@/lib/people-explorer';
 import type { PeopleTabId } from '@/lib/view-router/routes';
 
@@ -59,22 +63,18 @@ const {
   <div class="people-explorer-panel flex min-h-0 flex-1 flex-col overflow-hidden">
     <!-- Compact Filter Bar for Viewed -->
     <div v-if="activeTab === 'viewed'" class="people-filters">
-      <Dropdown
-        :model-value="selectDropdownOpen"
-        @update:model-value="selectDropdownOpen = $event"
-        placement="bottom"
-        alignment="start"
-        width="w-48"
-        offset="mt-1"
+      <DropdownMenu
+        :open="selectDropdownOpen"
+        @update:open="selectDropdownOpen = $event"
       >
-        <template #trigger="{ toggle }">
-          <button type="button" @click.stop="toggle" class="filter-chip">
+        <DropdownMenuTrigger as-child>
+          <button type="button" @click.stop class="filter-chip">
             <Icon :icon="currentSelectOption.icon" width="12" height="12" :style="{ color: currentSelectOption.color }" />
             <span class="filter-chip-value">{{ currentSelectOption.label }}</span>
             <Icon icon="mdi:chevron-down" width="12" height="12" />
           </button>
-        </template>
-        <template #content>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" :side-offset="4" class="w-48 p-0 border border-white/[0.06] shadow-lg z-50">
           <div class="filter-menu">
             <button
               v-for="option in SELECT_OPTIONS"
@@ -87,25 +87,21 @@ const {
               <span>{{ option.label }}</span>
             </button>
           </div>
-        </template>
-      </Dropdown>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      <Dropdown
-        :model-value="orderDropdownOpen"
-        @update:model-value="orderDropdownOpen = $event"
-        placement="bottom"
-        alignment="start"
-        width="w-44"
-        offset="mt-1"
+      <DropdownMenu
+        :open="orderDropdownOpen"
+        @update:open="orderDropdownOpen = $event"
       >
-        <template #trigger="{ toggle }">
-          <button type="button" @click.stop="toggle" class="filter-chip">
+        <DropdownMenuTrigger as-child>
+          <button type="button" @click.stop class="filter-chip">
             <Icon :icon="currentOrderOption.icon" width="12" height="12" :style="{ color: currentOrderOption.color }" />
             <span class="filter-chip-value">{{ currentOrderOption.label }}</span>
             <Icon icon="mdi:chevron-down" width="12" height="12" />
           </button>
-        </template>
-        <template #content>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" :side-offset="4" class="w-44 p-0 border border-white/[0.06] shadow-lg z-50">
           <div class="filter-menu">
             <button
               v-for="option in ORDER_OPTIONS"
@@ -118,25 +114,21 @@ const {
               <span>{{ option.label }}</span>
             </button>
           </div>
-        </template>
-      </Dropdown>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      <Dropdown
-        :model-value="genderDropdownOpen"
-        @update:model-value="genderDropdownOpen = $event"
-        placement="bottom"
-        alignment="start"
-        width="w-48"
-        offset="mt-1"
+      <DropdownMenu
+        :open="genderDropdownOpen"
+        @update:open="genderDropdownOpen = $event"
       >
-        <template #trigger="{ toggle }">
-          <button type="button" @click.stop="toggle" class="filter-chip">
+        <DropdownMenuTrigger as-child>
+          <button type="button" @click.stop class="filter-chip">
             <Icon :icon="currentGenderOption.icon" width="12" height="12" :style="{ color: currentGenderOption.color }" />
             <span class="filter-chip-value">{{ currentGenderOption.label }}</span>
             <Icon icon="mdi:chevron-down" width="12" height="12" />
           </button>
-        </template>
-        <template #content>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" :side-offset="4" class="w-48 p-0 border border-white/[0.06] shadow-lg z-50">
           <div class="filter-menu">
             <button
               v-for="option in GENDER_OPTIONS"
@@ -149,8 +141,8 @@ const {
               <span>{{ option.label }}</span>
             </button>
           </div>
-        </template>
-      </Dropdown>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <div class="filter-age" :class="{ active: hasAgeFilter }">
         <Icon icon="mdi:account-clock-outline" width="12" height="12" />
@@ -295,22 +287,18 @@ const {
 
     <!-- Compact Filter Bar for Latest Members -->
     <div v-if="activeTab === 'latest'" class="people-filters people-filters-online">
-      <Dropdown
-        :model-value="latestGenderDropdownOpen"
-        @update:model-value="latestGenderDropdownOpen = $event"
-        placement="bottom"
-        alignment="start"
-        width="w-48"
-        offset="mt-1"
+      <DropdownMenu
+        :open="latestGenderDropdownOpen"
+        @update:open="latestGenderDropdownOpen = $event"
       >
-        <template #trigger="{ toggle }">
-          <button type="button" @click.stop="toggle" class="filter-chip">
+        <DropdownMenuTrigger as-child>
+          <button type="button" @click.stop class="filter-chip">
             <Icon :icon="currentLatestGenderOption.icon" width="12" height="12" :style="{ color: currentLatestGenderOption.color }" />
             <span class="filter-chip-value">{{ currentLatestGenderOption.label }}</span>
             <Icon icon="mdi:chevron-down" width="12" height="12" />
           </button>
-        </template>
-        <template #content>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" :side-offset="4" class="w-48 p-0 border border-white/[0.06] shadow-lg z-50">
           <div class="filter-menu">
             <button
               v-for="option in GENDER_OPTIONS_LATEST"
@@ -323,8 +311,8 @@ const {
               <span>{{ option.label }}</span>
             </button>
           </div>
-        </template>
-      </Dropdown>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <div class="filter-divider"></div>
 

@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, provide } from 'vue';
+import { UI_TELEPORT_TARGET } from '@/lib/ui/teleport-target';
 import ChatDialog from './ChatDialog.vue';
+
+const chatTeleportRootRef = ref<HTMLElement | null>(null);
+provide(UI_TELEPORT_TARGET, chatTeleportRootRef);
 
 const dialogOpen = ref(false);
 // Track if we're restoring from URL to avoid removing chatId
@@ -94,7 +98,10 @@ defineExpose({
 </script>
 
 <template>
-  <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 999999;">
+  <div
+    ref="chatTeleportRootRef"
+    style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 999999;"
+  >
     <ChatDialog 
       :modelValue="dialogOpen" 
       @update:modelValue="dialogOpen = $event"

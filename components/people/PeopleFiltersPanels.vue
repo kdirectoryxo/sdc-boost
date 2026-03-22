@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue';
 import type { PeopleTabId } from '@/lib/people/people-tabs';
-import Dropdown from '@/components/ui/Dropdown.vue';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/lib/view-router/ui/dropdown-menu';
 import { usePeopleFilters } from '@/lib/composables/usePeopleFilters';
 import '~/assets/people-filters.css';
 
@@ -51,26 +55,23 @@ const {
 <template>
 <!-- Compact Filter Bar for Viewed -->
         <div v-if="activeTab === 'viewed'" class="people-filters">
-          <Dropdown
-            :model-value="selectDropdownOpen"
-            @update:model-value="selectDropdownOpen = $event"
-            placement="bottom"
-            alignment="start"
-            width="w-48"
-            offset="mt-1"
+          <DropdownMenu
+            :open="selectDropdownOpen"
+            @update:open="selectDropdownOpen = $event"
           >
-            <template #trigger="{ toggle }">
-              <button @click.stop="toggle" class="filter-chip">
+            <DropdownMenuTrigger as-child>
+              <button type="button" @click.stop class="filter-chip">
                 <Icon :icon="currentSelectOption.icon" width="12" height="12" :style="{ color: currentSelectOption.color }" />
                 <span class="filter-chip-value">{{ currentSelectOption.label }}</span>
                 <Icon icon="mdi:chevron-down" width="12" height="12" />
               </button>
-            </template>
-            <template #content>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" :side-offset="4" class="w-48 p-0 border border-white/[0.06] shadow-lg z-50">
               <div class="filter-menu">
                 <button
                   v-for="option in SELECT_OPTIONS"
                   :key="option.value"
+                  type="button"
                   @click="handleSelectChange(option.value)"
                   :class="['filter-menu-item', { active: viewedFilters.select === option.value }]"
                 >
@@ -78,29 +79,26 @@ const {
                   <span>{{ option.label }}</span>
                 </button>
               </div>
-            </template>
-          </Dropdown>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <Dropdown
-            :model-value="orderDropdownOpen"
-            @update:model-value="orderDropdownOpen = $event"
-            placement="bottom"
-            alignment="start"
-            width="w-44"
-            offset="mt-1"
+          <DropdownMenu
+            :open="orderDropdownOpen"
+            @update:open="orderDropdownOpen = $event"
           >
-            <template #trigger="{ toggle }">
-              <button @click.stop="toggle" class="filter-chip">
+            <DropdownMenuTrigger as-child>
+              <button type="button" @click.stop class="filter-chip">
                 <Icon :icon="currentOrderOption.icon" width="12" height="12" :style="{ color: currentOrderOption.color }" />
                 <span class="filter-chip-value">{{ currentOrderOption.label }}</span>
                 <Icon icon="mdi:chevron-down" width="12" height="12" />
               </button>
-            </template>
-            <template #content>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" :side-offset="4" class="w-44 p-0 border border-white/[0.06] shadow-lg z-50">
               <div class="filter-menu">
                 <button
                   v-for="option in ORDER_OPTIONS"
                   :key="option.value"
+                  type="button"
                   @click="handleOrderChange(option.value)"
                   :class="['filter-menu-item', { active: viewedFilters.order === option.value }]"
                 >
@@ -108,29 +106,26 @@ const {
                   <span>{{ option.label }}</span>
                 </button>
               </div>
-            </template>
-          </Dropdown>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <Dropdown
-            :model-value="genderDropdownOpen"
-            @update:model-value="genderDropdownOpen = $event"
-            placement="bottom"
-            alignment="start"
-            width="w-48"
-            offset="mt-1"
+          <DropdownMenu
+            :open="genderDropdownOpen"
+            @update:open="genderDropdownOpen = $event"
           >
-            <template #trigger="{ toggle }">
-              <button @click.stop="toggle" class="filter-chip">
+            <DropdownMenuTrigger as-child>
+              <button type="button" @click.stop class="filter-chip">
                 <Icon :icon="currentGenderOption.icon" width="12" height="12" :style="{ color: currentGenderOption.color }" />
                 <span class="filter-chip-value">{{ currentGenderOption.label }}</span>
                 <Icon icon="mdi:chevron-down" width="12" height="12" />
               </button>
-            </template>
-            <template #content>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" :side-offset="4" class="w-48 p-0 border border-white/[0.06] shadow-lg z-50">
               <div class="filter-menu">
                 <button
                   v-for="option in GENDER_OPTIONS"
                   :key="option.value"
+                  type="button"
                   @click="handleGenderChange(option.value)"
                   :class="['filter-menu-item', { active: viewedFilters.gender === option.value }]"
                 >
@@ -138,8 +133,8 @@ const {
                   <span>{{ option.label }}</span>
                 </button>
               </div>
-            </template>
-          </Dropdown>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <!-- Age Filter -->
           <div class="filter-age" :class="{ active: hasAgeFilter }">
@@ -290,26 +285,23 @@ const {
         <!-- Compact Filter Bar for Latest Members -->
         <div v-if="activeTab === 'latest'" class="people-filters people-filters-online">
           <!-- Gender Dropdown -->
-          <Dropdown
-            :model-value="latestGenderDropdownOpen"
-            @update:model-value="latestGenderDropdownOpen = $event"
-            placement="bottom"
-            alignment="start"
-            width="w-48"
-            offset="mt-1"
+          <DropdownMenu
+            :open="latestGenderDropdownOpen"
+            @update:open="latestGenderDropdownOpen = $event"
           >
-            <template #trigger="{ toggle }">
-              <button @click.stop="toggle" class="filter-chip">
+            <DropdownMenuTrigger as-child>
+              <button type="button" @click.stop class="filter-chip">
                 <Icon :icon="currentLatestGenderOption.icon" width="12" height="12" :style="{ color: currentLatestGenderOption.color }" />
                 <span class="filter-chip-value">{{ currentLatestGenderOption.label }}</span>
                 <Icon icon="mdi:chevron-down" width="12" height="12" />
               </button>
-            </template>
-            <template #content>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" :side-offset="4" class="w-48 p-0 border border-white/[0.06] shadow-lg z-50">
               <div class="filter-menu">
                 <button
                   v-for="option in GENDER_OPTIONS_LATEST"
                   :key="option.value"
+                  type="button"
                   @click="handleLatestGenderChange(option.value)"
                   :class="['filter-menu-item', { active: latestMembersFilters.gender === option.value }]"
                 >
@@ -317,8 +309,8 @@ const {
                   <span>{{ option.label }}</span>
                 </button>
               </div>
-            </template>
-          </Dropdown>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <div class="filter-divider"></div>
 

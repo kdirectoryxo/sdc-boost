@@ -1,6 +1,10 @@
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
-import Dropdown from './ui/Dropdown.vue';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/lib/view-router/ui/dropdown-menu';
 import type { NewsfeedFilterOptions } from '@/lib/sdc-api/newsfeed';
 
 interface Props {
@@ -119,10 +123,14 @@ const clearAllActivityFilters = () => {
   <div class="newsfeed-header">
     <div class="newsfeed-header-filters">
       <!-- Content Type Filter Dropdown -->
-      <Dropdown v-model="contentFilterOpen" placement="bottom" alignment="start" width="w-64" offset="mt-1">
-        <template #trigger="{ toggle }">
-          <button 
-            @click.stop="toggle"
+      <DropdownMenu
+        :open="contentFilterOpen"
+        @update:open="contentFilterOpen = $event"
+      >
+        <DropdownMenuTrigger as-child>
+          <button
+            type="button"
+            @click.stop
             :class="['filter-chip', { 'filter-chip-active': activeContentCount > 0 }]"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -134,20 +142,22 @@ const clearAllActivityFilters = () => {
               <polyline points="6 9 12 15 18 9"/>
             </svg>
           </button>
-        </template>
-        <template #content>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" :side-offset="4" class="w-64 p-0 border border-white/[0.06] shadow-lg z-50">
           <div class="filter-dropdown">
             <div class="filter-dropdown-header">
               <span>Algemeen</span>
               <div class="filter-dropdown-actions">
-                <button 
+                <button
+                  type="button"
                   class="filter-action-button"
                   @click.stop="clearAllContentFilters"
                   :disabled="activeContentCount === 0"
                 >
                   Wis alles
                 </button>
-                <button 
+                <button
+                  type="button"
                   class="filter-action-button"
                   @click.stop="selectAllContentFilters"
                   :disabled="allContentFiltersSelected"
@@ -160,6 +170,7 @@ const clearAllActivityFilters = () => {
               <button
                 v-for="filter in contentFilters"
                 :key="filter.key"
+                type="button"
                 @click="toggleContentFilter(filter.key)"
                 :class="['filter-menu-item', { active: isContentFilterActive(filter.key) }]"
               >
@@ -174,14 +185,18 @@ const clearAllActivityFilters = () => {
               </button>
             </div>
           </div>
-        </template>
-      </Dropdown>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <!-- Activity Filter Dropdown -->
-      <Dropdown v-model="activityFilterOpen" placement="bottom" alignment="start" width="w-64" offset="mt-1">
-        <template #trigger="{ toggle }">
-          <button 
-            @click.stop="toggle"
+      <DropdownMenu
+        :open="activityFilterOpen"
+        @update:open="activityFilterOpen = $event"
+      >
+        <DropdownMenuTrigger as-child>
+          <button
+            type="button"
+            @click.stop
             :class="['filter-chip', { 'filter-chip-active': activeActivityCount > 0 }]"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -193,20 +208,22 @@ const clearAllActivityFilters = () => {
               <polyline points="6 9 12 15 18 9"/>
             </svg>
           </button>
-        </template>
-        <template #content>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" :side-offset="4" class="w-64 p-0 border border-white/[0.06] shadow-lg z-50">
           <div class="filter-dropdown">
             <div class="filter-dropdown-header">
               <span>Vrienden</span>
               <div class="filter-dropdown-actions">
-                <button 
+                <button
+                  type="button"
                   class="filter-action-button"
                   @click.stop="clearAllActivityFilters"
                   :disabled="activeActivityCount === 0"
                 >
                   Wis alles
                 </button>
-                <button 
+                <button
+                  type="button"
                   class="filter-action-button"
                   @click.stop="selectAllActivityFilters"
                   :disabled="allActivityFiltersSelected"
@@ -219,6 +236,7 @@ const clearAllActivityFilters = () => {
               <button
                 v-for="filter in activityFilters"
                 :key="filter.key"
+                type="button"
                 @click="toggleActivityFilter(filter.key)"
                 :class="['filter-menu-item', { active: isActivityFilterActive(filter.key) }]"
               >
@@ -233,8 +251,8 @@ const clearAllActivityFilters = () => {
               </button>
             </div>
           </div>
-        </template>
-      </Dropdown>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   </div>
 </template>

@@ -36,6 +36,7 @@ import type { GalleryPhoto, MessengerChatItem, MessengerMessage } from '@/lib/sd
 import { startChat } from '@/lib/sdc-api';
 import { chatStorage } from '@/lib/chat-storage';
 import { syncProfilesForChats, hasFullProfileSyncDone } from '@/lib/profile-sync-service';
+import { getBoostProfilePath, navigateBoostViewRouterPath } from '@/lib/view-router/routes';
 
 const props = withDefaults(
   defineProps<{
@@ -463,6 +464,10 @@ async function handleSyncChoice(choice: 'sync-unsynced' | 'resync-all' | 'resync
 }
 
 function handleOpenProfileDialog(userId: number) {
+  if (props.variant === 'page') {
+    navigateBoostViewRouterPath(getBoostProfilePath(userId));
+    return;
+  }
   openProfileDialog(userId);
 }
 
@@ -471,6 +476,10 @@ function handleCloseProfileDialog(dialogId: string) {
 }
 
 function handleOpenProfileFromDialog(userId: number) {
+  if (props.variant === 'page') {
+    navigateBoostViewRouterPath(getBoostProfilePath(userId));
+    return;
+  }
   openProfileDialog(userId);
 }
 

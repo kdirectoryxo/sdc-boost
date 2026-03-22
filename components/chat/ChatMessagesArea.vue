@@ -1,6 +1,12 @@
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
-import Dropdown from '@/components/ui/Dropdown.vue';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/lib/view-router/ui/dropdown-menu';
 import TagBadge from '@/components/ui/TagBadge.vue';
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
 import ChatMessageItem from '@/components/chat/ChatMessageItem.vue';
@@ -104,18 +110,18 @@ async function handleDeleteChat() {
   }
 }
 
-function handleMoveToFolder(close: () => void) {
+function handleMoveToFolder() {
   if (!props.selectedChat) {
-    close();
+    openHeaderDropdown.value = false;
     return;
   }
   emit('open-folder-dialog', props.selectedChat);
-  close();
+  openHeaderDropdown.value = false;
 }
 
-async function handleRemoveFromFolder(close: () => void) {
+async function handleRemoveFromFolder() {
   if (!props.selectedChat || !props.selectedChat.folder_id) {
-    close();
+    openHeaderDropdown.value = false;
     return;
   }
 
@@ -136,11 +142,16 @@ async function handleRemoveFromFolder(close: () => void) {
       toast.error(error instanceof Error ? error.message : 'Failed to remove chat from folder');
     }
   }
-  close();
+  openHeaderDropdown.value = false;
 }
 
 function handleOpenAIChat() {
   emit('open-ai-chat');
+}
+
+function handleOpenTagsHeader() {
+  emit('open-tags');
+  openHeaderDropdown.value = false;
 }
 
 // Get tags from selected chat (tags are merged from metadata)
@@ -301,103 +312,93 @@ const displayDistance = computed(() => {
             
             <!-- Dropdown Menu -->
             <div @click.stop class="relative z-50">
-          <Dropdown
-            :model-value="openHeaderDropdown"
-            @update:model-value="handleHeaderDropdownToggle"
-            placement="bottom"
-            alignment="end"
-            width="w-48"
-            offset="mt-1"
-            :z-index="50"
-          >
-            <template #trigger="{ isOpen, toggle }">
-              <button
-                @click.stop="toggle"
-                class="p-1.5 rounded hover:bg-secondary transition-colors shrink-0"
+              <DropdownMenu
+                :open="openHeaderDropdown"
+                @update:open="handleHeaderDropdownToggle"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
-                  <circle cx="12" cy="12" r="1"></circle>
-                  <circle cx="12" cy="5" r="1"></circle>
-                  <circle cx="12" cy="19" r="1"></circle>
-                </svg>
-              </button>
-            </template>
-            <template #content="{ close }">
-              <div
-                class="w-48 rounded-md shadow-lg bg-background border border-white/[0.06] py-1"
-                @click.stop
-              >
-                <button
-                  @click.stop="handleTogglePin(); close()"
-                  class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
+                <DropdownMenuTrigger as-child>
+                  <button
+                    type="button"
+                    @click.stop
+                    class="p-1.5 rounded hover:bg-secondary transition-colors shrink-0 outline-none"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
+                      <circle cx="12" cy="12" r="1"></circle>
+                      <circle cx="12" cy="5" r="1"></circle>
+                      <circle cx="12" cy="19" r="1"></circle>
+                    </svg>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  :side-offset="4"
+                  class="w-48 border border-white/[0.06] bg-background p-0 shadow-lg z-[100]"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="17" x2="12" y2="22"></line>
-                    <path d="M5 17h14l-1-7H6l-1 7z"></path>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                  </svg>
-                  {{ selectedChat?.pin_chat === 1 ? 'Unpin chat' : 'Pin chat' }}
-                </button>
-                <button
-                  @click.stop="handleToggleMarkUnread(); close()"
-                  class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                  </svg>
-                  {{ selectedChat?.unread_counter > 0 ? 'Mark as read' : 'Mark as unread' }}
-                </button>
-                <button
-                  @click.stop="$emit('open-tags'); close()"
-                  class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
-                  </svg>
-                  Tags
-                </button>
-                <div class="border-t border-white/[0.06] my-1"></div>
-                <button
-                  v-if="!selectedChat?.folder_id"
-                  @click.stop="handleMoveToFolder(close)"
-                  class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                    <path d="M12 11v6"></path>
-                    <path d="M9 14l3-3 3 3"></path>
-                  </svg>
-                  Move to folder
-                </button>
-                <button
-                  v-if="selectedChat?.folder_id"
-                  @click.stop="handleRemoveFromFolder(close)"
-                  class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                    <path d="M12 11v6"></path>
-                    <path d="M9 14l3 3 3-3"></path>
-                  </svg>
-                  Remove from folder
-                </button>
-                <div class="border-t border-white/[0.06] my-1"></div>
-                <button
-                  @click.stop="handleDeleteChat(); close()"
-                  class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-secondary transition-colors flex items-center gap-2"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    <line x1="10" y1="11" x2="10" y2="17"></line>
-                    <line x1="14" y1="11" x2="14" y2="17"></line>
-                  </svg>
-                  Delete
-                </button>
-              </div>
-            </template>
-            </Dropdown>
+                  <DropdownMenuItem class="cursor-pointer text-white focus:bg-secondary" @click="handleTogglePin">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                      <line x1="12" y1="17" x2="12" y2="22"></line>
+                      <path d="M5 17h14l-1-7H6l-1 7z"></path>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    {{ selectedChat?.pin_chat === 1 ? 'Unpin chat' : 'Pin chat' }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem class="cursor-pointer text-white focus:bg-secondary" @click="handleToggleMarkUnread">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    {{ selectedChat?.unread_counter > 0 ? 'Mark as read' : 'Mark as unread' }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    class="cursor-pointer text-white focus:bg-secondary"
+                    @click="handleOpenTagsHeader"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                      <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                    </svg>
+                    Tags
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator class="bg-white/[0.06]" />
+                  <DropdownMenuItem
+                    v-if="!selectedChat?.folder_id"
+                    class="cursor-pointer text-white focus:bg-secondary"
+                    @click="handleMoveToFolder"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                      <path d="M12 11v6"></path>
+                      <path d="M9 14l3-3 3 3"></path>
+                    </svg>
+                    Move to folder
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    v-if="selectedChat?.folder_id"
+                    class="cursor-pointer text-white focus:bg-secondary"
+                    @click="handleRemoveFromFolder"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                      <path d="M12 11v6"></path>
+                      <path d="M9 14l3 3 3-3"></path>
+                    </svg>
+                    Remove from folder
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator class="bg-white/[0.06]" />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    class="cursor-pointer focus:bg-secondary"
+                    @click="handleDeleteChat"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      <line x1="10" y1="11" x2="10" y2="17"></line>
+                      <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>

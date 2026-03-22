@@ -1,7 +1,11 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
 import ChatListItem from '@/components/ChatListItem.vue';
-import Dropdown from '@/components/ui/Dropdown.vue';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/lib/view-router/ui/dropdown-menu';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { getChatKey } from '@/lib/composables/chat/utils';
 import { getAllTags } from '@/lib/sdc-db/tags';
@@ -133,20 +137,16 @@ function handleClearSort(e: Event) {
             </svg>
           </button>
           <!-- Sort Button -->
-          <Dropdown
-            :model-value="isSortDropdownOpen"
-            @update:model-value="emit('update:isSortDropdownOpen', $event)"
-            placement="bottom"
-            alignment="end"
-            width="w-56"
-            offset="mt-2"
-            :z-index="100"
+          <DropdownMenu
+            :open="isSortDropdownOpen"
+            @update:open="emit('update:isSortDropdownOpen', $event)"
           >
-            <template #trigger="{ isOpen, toggle }">
+            <DropdownMenuTrigger as-child>
               <button
-                @click.stop="toggle"
+                type="button"
+                @click.stop
                 :class="[
-                  'p-1.5 rounded-md border transition-colors relative',
+                  'p-1.5 rounded-md border transition-colors relative outline-none',
                   hasActiveSort
                     ? 'bg-blue-500/20 border-blue-500 text-blue-400'
                     : 'bg-background border-white/[0.06] text-muted-foreground hover:border-white/[0.10] hover:text-white'
@@ -172,8 +172,12 @@ function handleClearSort(e: Event) {
                   </svg>
                 </button>
               </button>
-            </template>
-          <template #content="{ close }">
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              :side-offset="8"
+              class="w-56 max-h-[350px] border border-white/[0.06] bg-background p-0 shadow-lg z-[100]"
+            >
             <div class="flex flex-col max-h-[350px]">
               <!-- Header with clear button -->
               <div class="flex items-center justify-between px-3 py-2 border-b border-white/[0.06] bg-sidebar sticky top-0 z-10">
@@ -290,23 +294,19 @@ function handleClearSort(e: Event) {
                 </div>
               </div>
             </div>
-          </template>
-          </Dropdown>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <!-- Filter Button -->
-          <Dropdown
-            :model-value="isFilterDropdownOpen"
-            @update:model-value="emit('update:isFilterDropdownOpen', $event)"
-            placement="bottom"
-            alignment="end"
-            width="w-64"
-            offset="mt-2"
-            :z-index="100"
+          <DropdownMenu
+            :open="isFilterDropdownOpen"
+            @update:open="emit('update:isFilterDropdownOpen', $event)"
           >
-            <template #trigger="{ isOpen, toggle }">
+            <DropdownMenuTrigger as-child>
               <button
-                @click.stop="toggle"
+                type="button"
+                @click.stop
                 :class="[
-                  'p-1.5 rounded-md border transition-colors relative',
+                  'p-1.5 rounded-md border transition-colors relative outline-none',
                   hasActiveFilters
                     ? 'bg-blue-500/20 border-blue-500 text-blue-400'
                     : 'bg-background border-white/[0.06] text-muted-foreground hover:border-white/[0.10] hover:text-white'
@@ -337,8 +337,12 @@ function handleClearSort(e: Event) {
                   </svg>
                 </button>
               </button>
-            </template>
-          <template #content="{ close }">
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              :side-offset="8"
+              class="w-64 max-h-[450px] border border-white/[0.06] bg-background p-0 shadow-lg z-[100]"
+            >
             <div class="flex flex-col max-h-[450px]">
               <!-- Header with clear button -->
               <div class="flex items-center justify-between px-3 py-2 border-b border-white/[0.06] bg-sidebar sticky top-0 z-10">
@@ -558,8 +562,8 @@ function handleClearSort(e: Event) {
                 </div>
               </div>
             </div>
-          </template>
-          </Dropdown>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>

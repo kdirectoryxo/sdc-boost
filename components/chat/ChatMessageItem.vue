@@ -1,6 +1,11 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
-import Dropdown from '@/components/ui/Dropdown.vue';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/lib/view-router/ui/dropdown-menu';
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
 import { parseImageMessage, parseVideoMessage, parseVideoUrls, parseGalleryMessage, getImageUrl, getImageDbId, highlightText, formatMessageDate, isOwnMessage } from '@/lib/composables/chat/utils';
 
@@ -381,21 +386,17 @@ const isSystemJoinMessage = computed(() => {
       
       <!-- Dropdown Button for own messages (positioned absolutely to the left of message bubble) -->
       <div v-if="isOwnMessage(message)" class="absolute -left-8 top-0 z-50">
-        <Dropdown
-          :model-value="openDropdownMessageId === message.message_id"
-          @update:model-value="handleDropdownToggle"
-          placement="bottom"
-          alignment="right-full"
-          width="w-32"
-          offset="mr-2 mt-1"
-          :z-index="9999999"
+        <DropdownMenu
+          :open="openDropdownMessageId === message.message_id"
+          @update:open="handleDropdownToggle"
         >
-          <template #trigger="{ isOpen, toggle }">
+          <DropdownMenuTrigger as-child>
             <button
-              @click.stop="toggle"
+              type="button"
+              @click.stop
               :class="[
-                'p-1.5 rounded hover:bg-secondary transition-opacity',
-                isOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                'p-1.5 rounded hover:bg-secondary transition-opacity outline-none',
+                openDropdownMessageId === message.message_id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
               ]"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
@@ -404,65 +405,58 @@ const isSystemJoinMessage = computed(() => {
                 <circle cx="12" cy="19" r="1"></circle>
               </svg>
             </button>
-          </template>
-          <template #content="{ close }">
-            <div
-              class="w-32 rounded-md shadow-lg bg-background border border-white/[0.06] py-1"
-              @click.stop
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            side="left"
+            align="start"
+            :side-offset="8"
+            class="w-32 border border-white/[0.06] bg-background p-0 shadow-lg z-[9999999]"
+          >
+            <DropdownMenuItem class="cursor-pointer text-white focus:bg-secondary" @click="handleCopy">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              Copy
+            </DropdownMenuItem>
+            <DropdownMenuItem class="cursor-pointer text-white focus:bg-secondary" @click="handleQuote">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
+                <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
+              </svg>
+              Citaat
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              class="cursor-pointer focus:bg-secondary"
+              @click="handleDelete"
             >
-              <button
-                @click.stop="handleCopy(); close()"
-                class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-                Copy
-              </button>
-              <button
-                @click.stop="handleQuote(); close()"
-                class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
-                  <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
-                </svg>
-                Citaat
-              </button>
-              <button
-                @click.stop="handleDelete(); close()"
-                class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-secondary transition-colors flex items-center gap-2"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-                Delete
-              </button>
-            </div>
-          </template>
-        </Dropdown>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
     
     <!-- Dropdown Button for other messages (placed last in DOM, appears on right) -->
     <div v-if="!isOwnMessage(message)" class="relative shrink-0 self-start mt-1 z-50">
-      <Dropdown
-        :model-value="openDropdownMessageId === message.message_id"
-        @update:model-value="handleDropdownToggle"
-        placement="bottom"
-        alignment="start"
-        width="w-44"
-        offset="mt-1"
-        :z-index="9999999"
+      <DropdownMenu
+        :open="openDropdownMessageId === message.message_id"
+        @update:open="handleDropdownToggle"
       >
-        <template #trigger="{ isOpen, toggle }">
+        <DropdownMenuTrigger as-child>
           <button
-            @click.stop="toggle"
+            type="button"
+            @click.stop
             :class="[
-              'p-1.5 rounded hover:bg-secondary transition-opacity',
-              isOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              'p-1.5 rounded hover:bg-secondary transition-opacity outline-none',
+              openDropdownMessageId === message.message_id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
             ]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground hover:text-white">
@@ -471,49 +465,40 @@ const isSystemJoinMessage = computed(() => {
               <circle cx="12" cy="19" r="1"></circle>
             </svg>
           </button>
-        </template>
-        <template #content="{ close }">
-          <div
-            class="w-44 rounded-md shadow-lg bg-background border border-white/[0.06] py-1"
-            @click.stop
-          >
-            <button
-              @click.stop="handleCopy(); close()"
-              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-              Copy
-            </button>
-            <button
-              @click.stop="handleQuote(); close()"
-              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
-                <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
-              </svg>
-              Citaat
-            </button>
-            <button
-              @click.stop="handleRespondWithAI(); close()"
-              class="w-full px-4 py-2 text-left text-sm text-white hover:bg-secondary transition-colors flex items-center gap-2"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 3v3m0 12v3m9-9h-3m-12 0H3m15.364 6.364l-2.121-2.121M6.757 6.757L4.636 4.636m14.728 0l-2.121 2.121M6.757 17.243l-2.121 2.121"></path>
-                <circle cx="12" cy="12" r="1"></circle>
-                <circle cx="19" cy="5" r="1"></circle>
-                <circle cx="5" cy="19" r="1"></circle>
-                <circle cx="19" cy="19" r="1"></circle>
-                <circle cx="5" cy="5" r="1"></circle>
-              </svg>
-              Respond with AI
-            </button>
-          </div>
-        </template>
-      </Dropdown>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          side="bottom"
+          align="start"
+          :side-offset="4"
+          class="w-44 border border-white/[0.06] bg-background p-0 shadow-lg z-[9999999]"
+        >
+          <DropdownMenuItem class="cursor-pointer text-white focus:bg-secondary" @click="handleCopy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copy
+          </DropdownMenuItem>
+          <DropdownMenuItem class="cursor-pointer text-white focus:bg-secondary" @click="handleQuote">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+              <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path>
+              <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path>
+            </svg>
+            Citaat
+          </DropdownMenuItem>
+          <DropdownMenuItem class="cursor-pointer text-white focus:bg-secondary" @click="handleRespondWithAI">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+              <path d="M12 3v3m0 12v3m9-9h-3m-12 0H3m15.364 6.364l-2.121-2.121M6.757 6.757L4.636 4.636m14.728 0l-2.121 2.121M6.757 17.243l-2.121 2.121"></path>
+              <circle cx="12" cy="12" r="1"></circle>
+              <circle cx="19" cy="5" r="1"></circle>
+              <circle cx="5" cy="19" r="1"></circle>
+              <circle cx="19" cy="19" r="1"></circle>
+              <circle cx="5" cy="5" r="1"></circle>
+            </svg>
+            Respond with AI
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   </div>
 </template>

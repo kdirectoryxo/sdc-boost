@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, provide } from 'vue';
+import { UI_TELEPORT_TARGET } from '@/lib/ui/teleport-target';
 import ModuleControlPanelDialog from './ModuleControlPanelDialog.vue';
+
+const modulePanelTeleportRootRef = ref<HTMLElement | null>(null);
+provide(UI_TELEPORT_TARGET, modulePanelTeleportRootRef);
 
 const dialogOpen = ref(false);
 
@@ -18,7 +22,10 @@ defineExpose({
 </script>
 
 <template>
-  <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 999999;">
+  <div
+    ref="modulePanelTeleportRootRef"
+    style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 999999;"
+  >
     <ModuleControlPanelDialog 
       :modelValue="dialogOpen" 
       @update:modelValue="dialogOpen = $event"
