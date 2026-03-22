@@ -7,6 +7,9 @@ import {
   IconSparkles,
   IconUserPlus,
   IconUsers,
+  IconMessageCircle,
+  IconPresentation,
+  IconVideo,
 } from '@tabler/icons-vue';
 
 import {
@@ -25,6 +28,9 @@ import {
   VIEW_ROUTER_PEOPLE_VISUALLY_PATH,
   VIEW_ROUTER_PEOPLE_FIELD_PATH,
   VIEW_ROUTER_PEOPLE_SPOTLIGHT_PATH,
+  VIEW_ROUTER_HUB_LIVE_STREAM_PATH,
+  VIEW_ROUTER_HUB_LIVE_CHATROOM_PATH,
+  VIEW_ROUTER_HUB_WEBINARS_PATH,
   navigateBoostViewRouterPath,
 } from '@/lib/view-router/routes';
 
@@ -48,6 +54,9 @@ const items = [
   { title: 'Bekeken', path: VIEW_ROUTER_PEOPLE_VISUALLY_PATH, icon: IconEye },
   { title: 'Nieuwe leden', path: VIEW_ROUTER_PEOPLE_FIELD_PATH, icon: IconUserPlus },
   { title: 'Spotlight leden', path: VIEW_ROUTER_PEOPLE_SPOTLIGHT_PATH, icon: IconSparkles },
+  { title: 'Live', path: VIEW_ROUTER_HUB_LIVE_STREAM_PATH, icon: IconVideo },
+  { title: 'Live Chatroom', path: VIEW_ROUTER_HUB_LIVE_CHATROOM_PATH, icon: IconMessageCircle },
+  { title: 'Webinars', path: VIEW_ROUTER_HUB_WEBINARS_PATH, icon: IconPresentation },
 ];
 
 function normalizePath(p: string): string {

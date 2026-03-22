@@ -837,3 +837,137 @@ export interface FeaturedMembersV2Response {
     info: FeaturedMembersV2Info;
 }
 
+/** Single row from `voyeur_cam_list_v2` — shape matches online list closely. */
+export interface VoyeurCamListGroup {
+    messenger_group: number;
+    timed: string;
+    count_live: number;
+    allowEventStream?: number;
+    access_singlemale?: number;
+    access_friend?: number;
+    db_id: number;
+    account_id: string;
+    gender1: number;
+    gender2: number;
+    location_how_far: number;
+    birthday_for: string;
+    psg?: string;
+    speed: number;
+    photo_count: number;
+    age: string;
+    this_birthday?: number;
+    primary_photo: string;
+    profile_type: number;
+    online: number;
+    business_type: string;
+    valid_count: number;
+    video_count: number;
+    likes_count: number;
+    travel_counter: number;
+    service_counter: number;
+    reviews_counter?: number;
+    club_id: number | null;
+    sdcdiscount: string;
+    summary_int: string;
+    location: string;
+    access_allowed?: number;
+    is_friend?: boolean;
+    lifetime_status: boolean;
+    is_app_user: number | boolean;
+    is_web_user: number | boolean;
+    biz_type_subcategories?: unknown[];
+    eventID?: number;
+}
+
+export interface VoyeurCamListV2Info {
+    code: number;
+    groups: VoyeurCamListGroup[];
+    count_live_webinar?: number;
+    url_more: string;
+    allow_streaming?: { value: number; message: string };
+    allow_post?: boolean;
+    can_create_rooms?: boolean;
+    chatroom_counter?: number;
+    livestreams_counter?: number;
+}
+
+export interface VoyeurCamListV2Response {
+    info: VoyeurCamListV2Info;
+}
+
+export interface ChatroomListFixedRoom {
+    id: number;
+    chat_name: string;
+    image: string;
+    total: number;
+    url: string;
+}
+
+export interface ChatroomListPersonalItem {
+    chatroom_id: number;
+    DB_ID: number;
+    chat_name: string;
+    type: number;
+    total: number;
+    url: string;
+    account_id: string;
+    gender1: number;
+    gender2: number;
+    profile_type: number;
+    type_text: string;
+    block_single_male: number;
+    is_my_chat: number;
+    is_active: number;
+    later_detail: string;
+}
+
+export interface ChatroomListInfo {
+    code: number;
+    personal_list: ChatroomListPersonalItem[];
+    personal_chatroom_created?: number;
+    events_chat?: unknown[];
+    access?: { value: number; message: string };
+    allow_post?: boolean;
+    can_create_rooms?: boolean;
+    chatroom_counter?: number;
+    livestreams_counter?: number;
+}
+
+export interface ChatroomListResponse {
+    info: ChatroomListInfo;
+}
+
+export interface WebinarListItem {
+    id: number;
+    allowJoin?: number;
+    db_id: number;
+    title: string;
+    description?: string;
+    GuestListCounter?: number;
+    GuestListCounterAll?: number;
+    flyer?: string;
+    duration_time?: number | null;
+    dateFromLocTime?: string;
+    dateUntilLocTime?: string;
+    country_cf?: number;
+    date_str?: string;
+    account_id?: string;
+    live?: boolean;
+    recorded_webinar?: unknown;
+}
+
+export interface WebinarListInfo {
+    code: number;
+    past_webinars: WebinarListItem[];
+    upcoming_webinars: WebinarListItem[];
+    webinar_live: WebinarListItem[];
+    url_more_p?: string;
+    url_more_u?: string;
+    total_pa?: number;
+    total_up?: number;
+}
+
+export interface WebinarListResponse {
+    info: WebinarListInfo;
+}
+

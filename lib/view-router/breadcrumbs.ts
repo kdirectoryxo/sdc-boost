@@ -4,11 +4,18 @@ import {
   getProfileUserIdFromBoostPath,
   isChatBoostPath,
   isDashboardBoostPath,
+  isHubLiveAreaBoostPath,
+  isLiveChatroomBoostPath,
+  isLiveStreamBoostPath,
+  isWebinarsBoostPath,
   type PeopleTabId,
   VIEW_ROUTER_DEFAULT_PATH,
 } from '@/lib/view-router/routes';
 
 const LAST_PEOPLE_PATH_KEY = 'sdc_boost_vr_last_people_path';
+
+/** Remembers the last hub “list” view (people tab or live hub pages) for profile breadcrumbs. */
+const LAST_HUB_LIST_PATH_KEY = 'sdc_boost_vr_last_hub_list_path';
 
 export type SdcHubBreadcrumbItem = {
   label: string;
@@ -43,6 +50,53 @@ export function rememberLastPeopleTabPath(path: string): void {
   }
 }
 
+/**
+ * Remember any hub list path (people explorer tabs or live hub pages) for profile parent links.
+ */
+export function rememberHubListPath(path: string): void {
+  if (typeof sessionStorage === 'undefined') return;
+  const n = normalizeBoostPathSegment(path);
+  if (getProfileUserIdFromBoostPath(path) != null) return;
+  const isPeople = getPeopleTabFromBoostPath(path) != null;
+  const isLiveHub = isHubLiveAreaBoostPath(path);
+  if (!isPeople && !isLiveHub) return;
+  try {
+    sessionStorage.setItem(LAST_HUB_LIST_PATH_KEY, n);
+  } catch {
+    /* ignore */
+  }
+}
+
+function getLastHubListPathForProfile(): string {
+  if (typeof sessionStorage === 'undefined') return VIEW_ROUTER_DEFAULT_PATH;
+  try {
+    const raw = sessionStorage.getItem(LAST_HUB_LIST_PATH_KEY);
+    if (!raw || raw.trim() === '') return getLastPeopleTabBoostPath();
+    const p = raw.trim().startsWith('/') ? raw.trim() : `/${raw.trim()}`;
+    const n = normalizeBoostPathSegment(p);
+    if (getPeopleTabFromBoostPath(n) != null || isHubLiveAreaBoostPath(n)) {
+      return n;
+    }
+  } catch {
+    /* ignore */
+  }
+  return getLastPeopleTabBoostPath();
+}
+
+function hubListLabelForPath(path: string): string {
+  if (isLiveStreamBoostPath(path)) {
+    return 'Live';
+  }
+  if (isLiveChatroomBoostPath(path)) {
+    return 'Live Chatroom';
+  }
+  if (isWebinarsBoostPath(path)) {
+    return 'Webinars';
+  }
+  const tab = getPeopleTabFromBoostPathOrDefault(path);
+  return PEOPLE_TAB_LABELS[tab];
+}
+
 export function getLastPeopleTabBoostPath(): string {
   if (typeof sessionStorage === 'undefined') return VIEW_ROUTER_DEFAULT_PATH;
   try {
@@ -66,9 +120,8 @@ export function buildSdcHubBreadcrumbs(
   const profileId = getProfileUserIdFromBoostPath(boostPath);
 
   if (profileId != null) {
-    const parentPath = getLastPeopleTabBoostPath();
-    const parentTab = getPeopleTabFromBoostPathOrDefault(parentPath);
-    const parentLabel = PEOPLE_TAB_LABELS[parentTab];
+    const parentPath = getLastHubListPathForProfile();
+    const parentLabel = hubListLabelForPath(parentPath);
     const title =
       options?.profileTitle?.trim() ||
       `Profiel #${profileId}`;
@@ -90,6 +143,18 @@ export function buildSdcHubBreadcrumbs(
 
   if (isDashboardBoostPath(boostPath)) {
     return [{ label: 'SDC Hub', to: VIEW_ROUTER_DEFAULT_PATH }, { label: 'Dashboard' }];
+  }
+
+  if (isLiveStreamBoostPath(boostPath)) {
+    return [{ label: 'SDC Hub', to: VIEW_ROUTER_DEFAULT_PATH }, { label: 'Live' }];
+  }
+
+  if (isLiveChatroomBoostPath(boostPath)) {
+    return [{ label: 'SDC Hub', to: VIEW_ROUTER_DEFAULT_PATH }, { label: 'Live Chatroom' }];
+  }
+
+  if (isWebinarsBoostPath(boostPath)) {
+    return [{ label: 'SDC Hub', to: VIEW_ROUTER_DEFAULT_PATH }, { label: 'Webinars' }];
   }
 
   return [{ label: 'SDC Hub', to: VIEW_ROUTER_DEFAULT_PATH }, { label: 'People' }];

@@ -29,6 +29,15 @@ export const VIEW_ROUTER_PEOPLE_SPOTLIGHT_PATH = '/sdc/spotlight';
 /** Hub messenger (full-page chat workspace). */
 export const VIEW_ROUTER_CHAT_PATH = '/sdc/chat';
 
+/** Hub: live voyeur streams (`/sdc/live`). */
+export const VIEW_ROUTER_HUB_LIVE_STREAM_PATH = '/sdc/live';
+
+/** Hub: SDC chatroom list (`/sdc/live-chatroom`). */
+export const VIEW_ROUTER_HUB_LIVE_CHATROOM_PATH = '/sdc/live-chatroom';
+
+/** Hub: webinars (`/sdc/webinars`). */
+export const VIEW_ROUTER_HUB_WEBINARS_PATH = '/sdc/webinars';
+
 /** Member profile (view-router page, not the legacy modal). */
 export const VIEW_ROUTER_PROFILE_PREFIX = '/sdc/profile/';
 
@@ -57,6 +66,27 @@ export function isChatBoostPath(path: string): boolean {
  */
 export function isDashboardBoostPath(path: string): boolean {
   return normalizeBoostPathSegment(path) === VIEW_ROUTER_HUB_DASHBOARD_PATH;
+}
+
+export function isLiveStreamBoostPath(path: string): boolean {
+  return normalizeBoostPathSegment(path) === VIEW_ROUTER_HUB_LIVE_STREAM_PATH;
+}
+
+export function isLiveChatroomBoostPath(path: string): boolean {
+  return normalizeBoostPathSegment(path) === VIEW_ROUTER_HUB_LIVE_CHATROOM_PATH;
+}
+
+export function isWebinarsBoostPath(path: string): boolean {
+  return normalizeBoostPathSegment(path) === VIEW_ROUTER_HUB_WEBINARS_PATH;
+}
+
+/** Live hub area: voyeur list, chatrooms, or webinars (for breadcrumbs / “last list” memory). */
+export function isHubLiveAreaBoostPath(path: string): boolean {
+  return (
+    isLiveStreamBoostPath(path) ||
+    isLiveChatroomBoostPath(path) ||
+    isWebinarsBoostPath(path)
+  );
 }
 
 export function getProfileUserIdFromBoostPath(path: string): number | null {

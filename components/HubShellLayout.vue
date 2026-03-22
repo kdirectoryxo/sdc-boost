@@ -3,11 +3,14 @@ import { computed, ref, watch } from 'vue';
 
 import AppSidebar from '@/components/AppSidebar.vue';
 import HubDashboardPanel from '@/components/HubDashboardPanel.vue';
+import HubChatroomsPanel from '@/components/HubChatroomsPanel.vue';
+import HubLivePanel from '@/components/HubLivePanel.vue';
+import HubWebinarsPanel from '@/components/HubWebinarsPanel.vue';
 import ChatExplorerPanel from '@/components/chat-explorer/ChatExplorerPanel.vue';
 import PeopleExplorerPanel from '@/components/people-explorer/PeopleExplorerPanel.vue';
 import ProfileView from '@/components/profile-view/ProfileView.vue';
 import SiteHeader from '@/components/SiteHeader.vue';
-import { rememberLastPeopleTabPath } from '@/lib/view-router/breadcrumbs';
+import { rememberHubListPath, rememberLastPeopleTabPath } from '@/lib/view-router/breadcrumbs';
 import { SidebarInset, SidebarProvider } from '@/lib/view-router/ui/sidebar';
 import {
   getBoostProfileHref,
@@ -17,6 +20,9 @@ import {
   getProfileUserIdFromBoostPath,
   isChatBoostPath,
   isDashboardBoostPath,
+  isLiveChatroomBoostPath,
+  isLiveStreamBoostPath,
+  isWebinarsBoostPath,
   navigateBoostViewRouterPath,
   VIEW_ROUTER_DEFAULT_PATH,
 } from '@/lib/view-router/routes';
@@ -33,6 +39,12 @@ const showChatPage = computed(() => isChatBoostPath(props.boostPath));
 
 const showDashboard = computed(() => isDashboardBoostPath(props.boostPath));
 
+const showLiveStream = computed(() => isLiveStreamBoostPath(props.boostPath));
+
+const showLiveChatrooms = computed(() => isLiveChatroomBoostPath(props.boostPath));
+
+const showWebinars = computed(() => isWebinarsBoostPath(props.boostPath));
+
 const profileBreadcrumbTitle = ref<string | null>(null);
 
 watch(
@@ -40,6 +52,9 @@ watch(
   (p) => {
     if (getProfileUserIdFromBoostPath(p) == null && getPeopleTabFromBoostPath(p) != null) {
       rememberLastPeopleTabPath(p);
+    }
+    if (getProfileUserIdFromBoostPath(p) == null) {
+      rememberHubListPath(p);
     }
   },
   { immediate: true }
@@ -78,6 +93,12 @@ function handleProfileBack() {
         />
         <ChatExplorerPanel v-else-if="showChatPage" :active="true" />
         <HubDashboardPanel v-else-if="showDashboard" />
+        <HubLivePanel
+          v-else-if="showLiveStream"
+          :get-profile-href="getBoostProfileHref"
+        />
+        <HubChatroomsPanel v-else-if="showLiveChatrooms" />
+        <HubWebinarsPanel v-else-if="showWebinars" />
         <PeopleExplorerPanel
           v-else
           :active-tab="peopleTab"
