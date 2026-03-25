@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
+import { useChatFoldersSidebarCollapsed } from '@/lib/composables/chat/useChatFoldersSidebarCollapsed';
 import type { MessengerFolder } from '@/lib/sdc-api-types';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { ChevronLeft, MoreVertical, Plus, RefreshCw, Settings } from 'lucide-vue-next';
@@ -24,7 +25,7 @@ import { useChatFolders } from '@/lib/composables/chat/useChatFolders';
 import { confirm } from '@/lib/confirm';
 import { toast } from '@/lib/toast';
 
-const collapsed = ref(false);
+const { collapsed } = useChatFoldersSidebarCollapsed();
 
 /** Labels are visible when expanded — tooltips only needed in collapsed (icon) mode. */
 const folderTooltipsDisabled = computed(() => !collapsed.value);
@@ -239,14 +240,26 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
             @click="handleSelectAll"
             :class="[
               'w-full text-left flex items-center hover:bg-background transition-colors',
-              collapsed ? 'justify-center px-0 py-2.5 relative' : 'justify-between px-4 py-3',
+              collapsed ? 'justify-center px-0 py-2.5' : 'justify-between px-4 py-3',
               selectedFolderId === null && !showArchives ? 'bg-background border-l-2 border-blue-500' : '',
             ]"
           >
             <div :class="['flex items-center', collapsed ? 'justify-center' : 'gap-2']">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-muted-foreground">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-              </svg>
+              <span :class="collapsed ? 'relative inline-flex' : 'contents'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-muted-foreground">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <Badge
+                  v-if="collapsed && getTotalUnreadCount() > 0"
+                  variant="destructive"
+                  :class="[
+                    'pointer-events-none absolute -right-2.5 -top-2.5 z-10 inline-flex items-center justify-center border-0 p-0 font-bold tabular-nums leading-none text-white shadow-sm',
+                    getTotalUnreadCount() > 9 ? 'min-h-[15px] min-w-[15px] px-0.5 text-[9px]' : 'size-[15px] text-[9px]',
+                  ]"
+                >
+                  {{ getTotalUnreadCount() > 9 ? '9+' : getTotalUnreadCount() }}
+                </Badge>
+              </span>
               <span v-if="!collapsed" class="text-white text-sm">All Chats</span>
             </div>
             <Badge
@@ -262,16 +275,6 @@ async function handleChatDrop(payload: any, targetFolderId: number | null): Prom
               ]"
             >
               {{ getTotalUnreadCount() > 99 ? '99+' : getTotalUnreadCount() }}
-            </Badge>
-            <Badge
-              v-if="collapsed && getTotalUnreadCount() > 0"
-              variant="destructive"
-              :class="[
-                'absolute -right-0.5 -top-0.5 inline-flex items-center justify-center border-0 p-0 font-bold tabular-nums leading-none text-white',
-                getTotalUnreadCount() > 9 ? 'min-h-4 min-w-[18px] px-0.5 text-[10px]' : 'size-4 text-[10px]',
-              ]"
-            >
-              {{ getTotalUnreadCount() > 9 ? '9+' : getTotalUnreadCount() }}
             </Badge>
           </button>
         </TooltipTrigger>
