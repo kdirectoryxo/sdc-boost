@@ -87,6 +87,7 @@ const clientSideFilters = ref<ClientSideFilters>({
   ageMin: null,
   ageMax: null,
   kmWithin: null,
+  ageFilterMode: 'any',
 });
 
 const filtersLoaded = ref(false);

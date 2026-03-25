@@ -86,19 +86,6 @@ function memberPhotoUrl(photo: string | undefined): string {
   return `https://pictures.sdc.com/photos/${photo}`;
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function formatNotificationHtml(body: string, senderAccountId: string): string {
-  const safe = escapeHtml(senderAccountId);
-  return body.replace(/\/\/\*ACCOUNTID\*\/\//g, safe);
-}
-
 function formatNotificationTitle(title: string, post: FeedNotificationItem['post']): string {
   let t = title;
   const data = post.data;

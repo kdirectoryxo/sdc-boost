@@ -2,7 +2,7 @@
 /** Modal shell around `ProfileView`. Prefer `/sdc/profile/:userId` in the view router when possible. */
 import { computed } from 'vue';
 import ProfileView from '@/components/profile-view/ProfileView.vue';
-import { Dialog, DialogContent } from '@/lib/view-router/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/lib/view-router/ui/dialog';
 import { cn } from '@/lib/utils';
 import { CHAT_NESTED_DIALOG_CONTENT_CLASS, chatProfileDialogZIndex } from '@/lib/chat-ui/nested-dialog-classes';
 
@@ -50,6 +50,8 @@ function onOpenChange(open: boolean) {
         )
       "
     >
+      <DialogTitle class="sr-only">Profiel</DialogTitle>
+      <DialogDescription class="sr-only">Profielweergave.</DialogDescription>
       <div
         class="flex h-full w-full flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-background shadow-2xl"
         @click.stop

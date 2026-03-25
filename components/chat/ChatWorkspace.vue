@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { ref, watch, toRef, nextTick, computed } from 'vue';
+import { ref, watch, toRef, nextTick, computed, unref } from 'vue';
+import type { Ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import VueEasyLightbox from 'vue-easy-lightbox';
 import 'vue-easy-lightbox/dist/external-css/vue-easy-lightbox.css';
@@ -129,12 +130,21 @@ const {
   handleSearchKeydown,
 } = useChatMessages();
 
-// Sync the messagesContainer ref from the child component
-watch(() => chatMessagesAreaRef.value?.messagesContainer, (newRef) => {
-  if (newRef) {
-    messagesContainer.value = newRef;
-  }
-}, { immediate: true });
+// Sync the scroll viewport from ChatMessagesArea into useChatMessages (unwrap exposed ref — was assigning Ref to scrollTop target)
+watch(
+  () =>
+    unref(
+      chatMessagesAreaRef.value?.messagesContainer as
+        | Ref<HTMLElement | null>
+        | HTMLElement
+        | null
+        | undefined,
+    ) ?? null,
+  (el) => {
+    messagesContainer.value = el;
+  },
+  { immediate: true },
+);
 
 const {
   messageInput,

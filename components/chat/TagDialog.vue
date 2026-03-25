@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, nextTick } from 'vue';
 import { X, Plus } from 'lucide-vue-next';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { 
@@ -16,6 +16,7 @@ import { useSDCDatabaseStore } from '@/lib/sdc-db/store';
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 	DialogFooter,
@@ -114,19 +115,22 @@ function onOpenChange(open: boolean) {
 	}
 }
 
-function openCreateDialog() {
+async function openCreateDialog() {
 	editingTag.value = null;
-	showEditDialog.value = true;
 	error.value = null;
+	// Defer opening so the click that opened this dialog is not treated as pointer-down outside the nested dialog.
+	await nextTick();
+	showEditDialog.value = true;
 }
 
-function openEditDialog(tagId: number) {
+async function openEditDialog(tagId: number) {
 	const tag = allTags.value.find(t => t.id === tagId);
 	if (!tag) return;
-	
+
 	editingTag.value = tag;
-	showEditDialog.value = true;
 	error.value = null;
+	await nextTick();
+	showEditDialog.value = true;
 }
 
 function handleEditDialogSave() {
@@ -135,10 +139,11 @@ function handleEditDialogSave() {
 	// Don't emit 'save' - keep dialog open, parent will update reactively
 }
 
-function handleEditDialogClose() {
-	showEditDialog.value = false;
-	editingTag.value = null;
-}
+watch(showEditDialog, (open) => {
+	if (!open) {
+		editingTag.value = null;
+	}
+});
 
 async function handleDeleteTag(tagId: number) {
 	if (!props.chat || !dbIsReady.value) return;
@@ -207,6 +212,9 @@ async function toggleTagAssignment(tagId: number) {
 				)
 			"
 		>
+			<DialogDescription class="sr-only">
+				Create, edit, or assign tags for this chat. Up to five tags can be assigned per chat.
+			</DialogDescription>
 			<DialogHeader class="flex-row items-center justify-between space-y-0 border-b border-white/[0.06] px-6 py-4 text-left">
 				<DialogTitle class="text-xl font-semibold text-white">Manage Tags</DialogTitle>
 				<Button variant="ghost" size="icon" title="Close" @click="handleClose">
@@ -329,13 +337,13 @@ async function toggleTagAssignment(tagId: number) {
 			<DialogFooter class="border-t border-white/[0.06] px-6 py-4 sm:justify-end">
 				<Button variant="secondary" @click="handleClose">Close</Button>
 			</DialogFooter>
+
+			<!-- Nested in the same Dialog tree so dismiss/focus stacks behave; opening is deferred with nextTick to avoid the opening click closing this layer. -->
+			<TagEditDialog
+				v-model="showEditDialog"
+				:tag="editingTag"
+				@save="handleEditDialogSave"
+			/>
 		</DialogContent>
 	</Dialog>
-
-	<TagEditDialog
-		:model-value="showEditDialog"
-		:tag="editingTag"
-		@update:model-value="handleEditDialogClose"
-		@save="handleEditDialogSave"
-	/>
 </template>

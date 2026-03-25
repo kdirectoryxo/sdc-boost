@@ -16,28 +16,36 @@ export default defineConfig({
       128: '/icon/128.png',
     },
   },
-  vite: () => ({
-    plugins: [tailwindcss()],
-    build: {
-      // Use Terser with ASCII-only output to prevent UTF-8 encoding errors
-      // This ensures all non-ASCII characters are properly escaped
-      // See: https://github.com/PostHog/posthog-js/issues/2604
-      minify: 'terser',
-      terserOptions: {
-        compress: {
-          drop_console: false,
-          drop_debugger: false,
-          pure_funcs: [],
-        },
-        format: {
-          ascii_only: true, // Critical: Forces ASCII-safe output
-          comments: false,
-        },
-        mangle: {
-          keep_classnames: true,
-          keep_fnames: true,
-        },
-      },
-    },
-  }),
+  vite: () => {
+    const isProd = process.env.NODE_ENV === 'production' || process.env.MODE === 'production';
+    console.log('isProd', isProd);
+    return {
+      plugins: [tailwindcss()],
+      ...(isProd
+        ? {
+          build: {
+            // Use Terser with ASCII-only output to prevent UTF-8 encoding errors
+            // This ensures all non-ASCII characters are properly escaped
+            // See: https://github.com/PostHog/posthog-js/issues/2604
+            minify: 'terser',
+            terserOptions: {
+              compress: {
+                drop_console: false,
+                drop_debugger: false,
+                pure_funcs: [],
+              },
+              format: {
+                ascii_only: true, // Critical: Forces ASCII-safe output
+                comments: false,
+              },
+              mangle: {
+                keep_classnames: true,
+                keep_fnames: true,
+              },
+            },
+          },
+        }
+        : {}),
+    };
+  },
 });

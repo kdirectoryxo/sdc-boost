@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import {
+  IconBolt,
   IconEye,
   IconLayoutDashboard,
   IconMessage,
@@ -31,6 +32,7 @@ import {
   VIEW_ROUTER_HUB_LIVE_STREAM_PATH,
   VIEW_ROUTER_HUB_LIVE_CHATROOM_PATH,
   VIEW_ROUTER_HUB_WEBINARS_PATH,
+  VIEW_ROUTER_HUB_SPEED_DATE_PATH,
   navigateBoostViewRouterPath,
 } from '@/lib/view-router/routes';
 
@@ -55,8 +57,9 @@ const items = [
   { title: 'Nieuwe leden', path: VIEW_ROUTER_PEOPLE_FIELD_PATH, icon: IconUserPlus },
   { title: 'Spotlight leden', path: VIEW_ROUTER_PEOPLE_SPOTLIGHT_PATH, icon: IconSparkles },
   { title: 'Live', path: VIEW_ROUTER_HUB_LIVE_STREAM_PATH, icon: IconVideo },
-  { title: 'Live Chatroom', path: VIEW_ROUTER_HUB_LIVE_CHATROOM_PATH, icon: IconMessageCircle },
+  { title: 'Chatroom', path: VIEW_ROUTER_HUB_LIVE_CHATROOM_PATH, icon: IconMessageCircle },
   { title: 'Webinars', path: VIEW_ROUTER_HUB_WEBINARS_PATH, icon: IconPresentation },
+  { title: 'Speed Date', path: VIEW_ROUTER_HUB_SPEED_DATE_PATH, icon: IconBolt },
 ];
 
 function normalizePath(p: string): string {

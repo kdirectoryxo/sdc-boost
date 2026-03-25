@@ -3,6 +3,7 @@ import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { IconBell } from '@tabler/icons-vue';
 
 import type { FeedNotificationItem } from '@/lib/sdc-api-types';
+import { formatFeedNotificationBodyHtml } from '@/lib/feed-notification-html';
 import { getFeedNotifications } from '@/lib/sdc-api/notifications';
 import { Button } from '@/lib/view-router/ui/button';
 import {
@@ -67,20 +68,6 @@ function photoUrl(photo: string | undefined): string {
   }
   if (photo.startsWith('http')) return photo;
   return `https://pictures.sdc.com/photos/${photo}`;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-/** Replace `//*ACCOUNTID*//` placeholders in API HTML bodies. */
-function formatNotificationHtml(body: string, senderAccountId: string): string {
-  const safe = escapeHtml(senderAccountId);
-  return body.replace(/\/\/\*ACCOUNTID\*\/\//g, safe);
 }
 
 function formatNotificationTitle(title: string, post: FeedNotificationItem['post']): string {
@@ -236,7 +223,7 @@ function openSenderProfile(n: FeedNotificationItem) {
                 </p>
                 <div
                   class="notification-body-prose mt-1 text-xs leading-snug text-white/70 [&_a]:text-sky-400 [&_a]:underline [&_a:hover]:text-sky-300"
-                  v-html="formatNotificationHtml(n.post.body, n.sender.account_id)"
+                  v-html="formatFeedNotificationBodyHtml(n.post.body, n.sender.account_id)"
                 />
                 <p class="mt-1 text-[11px] text-white/35">
                   {{ n.timed }}
@@ -272,5 +259,9 @@ function openSenderProfile(n: FeedNotificationItem) {
 }
 .notification-body-prose :deep(p:last-child) {
   margin-bottom: 0;
+}
+.notification-body-prose :deep(.feed-notification-account-name) {
+  color: #c4b5fd;
+  font-weight: 600;
 }
 </style>

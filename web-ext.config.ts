@@ -14,6 +14,6 @@ export default defineWebExtConfig({
     chromiumProfile: chromeDataDir,
     keepProfileChanges: true,
     // Open videowall page when browser starts during development
-    startUrls: ['https://www.sdc.com/react/#/search-options'],
+    startUrls: ['https://www.sdc.com/react/#/sdc'],
 });
 

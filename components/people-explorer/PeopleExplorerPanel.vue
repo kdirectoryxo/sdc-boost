@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { Icon } from '@iconify/vue';
 import PeopleList from '@/components/PeopleList.vue';
+import PeopleAgeFilterControls from '@/components/PeopleAgeFilterControls.vue';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,21 +30,14 @@ const {
   orderDropdownOpen,
   genderDropdownOpen,
   latestGenderDropdownOpen,
-  ageMinInput,
-  ageMaxInput,
   kmWithinInput,
   currentSelectOption,
   currentOrderOption,
   currentGenderOption,
   currentLatestGenderOption,
-  hasAgeFilter,
   hasKmFilter,
-  updateAgeFilter,
   updateKmFilter,
-  handleAgeMinInput,
-  handleAgeMaxInput,
   handleKmInput,
-  clearAgeFilter,
   clearKmFilter,
   handleSelectChange,
   handleOrderChange,
@@ -144,31 +138,7 @@ const {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <div class="filter-age" :class="{ active: hasAgeFilter }">
-        <Icon icon="mdi:account-clock-outline" width="12" height="12" />
-        <span class="filter-age-label">Leeftijd</span>
-        <input
-          type="text"
-          v-model="ageMinInput"
-          @input="handleAgeMinInput"
-          @blur="updateAgeFilter"
-          placeholder="18"
-          maxlength="2"
-          class="filter-age-input"
-        />
-        <span class="filter-age-sep">-</span>
-        <input
-          type="text"
-          v-model="ageMaxInput"
-          @input="handleAgeMaxInput"
-          placeholder="99"
-          maxlength="2"
-          class="filter-age-input"
-        />
-        <button v-if="hasAgeFilter" type="button" class="filter-age-clear" @click="clearAgeFilter" title="Clear">
-          <Icon icon="mdi:close" width="10" height="10" />
-        </button>
-      </div>
+      <PeopleAgeFilterControls />
 
       <div class="filter-age" :class="{ active: hasKmFilter }">
         <Icon icon="mdi:map-marker-distance" width="12" height="12" />
@@ -241,31 +211,7 @@ const {
 
       <div class="filter-divider"></div>
 
-      <div class="filter-age" :class="{ active: hasAgeFilter }">
-        <Icon icon="mdi:account-clock-outline" width="12" height="12" />
-        <span class="filter-age-label">Leeftijd</span>
-        <input
-          type="text"
-          :value="clientSideFilters.ageMin ?? ''"
-          @input="handleAgeMinInput"
-          placeholder="18"
-          maxlength="2"
-          class="filter-age-input"
-        />
-        <span class="filter-age-sep">-</span>
-        <input
-          type="text"
-          v-model="ageMaxInput"
-          @input="handleAgeMaxInput"
-          @blur="updateAgeFilter"
-          placeholder="99"
-          maxlength="2"
-          class="filter-age-input"
-        />
-        <button v-if="hasAgeFilter" type="button" class="filter-age-clear" @click="clearAgeFilter" title="Clear">
-          <Icon icon="mdi:close" width="10" height="10" />
-        </button>
-      </div>
+      <PeopleAgeFilterControls />
 
       <div class="filter-age" :class="{ active: hasKmFilter }">
         <Icon icon="mdi:map-marker-distance" width="12" height="12" />
@@ -326,31 +272,7 @@ const {
 
       <div class="filter-divider"></div>
 
-      <div class="filter-age" :class="{ active: hasAgeFilter }">
-        <Icon icon="mdi:account-clock-outline" width="12" height="12" />
-        <span class="filter-age-label">Leeftijd</span>
-        <input
-          type="text"
-          :value="clientSideFilters.ageMin ?? ''"
-          @input="handleAgeMinInput"
-          placeholder="18"
-          maxlength="2"
-          class="filter-age-input"
-        />
-        <span class="filter-age-sep">-</span>
-        <input
-          type="text"
-          v-model="ageMaxInput"
-          @input="handleAgeMaxInput"
-          @blur="updateAgeFilter"
-          placeholder="99"
-          maxlength="2"
-          class="filter-age-input"
-        />
-        <button v-if="hasAgeFilter" type="button" class="filter-age-clear" @click="clearAgeFilter" title="Clear">
-          <Icon icon="mdi:close" width="10" height="10" />
-        </button>
-      </div>
+      <PeopleAgeFilterControls />
 
       <div class="filter-age" :class="{ active: hasKmFilter }">
         <Icon icon="mdi:map-marker-distance" width="12" height="12" />
@@ -372,31 +294,7 @@ const {
 
     <!-- Featured -->
     <div v-if="activeTab === 'featured'" class="people-filters">
-      <div class="filter-age" :class="{ active: hasAgeFilter }">
-        <Icon icon="mdi:account-clock-outline" width="12" height="12" />
-        <span class="filter-age-label">Leeftijd</span>
-        <input
-          type="text"
-          :value="clientSideFilters.ageMin ?? ''"
-          @input="handleAgeMinInput"
-          placeholder="18"
-          maxlength="2"
-          class="filter-age-input"
-        />
-        <span class="filter-age-sep">-</span>
-        <input
-          type="text"
-          v-model="ageMaxInput"
-          @input="handleAgeMaxInput"
-          @blur="updateAgeFilter"
-          placeholder="99"
-          maxlength="2"
-          class="filter-age-input"
-        />
-        <button v-if="hasAgeFilter" type="button" class="filter-age-clear" @click="clearAgeFilter" title="Clear">
-          <Icon icon="mdi:close" width="10" height="10" />
-        </button>
-      </div>
+      <PeopleAgeFilterControls />
 
       <div class="filter-age" :class="{ active: hasKmFilter }">
         <Icon icon="mdi:map-marker-distance" width="12" height="12" />

@@ -64,6 +64,9 @@ export interface ProfileUser {
     what_like?: string;
     location?: string;
     location2?: string;
+    /** Geo — when present on profile payload (used for speed dating / map APIs). */
+    lat?: number;
+    lon?: number;
     location_how_far?: number;
     location_how_far2?: string;
     profile_description?: string;
@@ -210,6 +213,67 @@ export interface SpeedDatingDetails {
     location?: string;
     interests?: any;
     type?: any;
+}
+
+/**
+ * Row from `speeddating_v2` / `speeddating_my_speed` (shape overlaps; some fields optional per endpoint).
+ */
+export interface SpeedDatingV2Item {
+    db_id: number;
+    account_id: string;
+    gender1: number;
+    gender2: number;
+    date_list?: string;
+    dating_date?: string;
+    dating_hours?: string;
+    interests: string;
+    type: number;
+    location_how_far_sd: number;
+    birthday_for?: string;
+    psg?: string;
+    speed?: number;
+    photo_count: number;
+    age: string;
+    primary_photo: string;
+    profile_type: number;
+    online: number;
+    valid_count: number;
+    video_count: number;
+    likes_count: number;
+    travel_counter: number;
+    service_counter: number;
+    summary_int: string;
+    location: string;
+    location_sd: string;
+    can_entertaint?: number | null;
+    personal_text: string;
+    lat?: number;
+    lon?: number;
+    lifetime_status?: boolean;
+    is_app_user: number;
+    is_web_user: number;
+    biz_type_subcategories?: unknown[];
+    /** Present on some responses — used for `speeddating_edit` */
+    id_speed?: number;
+}
+
+export interface SpeedDatingV2Info {
+    code: number;
+    speeddating: SpeedDatingV2Item[];
+    active?: number;
+    profile_type?: number;
+    admin?: boolean;
+    allow_post?: boolean;
+    block_speeddate?: number;
+    url_more?: string;
+}
+
+export interface SpeedDatingV2Response {
+    info: SpeedDatingV2Info;
+}
+
+export interface SpeedDatingMySpeedResponse {
+    info: SpeedDatingV2Info;
 }
 
 export interface BusinessData {
@@ -760,6 +824,9 @@ export interface OnlineV2Member {
     is_app_user: number;
     is_web_user: number;
     biz_type_subcategories?: any[];
+    /** Set when row is from `voyeur_cam_list_v2` (live hub). */
+    timed?: string;
+    count_live?: number;
 }
 
 export interface ViewedV2Member {
@@ -954,6 +1021,16 @@ export interface WebinarListItem {
     account_id?: string;
     live?: boolean;
     recorded_webinar?: unknown;
+    profile_type?: number;
+    business_type?: string;
+    biz_type_subcategories?: string[];
+    /** 1 = audience type included for this webinar */
+    filter_couple?: number;
+    filter_female?: number;
+    filter_male?: number;
+    filter_trans?: number;
+    filter_lesbian?: number;
+    filter_gay?: number;
 }
 
 export interface WebinarListInfo {

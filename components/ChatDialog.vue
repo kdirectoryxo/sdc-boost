@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import ChatWorkspace from '@/components/chat/ChatWorkspace.vue';
-import { Dialog, DialogContent } from '@/lib/view-router/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/lib/view-router/ui/dialog';
 
 defineProps<{
   modelValue: boolean;
@@ -30,6 +30,8 @@ function onOpenChange(open: boolean) {
       overlay-class="!z-[999999] bg-black/80 backdrop-blur-sm"
       class="flex !h-[95vh] !max-h-[95vh] !w-[95vw] !max-w-[95vw] flex-col gap-0 overflow-hidden border-0 p-0 shadow-2xl !z-[999999] md:!h-[90vh] md:!max-h-[90vh] md:!w-[90vw] md:!max-w-[90vw]"
     >
+      <DialogTitle class="sr-only">Chat</DialogTitle>
+      <DialogDescription class="sr-only">Chatberichten en gesprekken.</DialogDescription>
       <ChatWorkspace variant="overlay" :active="modelValue" @close="handleClose" />
     </DialogContent>
   </Dialog>

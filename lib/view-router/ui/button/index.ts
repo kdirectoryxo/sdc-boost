@@ -8,11 +8,10 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        /* Explicit blues: bg-primary can resolve incorrectly inside WXT ShadowRoot + Tailwind v4 @theme */
         default:
-          "bg-blue-600 text-white shadow-sm hover:bg-blue-700 focus-visible:ring-blue-500/50 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700",
+          "bg-primary text-primary-foreground hover:bg-primary/90",
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive",
+          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
           "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
         secondary:

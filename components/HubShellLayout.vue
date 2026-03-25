@@ -6,6 +6,7 @@ import HubDashboardPanel from '@/components/HubDashboardPanel.vue';
 import HubChatroomsPanel from '@/components/HubChatroomsPanel.vue';
 import HubLivePanel from '@/components/HubLivePanel.vue';
 import HubWebinarsPanel from '@/components/HubWebinarsPanel.vue';
+import HubSpeedDatePanel from '@/components/HubSpeedDatePanel.vue';
 import ChatExplorerPanel from '@/components/chat-explorer/ChatExplorerPanel.vue';
 import PeopleExplorerPanel from '@/components/people-explorer/PeopleExplorerPanel.vue';
 import ProfileView from '@/components/profile-view/ProfileView.vue';
@@ -23,6 +24,7 @@ import {
   isLiveChatroomBoostPath,
   isLiveStreamBoostPath,
   isWebinarsBoostPath,
+  isSpeedDateBoostPath,
   navigateBoostViewRouterPath,
   VIEW_ROUTER_DEFAULT_PATH,
 } from '@/lib/view-router/routes';
@@ -44,6 +46,8 @@ const showLiveStream = computed(() => isLiveStreamBoostPath(props.boostPath));
 const showLiveChatrooms = computed(() => isLiveChatroomBoostPath(props.boostPath));
 
 const showWebinars = computed(() => isWebinarsBoostPath(props.boostPath));
+
+const showSpeedDate = computed(() => isSpeedDateBoostPath(props.boostPath));
 
 const profileBreadcrumbTitle = ref<string | null>(null);
 
@@ -99,6 +103,10 @@ function handleProfileBack() {
         />
         <HubChatroomsPanel v-else-if="showLiveChatrooms" />
         <HubWebinarsPanel v-else-if="showWebinars" />
+        <HubSpeedDatePanel
+          v-else-if="showSpeedDate"
+          :get-profile-href="getBoostProfileHref"
+        />
         <PeopleExplorerPanel
           v-else
           :active-tab="peopleTab"

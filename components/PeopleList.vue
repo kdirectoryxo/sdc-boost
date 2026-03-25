@@ -3,6 +3,7 @@ import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue';
 import { getOnlineV2, getViewedV2, getLatestMembersV2, getFeaturedMembersV2 } from '@/lib/sdc-api/people';
 import type { OnlineV2Member, ViewedV2Member } from '@/lib/sdc-api-types';
 import type { ClientSideFilters } from '@/lib/people-filters-storage';
+import { getAgesForClientAgeFilter } from '@/lib/people-age-filter';
 import PeopleCard from './PeopleCard.vue';
 
 export interface ViewedFilters {
@@ -61,6 +62,7 @@ const props = withDefaults(defineProps<Props>(), {
     ageMin: null,
     ageMax: null,
     kmWithin: null,
+    ageFilterMode: 'any',
   }),
 });
 
@@ -77,31 +79,36 @@ const isBannerItem = (item: any): boolean => {
   return item && typeof item === 'object' && 'banner' in item && item.banner === true;
 };
 
-// Parse age string "35|32" -> extract numeric ages
-const parseAgeForFilter = (ageStr: string | undefined): number[] => {
-  if (!ageStr) return [];
-  return ageStr.split('|')
-    .map(a => parseInt(a.trim(), 10))
-    .filter(a => !isNaN(a) && a >= 18 && a <= 100);
-};
-
 // Apply client-side filtering (age and distance)
 const filteredItems = computed(() => {
-  const { ageMin, ageMax, kmWithin } = props.clientSideFilters;
-  
+  const { ageMin, ageMax, kmWithin, ageFilterMode } = props.clientSideFilters;
+  const mode = ageFilterMode ?? 'any';
+
   // If no filters are set, return all items
   if (!ageMin && !ageMax && !kmWithin) return items.value;
-  
-  return items.value.filter(member => {
+
+  return items.value.filter((member) => {
     // Age filtering
     let ageMatch = true;
     if (ageMin || ageMax) {
-      const ages = parseAgeForFilter(member.age);
-      if (ages.length === 0) {
-        ageMatch = true; // Keep if no valid age
+      const relevantAges = getAgesForClientAgeFilter(
+        member.age,
+        member.gender1,
+        member.gender2,
+        mode,
+      );
+      const hasParsedSlots =
+        typeof member.age === 'string' &&
+        member.age.split('|').some((p) => {
+          const a = parseInt(p.trim(), 10);
+          return !isNaN(a) && a >= 18 && a <= 100;
+        });
+
+      if (relevantAges.length === 0) {
+        // No applicable age for this mode (or unparseable): keep rows with no ages; hide when ages exist but none match the mode.
+        ageMatch = !hasParsedSlots;
       } else {
-        // Check if ANY person in the profile matches the age range
-        ageMatch = ages.some(age => {
+        ageMatch = relevantAges.some((age) => {
           const minOk = !ageMin || age >= ageMin;
           const maxOk = !ageMax || age <= ageMax;
           return minOk && maxOk;

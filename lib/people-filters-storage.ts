@@ -3,14 +3,18 @@
  * Handles persistence of People dialog filters (viewed and online) in localStorage
  */
 import type { ViewedFilters, OnlineFilters, LatestMembersFilters } from '@/components/PeopleList.vue';
+import type { AgeFilterMode } from '@/lib/people-age-filter';
 
 // Re-export types for convenience
 export type { ViewedFilters, OnlineFilters, LatestMembersFilters };
+export type { AgeFilterMode };
 
 export interface ClientSideFilters {
   ageMin: number | null;
   ageMax: number | null;
   kmWithin: number | null;
+  /** Which person’s age counts toward the range (couples: per gender1/gender2). */
+  ageFilterMode: AgeFilterMode;
 }
 
 const STORAGE_KEY = 'sdc-boost-people-filters';
@@ -36,6 +40,7 @@ const DEFAULT_CLIENT_SIDE_FILTERS: ClientSideFilters = {
   ageMin: null,
   ageMax: null,
   kmWithin: null,
+  ageFilterMode: 'any',
 };
 
 const DEFAULT_LATEST_MEMBERS_FILTERS: LatestMembersFilters = {

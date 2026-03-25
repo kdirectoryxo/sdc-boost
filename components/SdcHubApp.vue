@@ -9,6 +9,7 @@ import {
 } from '@/lib/view-router/routes';
 import { viewRouterLog } from '@/lib/view-router/logger';
 import { UI_TELEPORT_TARGET } from '@/lib/ui/teleport-target';
+import { installShadowDomFocusGuard } from '@/lib/ui/shadow-dom-focus-guard';
 import SdcHubLayout from '@/components/SdcHubLayout.vue';
 import ConfirmAlertHost from '@/components/ConfirmAlertHost.vue';
 
@@ -49,6 +50,7 @@ watch(
 );
 
 let unsubscribe: (() => void) | undefined;
+let cleanupFocusGuard: (() => void) | undefined;
 
 onMounted(() => {
   syncPath();
@@ -60,10 +62,14 @@ onMounted(() => {
     pathname: location.pathname,
   });
   unsubscribe = navigationWatcher.onNavigation(syncPath);
+  if (uiPortalRef.value) {
+    cleanupFocusGuard = installShadowDomFocusGuard(uiPortalRef.value);
+  }
 });
 
 onUnmounted(() => {
   unsubscribe?.();
+  cleanupFocusGuard?.();
 });
 </script>
 
@@ -81,7 +87,6 @@ onUnmounted(() => {
     <div
       ref="uiPortal"
       class="pointer-events-none fixed inset-0 z-[999999] overflow-visible"
-      aria-hidden="true"
     />
     <ConfirmAlertHost />
   </div>

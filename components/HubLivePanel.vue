@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { IconBroadcast, IconExternalLink } from '@tabler/icons-vue';
+import { IconBroadcast } from '@tabler/icons-vue';
 
 import PeopleCard from '@/components/PeopleCard.vue';
 import '@/components/hub/hub-skeleton.css';
@@ -56,60 +56,36 @@ async function openOwnStream() {
 <template>
   <div class="hub-live flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0c0d10]">
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <!-- Your stream: opens chat.sdc.com with your db_id -->
-      <div class="shrink-0 px-4 pb-2 pt-4">
-        <div
-          class="featured-stream relative overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-br from-[#141822] via-[#0f1218] to-[#1a1530] shadow-[0_20px_50px_-20px_rgba(0,0,0,0.65)]"
-        >
-          <div
-            class="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-fuchsia-500/15 blur-3xl"
-            aria-hidden="true"
-          />
-          <div
-            class="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl"
-            aria-hidden="true"
-          />
-          <div
-            class="relative flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-5"
-          >
-            <div class="flex min-w-0 flex-1 gap-4">
-              <div
-                class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-fuchsia-300 shadow-inner shadow-fuchsia-500/10"
-              >
-                <IconBroadcast class="size-6" aria-hidden="true" />
-              </div>
-              <div class="min-w-0">
-                <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
-                  Your stream
-                </p>
-                <h2 class="mt-0.5 text-base font-semibold tracking-tight text-white sm:text-lg">
-                  Go live
-                </h2>
-                <p class="mt-1 max-w-xl text-sm leading-snug text-white/55">
-                  Opens your publisher page on chat.sdc.com using your member ID. Tiles below are other
-                  members; click a card to open their profile in the hub.
-                </p>
-              </div>
-            </div>
-            <div class="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
-              <Button
-                type="button"
-                size="lg"
-                class="h-11 min-w-[200px] gap-2 bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-950/40 hover:bg-fuchsia-500 sm:min-w-[220px]"
-                @click="openOwnStream"
-              >
-                <IconExternalLink class="size-4 opacity-90" aria-hidden="true" />
-                Open your stream
-              </Button>
-              <span class="text-center text-[11px] text-white/35 sm:text-right">chat.sdc.com · your db_id</span>
-              <p
-                v-if="ownStreamError"
-                class="max-w-[220px] text-center text-xs text-red-400 sm:text-right"
-                role="alert"
-              >
-                {{ ownStreamError }}
-              </p>
-            </div>
+      <!-- Subtle strip: start your stream (link built from session; no IDs shown in UI) -->
+      <div class="shrink-0 border-b border-white/[0.06] bg-white/[0.015] px-4 py-2.5">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div class="flex min-w-0 items-start gap-2.5 sm:items-center">
+            <IconBroadcast
+              class="mt-0.5 size-4 shrink-0 text-white/35 sm:mt-0"
+              aria-hidden="true"
+            />
+            <p class="text-xs leading-relaxed text-white/45">
+              Start or manage your stream on chat.sdc.com. Below are members who are live; cards open
+              their profile in the hub.
+            </p>
+          </div>
+          <div class="flex shrink-0 flex-col items-stretch gap-1.5 sm:items-end">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              class="h-8 self-end px-3 text-xs font-medium"
+              @click="openOwnStream"
+            >
+              Start Stream
+            </Button>
+            <p
+              v-if="ownStreamError"
+              class="max-w-full text-right text-[11px] text-red-400"
+              role="alert"
+            >
+              {{ ownStreamError }}
+            </p>
           </div>
         </div>
       </div>
@@ -125,31 +101,13 @@ async function openOwnStream() {
         aria-busy="true"
         aria-label="Loading live streams"
       >
-        <div class="shrink-0 px-4 pb-2 pt-4">
-          <div
-            class="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#12141a] p-4 sm:p-5"
-          >
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div class="flex min-w-0 flex-1 gap-4">
-                <div
-                  class="hub-skeleton-shimmer h-12 w-12 shrink-0 rounded-xl border border-white/[0.04]"
-                />
-                <div class="flex min-w-0 flex-1 flex-col gap-2">
-                  <div class="hub-skeleton-shimmer h-2.5 w-16 rounded hub-skeleton-rounded" />
-                  <div class="hub-skeleton-shimmer h-5 w-40 max-w-[80%] rounded-md" />
-                  <div class="hub-skeleton-shimmer h-3 w-full max-w-xl rounded" />
-                  <div class="hub-skeleton-shimmer h-3 w-[70%] max-w-md rounded" />
-                </div>
-              </div>
-              <div class="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-end">
-                <div
-                  class="hub-skeleton-shimmer h-11 w-full min-w-[200px] rounded-lg sm:min-w-[220px]"
-                />
-                <div
-                  class="hub-skeleton-shimmer mx-auto h-2.5 w-28 rounded sm:ml-0 sm:mr-0"
-                />
-              </div>
+        <div class="shrink-0 border-b border-white/[0.06] bg-white/[0.015] px-4 py-2.5">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div class="flex min-w-0 flex-1 items-center gap-2.5">
+              <div class="hub-skeleton-shimmer h-4 w-4 shrink-0 rounded-sm" />
+              <div class="hub-skeleton-shimmer h-3 min-h-[2.25rem] w-full max-w-xl rounded hub-skeleton-rounded" />
             </div>
+            <div class="hub-skeleton-shimmer h-8 w-[7.5rem] shrink-0 self-end rounded-md sm:self-auto" />
           </div>
         </div>
         <div class="live-grid px-4 pb-8 pt-2">
@@ -174,6 +132,7 @@ async function openOwnStream() {
           :key="member.db_id"
           :member="member"
           :is-online="true"
+          live-voyeur
           :profile-href="getProfileHref?.(member.db_id)"
         />
       </div>
@@ -182,15 +141,29 @@ async function openOwnStream() {
 </template>
 
 <style scoped>
+/* Match chatroom hub: wider cards, fewer columns on small viewports */
 .live-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 @media (min-width: 640px) {
   .live-grid {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .live-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .live-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 </style>

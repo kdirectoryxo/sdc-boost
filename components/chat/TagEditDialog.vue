@@ -7,6 +7,7 @@ import TagBadge from '@/components/ui/TagBadge.vue';
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 	DialogFooter,
@@ -197,6 +198,9 @@ function toggleCustomColor() {
 				)
 			"
 		>
+			<DialogDescription class="sr-only">
+				{{ isEditMode ? 'Change the tag label and color.' : 'Enter a label and pick a color for the new tag.' }}
+			</DialogDescription>
 			<DialogHeader class="flex-row items-center justify-between space-y-0 border-b border-white/[0.06] px-6 py-4 text-left">
 				<DialogTitle class="text-xl font-semibold text-white">
 					{{ isEditMode ? 'Edit Tag' : 'Create Tag' }}

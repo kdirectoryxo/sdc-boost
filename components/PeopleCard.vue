@@ -2,11 +2,15 @@
 import { computed, ref, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 import type { OnlineV2Member, ViewedV2Member } from '@/lib/sdc-api-types';
+import { parseSummaryIntToLookingForIcons } from '@/lib/looking-for-icons';
+import { formatVoyeurStreamDuration } from '@/lib/voyeur-timed';
 import { getBoostProfilePath, navigateBoostViewRouterPath } from '@/lib/view-router/routes';
 
 interface Props {
   member: OnlineV2Member | ViewedV2Member;
   isOnline?: boolean;
+  /** Live hub: show voyeur `count_live` + `timed` on the photo (API from voyeur_cam_list_v2). */
+  liveVoyeur?: boolean;
   /**
    * View-router: full page URL (`?sdc_boost_vr=/sdc/profile/…`). Renders a real `<a>` so
    * middle-click / ctrl+click open a new tab; plain click uses in-app navigation.
@@ -16,7 +20,31 @@ interface Props {
   openProfile?: (userId: number) => void;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  liveVoyeur: false,
+});
+
+const liveWatchCount = computed(() => {
+  const m = props.member as OnlineV2Member;
+  if (typeof m.count_live === 'number' && m.count_live >= 0) {
+    return m.count_live;
+  }
+  return null;
+});
+
+const liveTimedLabel = computed(() => {
+  const m = props.member as OnlineV2Member;
+  if (m.timed && String(m.timed).trim() !== '') {
+    return String(m.timed).trim();
+  }
+  if ('timed' in props.member && props.member.timed) {
+    return String(props.member.timed).trim();
+  }
+  return '';
+});
+
+/** Site-style duration: `4h 26m`, `42m` (from voyeur `timed`). */
+const liveTimedFormatted = computed(() => formatVoyeurStreamDuration(liveTimedLabel.value));
 
 // Parse age string (format: "35|32" or similar)
 const parseAge = (ageStr: string | undefined) => {
@@ -156,80 +184,7 @@ const profileTypeColor = computed(() => {
   return '#a855f7';
 });
 
-// Looking for icons type
-type LookingForIcon = 
-  | { type: 'couple-group'; icons: Array<{ icon: string; color: string }> }
-  | { type: 'single-female' | 'single-male' | 'transgender'; icon: string; color: string };
-
-// Parse summary_int to get looking for icons
-const lookingForIcons = computed((): LookingForIcon[] => {
-  if (!props.member.summary_int) return [];
-  
-  const e = props.member.summary_int.split('');
-  const icons: LookingForIcon[] = [];
-  
-  // Couple Male-Female (blue + pink)
-  if (e[0] === '1') {
-    icons.push({
-      type: 'couple-group',
-      icons: [
-        { icon: 'fa6-solid:person', color: '#3a97fe' }, // Blue for male
-        { icon: 'fa6-solid:person', color: '#ff60df' }, // Pink for female
-      ],
-    });
-  }
-  
-  // Couple Female-Female (pink + pink)
-  if (e[1] === '1') {
-    icons.push({
-      type: 'couple-group',
-      icons: [
-        { icon: 'fa6-solid:person', color: '#ff60df' }, // Pink
-        { icon: 'fa6-solid:person', color: '#ff60df' }, // Pink
-      ],
-    });
-  }
-  
-  // Couple Male-Male (blue + blue)
-  if (e[2] === '1') {
-    icons.push({
-      type: 'couple-group',
-      icons: [
-        { icon: 'fa6-solid:person', color: '#3a97fe' }, // Blue
-        { icon: 'fa6-solid:person', color: '#3a97fe' }, // Blue
-      ],
-    });
-  }
-  
-  // Single Male (blue)
-  if (e[3] === '1') {
-    icons.push({
-      type: 'single-male',
-      icon: 'fa6-solid:person',
-      color: '#3a97fe',
-    });
-  }
-  
-  // Single Female (pink)
-  if (e[4] === '1') {
-    icons.push({
-      type: 'single-female',
-      icon: 'fa6-solid:person',
-      color: '#ff60df',
-    });
-  }
-  
-  // Transgender
-  if (e[5] === '1') {
-    icons.push({
-      type: 'transgender',
-      icon: 'fa6-solid:person',
-      color: '#9ca3af', // Gray for transgender
-    });
-  }
-  
-  return icons;
-});
+const lookingForIcons = computed(() => parseSummaryIntToLookingForIcons(props.member.summary_int));
 </script>
 
 <template>
@@ -261,8 +216,20 @@ const lookingForIcons = computed((): LookingForIcon[] => {
         </div>
       </div>
       
-      <!-- Timed -->
-      <div v-if="timedText && !isOnline" class="card-timed">{{ timedText }}</div>
+      <!-- Timed (viewed / non-online); live voyeur uses bottom overlay instead -->
+      <div v-if="timedText && !isOnline && !liveVoyeur" class="card-timed">{{ timedText }}</div>
+
+      <!-- Live voyeur: watchers + stream duration (voyeur_cam_list_v2) -->
+      <div
+        v-if="liveVoyeur && (liveWatchCount != null || liveTimedFormatted)"
+        class="card-live-voyeur"
+      >
+        <span v-if="liveWatchCount != null" class="card-live-voyeur-stat">
+          <Icon icon="mdi:eye-outline" width="12" height="12" />
+          {{ liveWatchCount }}
+        </span>
+        <span v-if="liveTimedFormatted" class="card-live-voyeur-time">{{ liveTimedFormatted }}</span>
+      </div>
       
       <!-- Device -->
       <div v-if="member.is_app_user || member.is_web_user" class="card-device">
@@ -432,6 +399,36 @@ a.card {
 
 .badge-speed {
   background: rgba(139, 92, 246, 0.85);
+}
+
+/* Live voyeur strip (watch count + duration) */
+.card-live-voyeur {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px 7px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.35) 55%, transparent 100%);
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+.card-live-voyeur-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-live-voyeur-time {
+  font-weight: 500;
+  opacity: 0.92;
 }
 
 /* Timed */

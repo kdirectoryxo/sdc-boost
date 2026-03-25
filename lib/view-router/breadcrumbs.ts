@@ -7,6 +7,7 @@ import {
   isHubLiveAreaBoostPath,
   isLiveChatroomBoostPath,
   isLiveStreamBoostPath,
+  isSpeedDateBoostPath,
   isWebinarsBoostPath,
   type PeopleTabId,
   VIEW_ROUTER_DEFAULT_PATH,
@@ -59,7 +60,8 @@ export function rememberHubListPath(path: string): void {
   if (getProfileUserIdFromBoostPath(path) != null) return;
   const isPeople = getPeopleTabFromBoostPath(path) != null;
   const isLiveHub = isHubLiveAreaBoostPath(path);
-  if (!isPeople && !isLiveHub) return;
+  const isSpeedDate = isSpeedDateBoostPath(path);
+  if (!isPeople && !isLiveHub && !isSpeedDate) return;
   try {
     sessionStorage.setItem(LAST_HUB_LIST_PATH_KEY, n);
   } catch {
@@ -74,7 +76,11 @@ function getLastHubListPathForProfile(): string {
     if (!raw || raw.trim() === '') return getLastPeopleTabBoostPath();
     const p = raw.trim().startsWith('/') ? raw.trim() : `/${raw.trim()}`;
     const n = normalizeBoostPathSegment(p);
-    if (getPeopleTabFromBoostPath(n) != null || isHubLiveAreaBoostPath(n)) {
+    if (
+      getPeopleTabFromBoostPath(n) != null ||
+      isHubLiveAreaBoostPath(n) ||
+      isSpeedDateBoostPath(n)
+    ) {
       return n;
     }
   } catch {
@@ -88,10 +94,13 @@ function hubListLabelForPath(path: string): string {
     return 'Live';
   }
   if (isLiveChatroomBoostPath(path)) {
-    return 'Live Chatroom';
+    return 'Chatroom';
   }
   if (isWebinarsBoostPath(path)) {
     return 'Webinars';
+  }
+  if (isSpeedDateBoostPath(path)) {
+    return 'Speed Date';
   }
   const tab = getPeopleTabFromBoostPathOrDefault(path);
   return PEOPLE_TAB_LABELS[tab];
@@ -150,11 +159,15 @@ export function buildSdcHubBreadcrumbs(
   }
 
   if (isLiveChatroomBoostPath(boostPath)) {
-    return [{ label: 'SDC Hub', to: VIEW_ROUTER_DEFAULT_PATH }, { label: 'Live Chatroom' }];
+    return [{ label: 'SDC Hub', to: VIEW_ROUTER_DEFAULT_PATH }, { label: 'Chatroom' }];
   }
 
   if (isWebinarsBoostPath(boostPath)) {
     return [{ label: 'SDC Hub', to: VIEW_ROUTER_DEFAULT_PATH }, { label: 'Webinars' }];
+  }
+
+  if (isSpeedDateBoostPath(boostPath)) {
+    return [{ label: 'SDC Hub', to: VIEW_ROUTER_DEFAULT_PATH }, { label: 'Speed Date' }];
   }
 
   return [{ label: 'SDC Hub', to: VIEW_ROUTER_DEFAULT_PATH }, { label: 'People' }];

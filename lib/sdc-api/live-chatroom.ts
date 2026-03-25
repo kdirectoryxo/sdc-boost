@@ -52,6 +52,8 @@ export function voyeurGroupToOnlineMember(g: VoyeurCamListGroup): OnlineV2Member
     is_app_user: app,
     is_web_user: web,
     biz_type_subcategories: g.biz_type_subcategories as OnlineV2Member['biz_type_subcategories'],
+    timed: g.timed,
+    count_live: g.count_live,
   };
 }
 

@@ -32,11 +32,14 @@ export const VIEW_ROUTER_CHAT_PATH = '/sdc/chat';
 /** Hub: live voyeur streams (`/sdc/live`). */
 export const VIEW_ROUTER_HUB_LIVE_STREAM_PATH = '/sdc/live';
 
-/** Hub: SDC chatroom list (`/sdc/live-chatroom`). */
+/** Hub: chatroom list (`/sdc/live-chatroom`). */
 export const VIEW_ROUTER_HUB_LIVE_CHATROOM_PATH = '/sdc/live-chatroom';
 
 /** Hub: webinars (`/sdc/webinars`). */
 export const VIEW_ROUTER_HUB_WEBINARS_PATH = '/sdc/webinars';
+
+/** Hub: speed dating list (`/sdc/speed-date`). */
+export const VIEW_ROUTER_HUB_SPEED_DATE_PATH = '/sdc/speed-date';
 
 /** Member profile (view-router page, not the legacy modal). */
 export const VIEW_ROUTER_PROFILE_PREFIX = '/sdc/profile/';
@@ -78,6 +81,10 @@ export function isLiveChatroomBoostPath(path: string): boolean {
 
 export function isWebinarsBoostPath(path: string): boolean {
   return normalizeBoostPathSegment(path) === VIEW_ROUTER_HUB_WEBINARS_PATH;
+}
+
+export function isSpeedDateBoostPath(path: string): boolean {
+  return normalizeBoostPathSegment(path) === VIEW_ROUTER_HUB_SPEED_DATE_PATH;
 }
 
 /** Live hub area: voyeur list, chatrooms, or webinars (for breadcrumbs / “last list” memory). */
