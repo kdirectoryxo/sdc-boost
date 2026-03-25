@@ -61,7 +61,8 @@ export function rememberHubListPath(path: string): void {
   const isPeople = getPeopleTabFromBoostPath(path) != null;
   const isLiveHub = isHubLiveAreaBoostPath(path);
   const isSpeedDate = isSpeedDateBoostPath(path);
-  if (!isPeople && !isLiveHub && !isSpeedDate) return;
+  const isChat = isChatBoostPath(path);
+  if (!isPeople && !isLiveHub && !isSpeedDate && !isChat) return;
   try {
     sessionStorage.setItem(LAST_HUB_LIST_PATH_KEY, n);
   } catch {
@@ -79,7 +80,8 @@ function getLastHubListPathForProfile(): string {
     if (
       getPeopleTabFromBoostPath(n) != null ||
       isHubLiveAreaBoostPath(n) ||
-      isSpeedDateBoostPath(n)
+      isSpeedDateBoostPath(n) ||
+      isChatBoostPath(n)
     ) {
       return n;
     }
@@ -90,6 +92,9 @@ function getLastHubListPathForProfile(): string {
 }
 
 function hubListLabelForPath(path: string): string {
+  if (isChatBoostPath(path)) {
+    return 'Chat';
+  }
   if (isLiveStreamBoostPath(path)) {
     return 'Live';
   }
@@ -104,6 +109,13 @@ function hubListLabelForPath(path: string): string {
   }
   const tab = getPeopleTabFromBoostPathOrDefault(path);
   return PEOPLE_TAB_LABELS[tab];
+}
+
+/**
+ * Hub profile “back” target: last remembered list page (people, live, speed date, or chat).
+ */
+export function getBoostPathForProfileBack(): string {
+  return getLastHubListPathForProfile();
 }
 
 export function getLastPeopleTabBoostPath(): string {

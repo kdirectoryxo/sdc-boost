@@ -25,6 +25,8 @@ const FLOATING_UI_SELECTORS = [
   '[data-slot="dropdown-menu-content"]',
   '[data-slot="combobox-content"]',
   '[data-slot="tooltip-content"]',
+  /** vue-easy-lightbox (teleported); clicks on mask/image must not dismiss underlying dialogs */
+  '.vel-modal',
 ].join(', ')
 
 defineOptions({

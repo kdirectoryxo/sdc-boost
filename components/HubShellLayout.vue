@@ -11,7 +11,11 @@ import ChatExplorerPanel from '@/components/chat-explorer/ChatExplorerPanel.vue'
 import PeopleExplorerPanel from '@/components/people-explorer/PeopleExplorerPanel.vue';
 import ProfileView from '@/components/profile-view/ProfileView.vue';
 import SiteHeader from '@/components/SiteHeader.vue';
-import { rememberHubListPath, rememberLastPeopleTabPath } from '@/lib/view-router/breadcrumbs';
+import {
+  getBoostPathForProfileBack,
+  rememberHubListPath,
+  rememberLastPeopleTabPath,
+} from '@/lib/view-router/breadcrumbs';
 import { SidebarInset, SidebarProvider } from '@/lib/view-router/ui/sidebar';
 import {
   getBoostProfileHref,
@@ -26,7 +30,6 @@ import {
   isWebinarsBoostPath,
   isSpeedDateBoostPath,
   navigateBoostViewRouterPath,
-  VIEW_ROUTER_DEFAULT_PATH,
 } from '@/lib/view-router/routes';
 
 const props = defineProps<{
@@ -75,7 +78,7 @@ function openProfileInRouter(userId: number) {
 }
 
 function handleProfileBack() {
-  navigateBoostViewRouterPath(VIEW_ROUTER_DEFAULT_PATH);
+  navigateBoostViewRouterPath(getBoostPathForProfileBack());
 }
 </script>
 

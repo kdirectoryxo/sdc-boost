@@ -65,10 +65,13 @@ export function isChatBoostPath(path: string): boolean {
 }
 
 /**
- * True when the Boost path is the Hub dashboard (`/sdc/dashboard`).
+ * True when the Boost path is the Hub dashboard (`/sdc/dashboard`), including legacy `/sdc` home.
  */
 export function isDashboardBoostPath(path: string): boolean {
-  return normalizeBoostPathSegment(path) === VIEW_ROUTER_HUB_DASHBOARD_PATH;
+  const n = normalizeBoostPathSegment(path);
+  return (
+    n === VIEW_ROUTER_HUB_DASHBOARD_PATH || n === VIEW_ROUTER_HOME_PATH
+  );
 }
 
 export function isLiveStreamBoostPath(path: string): boolean {
@@ -119,6 +122,14 @@ const PEOPLE_PATH_TO_TAB: Record<string, PeopleTabId> = {
 
 function normalizeBoostPathSegment(path: string): string {
   return path.split('?')[0].replace(/\/$/, '') || '/';
+}
+
+/**
+ * Legacy Boost hash home (`#/sdc` → `/sdc`) is the same as {@link VIEW_ROUTER_DEFAULT_PATH} (Hub dashboard).
+ */
+export function normalizeLegacyBoostHomeToDashboard(path: string): string {
+  const n = normalizeBoostPathSegment(path);
+  return n === VIEW_ROUTER_HOME_PATH ? VIEW_ROUTER_DEFAULT_PATH : path;
 }
 
 /**
@@ -277,8 +288,9 @@ export function getBoostViewPathFromLocation(): string {
       const p = fromQuery.trim().split('?')[0];
       if (p === '') return '/';
       const path = p.startsWith('/') ? p : `/${p}`;
-      persistBoostPathSnapshot(path);
-      return path;
+      const out = normalizeLegacyBoostHomeToDashboard(path);
+      persistBoostPathSnapshot(out);
+      return out;
     }
   } catch {
     /* ignore invalid URL */
@@ -287,8 +299,9 @@ export function getBoostViewPathFromLocation(): string {
   const fromHashOrPath = getBoostPathFromHashOrPathname();
 
   if (isViewRouterActiveRoute(fromHashOrPath)) {
-    persistBoostPathSnapshot(fromHashOrPath);
-    return fromHashOrPath;
+    const out = normalizeLegacyBoostHomeToDashboard(fromHashOrPath);
+    persistBoostPathSnapshot(out);
+    return out;
   }
 
   // Explicit host route (e.g. `#/init`, `#/messenger`) — do not show Boost UI from stale snapshot.
@@ -299,7 +312,7 @@ export function getBoostViewPathFromLocation(): string {
 
   const fromSnapshot = readBoostPathSnapshot();
   if (fromSnapshot != null) {
-    return fromSnapshot;
+    return normalizeLegacyBoostHomeToDashboard(fromSnapshot);
   }
 
   return '/';
