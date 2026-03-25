@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DateValue } from '@internationalized/date';
-import { DateFormatter, getLocalTimeZone, today, toCalendarDate } from '@internationalized/date';
+import { DateFormatter, getLocalTimeZone, parseDate, today, toCalendarDate } from '@internationalized/date';
 import { Calendar as CalendarIcon, MapPin } from 'lucide-vue-next';
 import { useDebounceFn } from '@vueuse/core';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
@@ -23,6 +23,12 @@ import {
 } from '@/lib/sdc-api/location-search';
 import { resolvePeopleApiMuid } from '@/lib/sdc-api/session-credentials';
 import type { SpeedDatingV2Item } from '@/lib/sdc-api-types';
+import {
+  loadSpeedDateFilters,
+  saveSpeedDateFilters,
+  SPEED_DATE_FILTERS_VERSION,
+  type SpeedDateFiltersStored,
+} from '@/lib/speed-date-filters-storage';
 import { cn } from '@/lib/utils';
 import { Button } from '@/lib/view-router/ui/button';
 import { Calendar } from '@/lib/view-router/ui/calendar';
@@ -34,6 +40,17 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/lib/view-router/ui/po
 const props = defineProps<{
   getProfileHref?: (userId: number) => string;
 }>();
+
+const initialFilters = loadSpeedDateFilters();
+
+function parseInitialFilterDate(iso: string | null): DateValue | undefined {
+  if (!iso) return undefined;
+  try {
+    return parseDate(iso);
+  } catch {
+    return undefined;
+  }
+}
 
 const items = ref<SpeedDatingV2Item[]>([]);
 /** True until first mount load finishes — avoids empty Selects + empty list flash before `onMounted` runs. */
@@ -48,12 +65,12 @@ const allowPost = ref(true);
 
 const mySpeedItems = ref<SpeedDatingV2Item[]>([]);
 
-const lat = ref(52.5755);
-const lon = ref(6.6188);
+const lat = ref(initialFilters.lat);
+const lon = ref(initialFilters.lon);
 
-const filterPrive = ref(true);
-const filterOpenbaar = ref(true);
-const filterVirtueel = ref(true);
+const filterPrive = ref(initialFilters.filterPrive);
+const filterOpenbaar = ref(initialFilters.filterOpenbaar);
+const filterVirtueel = ref(initialFilters.filterVirtueel);
 
 const locationSearch = computed(() =>
   `${filterPrive.value ? '1' : '0'}${filterOpenbaar.value ? '1' : '0'}${filterVirtueel.value ? '1' : '0'}`,
@@ -67,17 +84,17 @@ function toggleLocFilter(which: 'prive' | 'openbaar' | 'virtueel') {
   target.value = !target.value;
 }
 
-const orderStr = ref('1');
-const distance = ref(500);
-const pickedFilterDate = ref<DateValue>();
+const orderStr = ref(initialFilters.orderStr);
+const distance = ref(initialFilters.distance);
+const pickedFilterDate = ref<DateValue | undefined>(parseInitialFilterDate(initialFilters.dateIso));
 const datePickerOpen = ref(false);
 const tz = getLocalTimeZone();
 const dateFormatter = new DateFormatter('nl-NL', { dateStyle: 'long' });
 const dateDefaultPlaceholder = today(tz);
-const ageFromStr = ref('');
-const ageUntilStr = ref('');
-const gender = ref('2,1');
-const lookingForMe = ref(0);
+const ageFromStr = ref(initialFilters.ageFromStr);
+const ageUntilStr = ref(initialFilters.ageUntilStr);
+const gender = ref(initialFilters.gender);
+const lookingForMe = ref(initialFilters.lookingForMe);
 
 const createOpen = ref(false);
 const myOpen = ref(false);
@@ -88,14 +105,59 @@ const filterResetInProgress = ref(false);
 /** False until after first paint post-bootstrap — avoids reset firing before UI is stable */
 const allowFilterReset = ref(false);
 
-const placeSearchQuery = ref('');
+const placeSearchQuery = ref(initialFilters.placeSearchQuery);
 const placeSearchResults = ref<LocationSearchPlace[]>([]);
 const placeSearchLoading = ref(false);
 const placeSearchError = ref<string | null>(null);
 const placeSearchEmpty = ref(false);
 const placeInputFocused = ref(false);
 /** Avoid re-querying when we fill the field from a chosen result */
-const skipNextPlaceSearch = ref(false);
+const skipNextPlaceSearch = ref(initialFilters.placeSearchQuery.trim().length > 0);
+
+function buildSpeedDateFiltersSnapshot(): SpeedDateFiltersStored {
+  return {
+    v: SPEED_DATE_FILTERS_VERSION,
+    filterPrive: filterPrive.value,
+    filterOpenbaar: filterOpenbaar.value,
+    filterVirtueel: filterVirtueel.value,
+    orderStr: orderStr.value,
+    distance: distance.value,
+    dateIso: pickedFilterDate.value ? toCalendarDate(pickedFilterDate.value).toString() : null,
+    ageFromStr: ageFromStr.value,
+    ageUntilStr: ageUntilStr.value,
+    gender: gender.value,
+    lookingForMe: lookingForMe.value,
+    lat: lat.value,
+    lon: lon.value,
+    placeSearchQuery: placeSearchQuery.value,
+  };
+}
+
+const persistSpeedDateFilters = useDebounceFn(() => {
+  if (filterResetInProgress.value) return;
+  saveSpeedDateFilters(buildSpeedDateFiltersSnapshot());
+}, 300);
+
+watch(
+  () => [
+    filterPrive.value,
+    filterOpenbaar.value,
+    filterVirtueel.value,
+    orderStr.value,
+    distance.value,
+    pickedFilterDate.value,
+    ageFromStr.value,
+    ageUntilStr.value,
+    gender.value,
+    lookingForMe.value,
+    lat.value,
+    lon.value,
+    placeSearchQuery.value,
+  ],
+  () => {
+    persistSpeedDateFilters();
+  },
+);
 
 const showPlaceDropdown = computed(
   () =>
@@ -216,6 +278,7 @@ async function resetFilters() {
     await loadList(true);
   } finally {
     filterResetInProgress.value = false;
+    saveSpeedDateFilters(buildSpeedDateFiltersSnapshot());
   }
 }
 
@@ -335,7 +398,10 @@ function onCreateSuccess() {
 }
 
 onMounted(async () => {
-  await hydrateCoords();
+  const useSavedPlace = placeSearchQuery.value.trim().length > 0;
+  if (!useSavedPlace) {
+    await hydrateCoords();
+  }
   await loadList(true);
   await refreshMySpeed();
   listFiltersReady.value = true;

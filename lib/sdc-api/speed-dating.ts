@@ -37,10 +37,14 @@ export interface SpeedDatingV2Params {
 
 /**
  * Resolve the speed-date post id for `speeddating_edit` when the API uses varying field names.
+ * List responses often expose the post as `db_id` only; `id_speed` may be absent.
  */
 export function getSpeedDatePostId(row: SpeedDatingV2Item): number | null {
   if (typeof row.id_speed === 'number' && row.id_speed > 0) {
     return row.id_speed;
+  }
+  if (typeof row.db_id === 'number' && row.db_id > 0) {
+    return row.db_id;
   }
   const extra = row as unknown as Record<string, unknown>;
   for (const key of ['speed_id', 'id', 'ID_SPEED', 'speedId']) {

@@ -266,6 +266,22 @@ export const useChatMessages = createGlobalState(() => {
     messageSearchResults.value = [];
     currentSearchIndex.value = -1;
   }
+
+  /**
+   * Scroll the messages viewport to the bottom in one paint cycle (nextTick + rAF).
+   * Avoids staggered timeouts / per-chunk scrolls that look like stepped animation.
+   */
+  function scrollMessagesToBottom(): void {
+    const apply = (): void => {
+      const el = messagesContainer.value;
+      if (!el) return;
+      el.scrollTop = el.scrollHeight;
+    };
+    void nextTick().then(() => {
+      apply();
+      requestAnimationFrame(apply);
+    });
+  }
   
   /**
    * Handle keyboard shortcuts for search navigation
@@ -318,15 +334,7 @@ export const useChatMessages = createGlobalState(() => {
           if (updatedMessages.length > 0) {
             isLoadingMessages.value = false;
           }
-          // Scroll to bottom after each update (skip for broadcasts)
-          const isBroadcast = selectedChat.value.broadcast || selectedChat.value.type === 100;
-          if (!isBroadcast) {
-            nextTick().then(() => {
-              if (messagesContainer.value) {
-                messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-              }
-            });
-          }
+          // Do not scroll on every sync chunk — it looks like stepped scrolling; final scroll runs when load completes.
         }
       });
       
@@ -347,15 +355,7 @@ export const useChatMessages = createGlobalState(() => {
         const isBroadcast = selectedChat.value.broadcast || selectedChat.value.type === 100;
         if (!isBroadcast) {
           await nextTick();
-          if (messagesContainer.value) {
-            messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-            // Also scroll after a small delay to account for any rendering delays
-            setTimeout(() => {
-              if (messagesContainer.value) {
-                messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-              }
-            }, 100);
-          }
+          scrollMessagesToBottom();
         }
       } else {
         // Chat was switched, ensure loading state is cleared
@@ -641,6 +641,7 @@ export const useChatMessages = createGlobalState(() => {
     handleSearchKeydown,
     scrollToCurrentResult,
     refreshMessages,
+    scrollMessagesToBottom,
   };
 });
 

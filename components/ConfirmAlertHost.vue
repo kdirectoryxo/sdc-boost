@@ -35,17 +35,21 @@ function runConfirm(msg: string, options?: ConfirmOptions): Promise<boolean> {
 
 function onOpenChange(v: boolean) {
   open.value = v;
+  // Dismiss without choosing confirm (cancel, overlay, escape): resolve false.
+  // Must not run when the user chose confirm: AlertDialogAction closes the dialog *before*
+  // @click fires, so we resolve true in handleConfirmPointerDown (capture) first and null here.
   if (!v && resolvePromise) {
     resolvePromise(false);
     resolvePromise = null;
   }
 }
 
-function handleConfirm() {
+function handleConfirmPointerDown() {
   const r = resolvePromise;
+  if (!r) return;
   resolvePromise = null;
+  r(true);
   open.value = false;
-  r?.(true);
 }
 
 let unregister: (() => void) | null = null;
@@ -69,7 +73,13 @@ onUnmounted(() => {
       <p class="text-sm text-muted-foreground whitespace-pre-wrap">{{ message }}</p>
       <AlertDialogFooter>
         <AlertDialogCancel>{{ cancelLabel }}</AlertDialogCancel>
-        <AlertDialogAction @click="handleConfirm">{{ confirmLabel }}</AlertDialogAction>
+        <AlertDialogAction
+          type="button"
+          @pointerdown.capture="handleConfirmPointerDown"
+          @click.capture="handleConfirmPointerDown"
+        >
+          {{ confirmLabel }}
+        </AlertDialogAction>
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>

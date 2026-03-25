@@ -19,14 +19,12 @@ export function useChatSelection() {
   const { selectedChat, updateChatInURL, chatList } = useChatState();
   const { searchQuery } = useChatFilters();
   const { 
-    messages, 
     messageError, 
     isLoadingMessages, 
     isSyncing, 
     messageSearchQuery,
-    messagesContainer,
     handleLoadMessages,
-    clearSearch 
+    clearSearch,
   } = useChatMessages();
   const { typingManager } = useChatInput();
 
@@ -91,15 +89,8 @@ export function useChatSelection() {
     updateChatInURL(chatToUse);
     
     await handleLoadMessages(chatToUse);
-    
-    // Don't auto-scroll for broadcasts
-    if (!isBroadcast) {
-      await nextTick();
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-      }
-    }
-    
+    // Scroll is handled inside handleLoadMessages on success (avoids double / stepped scroll)
+
     await sendSeenEvent(chatToUse);
     
     setTimeout(async () => {
@@ -154,15 +145,8 @@ export function useChatSelection() {
     typingManager.reset();
     clearSearch();
     await handleLoadMessages(chatToUse);
-    
-    // Don't auto-scroll for broadcasts
-    if (!isBroadcast) {
-      await nextTick();
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-      }
-    }
-    
+    // Scroll is handled inside handleLoadMessages on success
+
     await sendSeenEvent(chatToUse);
     updateChatInURL(chatToUse);
     

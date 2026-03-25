@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, ref, markRaw, nextTick } from 'vue';
+import { computed, ref, markRaw } from 'vue';
 import { useDraggable } from '@vue-dnd-kit/core';
 import { MoreVertical } from 'lucide-vue-next';
 import {
@@ -48,17 +48,45 @@ const openDropdownId = ref<number | string | null>(null);
 const dragStartPosition = ref<{ x: number; y: number } | null>(null);
 const dragThreshold = 10; // pixels - must move this far before drag starts
 const dragDelay = 200; // milliseconds - hold time before drag starts (for click and hold)
-const isDragEnabled = ref(false); // Only enable drag after threshold is met
 const dragTimeout = ref<number | null>(null);
 
-// Drag and drop setup with custom preview
-// Disabled by default, will be enabled when threshold is met
+/** Debug: filter console by `[SDC Boost][chat-dnd]` */
+function chatDndLog(phase: string, detail?: Record<string, unknown>): void {
+  console.info('[SDC Boost][chat-dnd]', phase, {
+    groupId: props.chat.group_id,
+    ...detail,
+  });
+}
+
+// Drag only starts when we call handleDragStart (threshold / long-press). Do NOT pass
+// `disabled` — @vue-dnd-kit reads it synchronously and it races with Vue updates → flaky drag.
 const { elementRef, isDragging, handleDragStart } = useDraggable({
   id: `chat-${props.chat.group_id}`,
   data: { chat: props.chat },
   container: markRaw(ChatDragPreview),
-  disabled: computed(() => !isDragEnabled.value),
 });
+
+function safeHandleDragStart(source: string, ev: PointerEvent): void {
+  if (!elementRef.value) {
+    chatDndLog('handleDragStart-abort-no-element-ref', { source });
+    return;
+  }
+  try {
+    chatDndLog('handleDragStart-call', {
+      source,
+      clientX: ev.clientX,
+      clientY: ev.clientY,
+      pointerType: ev.pointerType,
+    });
+    handleDragStart(ev);
+    chatDndLog('handleDragStart-returned', {
+      source,
+      isDragging: isDragging.value,
+    });
+  } catch (err) {
+    console.error('[SDC Boost][chat-dnd] handleDragStart threw', source, err);
+  }
+}
 
 // Check if this is a group
 const isGroup = computed(() => {
@@ -140,85 +168,87 @@ function handleClick(e: MouseEvent) {
 }
 
 function handlePointerDown(e: PointerEvent) {
-  // Reset drag enabled state
-  isDragEnabled.value = false;
-  
+  chatDndLog('pointerdown', {
+    pointerType: e.pointerType,
+    button: e.button,
+    clientX: e.clientX,
+    clientY: e.clientY,
+  });
+
+  /** One pointer session: only call handleDragStart once (move-threshold vs hold-timeout). */
+  let dragStarted = false;
+
   // Clear any existing timeout
   if (dragTimeout.value !== null) {
     clearTimeout(dragTimeout.value);
     dragTimeout.value = null;
   }
-  
+
   // Store initial position
   dragStartPosition.value = { x: e.clientX, y: e.clientY };
   const originalEvent = e;
   let currentPointerPos = { x: e.clientX, y: e.clientY };
-  
-  // Set up pointer move handler
+
   const handlePointerMove = (moveEvent: PointerEvent) => {
-    if (!dragStartPosition.value) return;
-    
-    // Update current pointer position
+    if (!dragStartPosition.value || dragStarted) return;
+
     currentPointerPos = { x: moveEvent.clientX, y: moveEvent.clientY };
-    
+
     const deltaX = Math.abs(moveEvent.clientX - dragStartPosition.value.x);
     const deltaY = Math.abs(moveEvent.clientY - dragStartPosition.value.y);
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    
-    // If moved beyond threshold, enable dragging and start it
-    if (distance > dragThreshold && !isDragEnabled.value) {
-      // Clear the delay timeout since we're moving
+
+    if (distance > dragThreshold) {
       if (dragTimeout.value !== null) {
         clearTimeout(dragTimeout.value);
         dragTimeout.value = null;
       }
-      
-      isDragEnabled.value = true;
-      // Now that dragging is enabled, trigger the drag start
-      // Use nextTick to ensure the disabled state has updated
-      nextTick(() => {
-        handleDragStart(originalEvent);
-      });
+      dragStarted = true;
+      chatDndLog('move-past-threshold', { distance: Math.round(distance * 10) / 10 });
+      safeHandleDragStart('move', moveEvent);
     }
   };
-  
-  // Set up pointer up handler to clean up
-  const handlePointerUp = () => {
-    // Clean up listeners and reset state
+
+  function cleanupPointerSession(reason: string) {
+    chatDndLog('pointer-session-end', { reason, dragStarted });
     dragStartPosition.value = null;
-    isDragEnabled.value = false;
     if (dragTimeout.value !== null) {
       clearTimeout(dragTimeout.value);
       dragTimeout.value = null;
     }
     document.removeEventListener('pointermove', handlePointerMove);
-    document.removeEventListener('pointerup', handlePointerUp);
-  };
-  
-  // Set up delay timeout for click and hold
+    document.removeEventListener('pointerup', onPointerUp);
+    document.removeEventListener('pointercancel', onPointerCancel);
+  }
+
+  function onPointerUp() {
+    cleanupPointerSession('pointerup');
+  }
+  function onPointerCancel() {
+    cleanupPointerSession('pointercancel');
+  }
+
   dragTimeout.value = window.setTimeout(() => {
-    // After delay, if still holding and haven't moved much, enable drag
-    if (dragStartPosition.value && !isDragEnabled.value) {
-      const startPos = dragStartPosition.value;
-      // Check if pointer hasn't moved much (within tolerance)
-      const deltaX = Math.abs(currentPointerPos.x - startPos.x);
-      const deltaY = Math.abs(currentPointerPos.y - startPos.y);
-      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-      
-      // If still near the start position, enable drag for click and hold
-      if (distance < dragThreshold) {
-        isDragEnabled.value = true;
-        nextTick(() => {
-          handleDragStart(originalEvent);
-        });
-      }
+    if (!dragStartPosition.value || dragStarted) {
+      dragTimeout.value = null;
+      return;
+    }
+    const startPos = dragStartPosition.value;
+    const deltaX = Math.abs(currentPointerPos.x - startPos.x);
+    const deltaY = Math.abs(currentPointerPos.y - startPos.y);
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+    if (distance < dragThreshold) {
+      dragStarted = true;
+      chatDndLog('hold-timeout-start-drag', { dragDelay });
+      safeHandleDragStart('hold', originalEvent);
     }
     dragTimeout.value = null;
   }, dragDelay);
-  
-  // Add listeners
+
   document.addEventListener('pointermove', handlePointerMove);
-  document.addEventListener('pointerup', handlePointerUp, { once: true });
+  document.addEventListener('pointerup', onPointerUp);
+  document.addEventListener('pointercancel', onPointerCancel);
 }
 
 function handleTogglePin() {

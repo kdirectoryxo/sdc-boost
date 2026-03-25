@@ -176,6 +176,8 @@ export default defineContentScript({
         `;
 
             viewRouterApp = createApp(SdcHubApp);
+            // Required for ChatListItem / folder drag-and-drop in hub (same as ChatDialogWrapper).
+            viewRouterApp.use(VueDndKitPlugin);
             viewRouterApp.mount(container);
             viewRouterLog('View Router Vue mounted');
             updateViewRouterVisibility('onMount');

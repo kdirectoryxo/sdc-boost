@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, unref } from 'vue';
+import type { Ref } from 'vue';
 import { Bot, MessageSquare, MoreVertical } from 'lucide-vue-next';
 import {
   ScrollAreaCorner,
@@ -66,17 +67,40 @@ const viewportRef = ref<InstanceType<typeof ScrollAreaViewport> | null>(null);
 const messagesContainer = ref<HTMLElement | null>(null);
 
 function syncViewportEl(): void {
-  const v = viewportRef.value as unknown as { $el?: HTMLElement } | HTMLElement | null | undefined;
+  const v = viewportRef.value as unknown as {
+    $el?: HTMLElement | null;
+    /** reka-ui ScrollAreaViewport — real scrollable div (prefer over $el; Fragment root makes $el unreliable) */
+    viewportElement?: HTMLElement | Ref<HTMLElement | null | undefined> | null;
+  } | HTMLElement | null | undefined;
   if (!v) {
     messagesContainer.value = null;
     return;
   }
-  const el =
-    v instanceof HTMLElement ? v : (v as { $el?: HTMLElement }).$el;
-  messagesContainer.value = el ?? null;
+  if (v instanceof HTMLElement) {
+    messagesContainer.value = v;
+    return;
+  }
+  const exposed = v.viewportElement;
+  if (exposed != null) {
+    const fromExpose = unref(exposed as Ref<HTMLElement | null | undefined>);
+    if (fromExpose instanceof HTMLElement) {
+      messagesContainer.value = fromExpose;
+      return;
+    }
+  }
+  const el = v.$el ?? null;
+  messagesContainer.value = el instanceof HTMLElement ? el : null;
 }
 
 watch(viewportRef, () => nextTick(syncViewportEl), { flush: 'post' });
+watch(
+  () => {
+    const inst = viewportRef.value as { viewportElement?: Ref<HTMLElement | null | undefined> } | null;
+    return inst?.viewportElement ? unref(inst.viewportElement) : null;
+  },
+  () => nextTick(syncViewportEl),
+  { flush: 'post' },
+);
 const { togglePinChat, toggleMarkUnread, deleteChat } = useChatPin();
 const { removeChatFromFolder } = useChatFolders();
 const openHeaderDropdown = ref<boolean>(false);

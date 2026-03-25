@@ -112,7 +112,8 @@ watch(
         void hydrateCoordsFromProfile();
       }
     }
-  }
+  },
+  { immediate: true }
 );
 
 async function hydrateCoordsFromProfile() {
