@@ -5,12 +5,13 @@ import {
   setViewedFilters,
   getOnlineFilters,
   setOnlineFilters,
-  getClientSideFilters,
-  setClientSideFilters,
+  loadClientSideFiltersByTab,
+  setClientSideFiltersByTabAll,
   getLatestMembersFilters,
   setLatestMembersFilters,
   type ClientSideFilters,
 } from '@/lib/people-filters-storage';
+import type { PeopleTabId } from '@/lib/view-router/routes';
 
 /** Debounce helper */
 function debounce<T extends (...args: unknown[]) => unknown>(func: T, wait: number): (...args: Parameters<T>) => void {
@@ -83,12 +84,21 @@ const latestMembersFilters = ref<LatestMembersFilters>({
   looking_for_me: 0,
 });
 
-const clientSideFilters = ref<ClientSideFilters>({
-  ageMin: null,
-  ageMax: null,
-  kmWithin: null,
-  ageFilterMode: 'any',
+const activePeopleTab = ref<PeopleTabId>('online');
+
+function emptyClientSideFilters(): ClientSideFilters {
+  return { ageMin: null, ageMax: null, kmWithin: null, ageFilterMode: 'any' };
+}
+
+const clientSideFiltersByTab = ref<Record<PeopleTabId, ClientSideFilters>>({
+  online: emptyClientSideFilters(),
+  viewed: emptyClientSideFilters(),
+  latest: emptyClientSideFilters(),
+  featured: emptyClientSideFilters(),
 });
+
+/** Slice for the current People tab (online / bekeken / nieuw / spotlight). */
+const clientSideFilters = computed(() => clientSideFiltersByTab.value[activePeopleTab.value]);
 
 const filtersLoaded = ref(false);
 const viewedCount = ref(0);
@@ -281,11 +291,11 @@ watch(
 );
 
 watch(
-  () => clientSideFilters.value,
-  (newFilters) => {
+  () => clientSideFiltersByTab.value,
+  () => {
     if (filtersLoaded.value) {
       try {
-        setClientSideFilters(newFilters);
+        setClientSideFiltersByTabAll({ ...clientSideFiltersByTab.value });
       } catch (error) {
         console.error('[PeopleExplorer] Error saving client-side filters:', error);
       }
@@ -308,21 +318,26 @@ watch(
   { deep: true }
 );
 
+function syncAgeKmInputsFromTab(tab: PeopleTabId) {
+  const f = clientSideFiltersByTab.value[tab];
+  ageMinInput.value = f.ageMin !== null ? String(f.ageMin) : '';
+  ageMaxInput.value = f.ageMax !== null ? String(f.ageMax) : '';
+  kmWithinInput.value = f.kmWithin !== null ? String(f.kmWithin) : '';
+}
+
 function loadFiltersFromStorage() {
   try {
     const storedViewedFilters = getViewedFilters();
     const storedOnlineFilters = getOnlineFilters();
     const storedLatestMembersFilters = getLatestMembersFilters();
-    const storedClientSideFilters = getClientSideFilters();
+    const storedByTab = loadClientSideFiltersByTab();
 
     viewedFilters.value = storedViewedFilters;
     onlineFilters.value = storedOnlineFilters;
     latestMembersFilters.value = storedLatestMembersFilters;
-    clientSideFilters.value = storedClientSideFilters;
+    clientSideFiltersByTab.value = storedByTab;
 
-    ageMinInput.value = storedClientSideFilters.ageMin !== null ? String(storedClientSideFilters.ageMin) : '';
-    ageMaxInput.value = storedClientSideFilters.ageMax !== null ? String(storedClientSideFilters.ageMax) : '';
-    kmWithinInput.value = storedClientSideFilters.kmWithin !== null ? String(storedClientSideFilters.kmWithin) : '';
+    syncAgeKmInputsFromTab(activePeopleTab.value);
 
     nextTick(() => {
       filtersLoaded.value = true;
@@ -353,8 +368,22 @@ function subscribeCounters() {
 /**
  * Shared People list filters + storage sync (view router + legacy People dialog shell).
  * Singleton state so all surfaces stay aligned via localStorage.
+ *
+ * @param getActiveTab - When provided (e.g. from `PeopleExplorerPanel`), keeps the active tab in
+ *   sync so leeftijd/km client filters are per tab (online, bekeken, nieuwe leden, spotlight).
  */
-export function usePeopleExplorerState() {
+export function usePeopleExplorerState(getActiveTab?: () => PeopleTabId) {
+  if (getActiveTab) {
+    watch(
+      () => getActiveTab(),
+      (tab) => {
+        activePeopleTab.value = tab;
+        syncAgeKmInputsFromTab(tab);
+      },
+      { immediate: true }
+    );
+  }
+
   onMounted(() => {
     if (!storageLoadStarted) {
       storageLoadStarted = true;

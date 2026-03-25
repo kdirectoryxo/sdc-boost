@@ -4,6 +4,7 @@
  */
 import type { ViewedFilters, OnlineFilters, LatestMembersFilters } from '@/components/PeopleList.vue';
 import type { AgeFilterMode } from '@/lib/people-age-filter';
+import type { PeopleTabId } from '@/lib/view-router/routes';
 
 // Re-export types for convenience
 export type { ViewedFilters, OnlineFilters, LatestMembersFilters };
@@ -18,6 +19,8 @@ export interface ClientSideFilters {
 }
 
 const STORAGE_KEY = 'sdc-boost-people-filters';
+
+const PEOPLE_TAB_IDS: PeopleTabId[] = ['online', 'viewed', 'latest', 'featured'];
 
 // Default values
 const DEFAULT_VIEWED_FILTERS: ViewedFilters = {
@@ -51,8 +54,65 @@ const DEFAULT_LATEST_MEMBERS_FILTERS: LatestMembersFilters = {
 interface PeopleFiltersStorage {
   viewedFilters?: ViewedFilters;
   onlineFilters?: OnlineFilters;
+  /** @deprecated Use `clientSideFiltersByTab`; migrated on next save */
   clientSideFilters?: ClientSideFilters;
+  clientSideFiltersByTab?: Partial<Record<PeopleTabId, ClientSideFilters>>;
   latestMembersFilters?: LatestMembersFilters;
+}
+
+function mergeClientSideFilters(partial?: Partial<ClientSideFilters>): ClientSideFilters {
+  return { ...DEFAULT_CLIENT_SIDE_FILTERS, ...partial };
+}
+
+/**
+ * Load client-side (age / km / mode) filters for all People tabs.
+ * Migrates legacy single `clientSideFilters` to a copy per tab when present.
+ */
+export function loadClientSideFiltersByTab(): Record<PeopleTabId, ClientSideFilters> {
+  const base = (): Record<PeopleTabId, ClientSideFilters> => ({
+    online: mergeClientSideFilters(),
+    viewed: mergeClientSideFilters(),
+    latest: mergeClientSideFilters(),
+    featured: mergeClientSideFilters(),
+  });
+  try {
+    const storedStr = localStorage.getItem(STORAGE_KEY);
+    if (!storedStr) return base();
+    const stored: PeopleFiltersStorage = JSON.parse(storedStr);
+    const out = base();
+
+    if (stored.clientSideFiltersByTab && typeof stored.clientSideFiltersByTab === 'object') {
+      for (const tab of PEOPLE_TAB_IDS) {
+        const slice = stored.clientSideFiltersByTab[tab];
+        if (slice) out[tab] = mergeClientSideFilters(slice);
+      }
+      return out;
+    }
+
+    if (stored.clientSideFilters) {
+      const leg = mergeClientSideFilters(stored.clientSideFilters);
+      for (const tab of PEOPLE_TAB_IDS) {
+        out[tab] = { ...leg };
+      }
+    }
+    return out;
+  } catch (error) {
+    console.error('[People Filters] Error loading client-side filters by tab:', error);
+    return base();
+  }
+}
+
+/** Persist all tabs’ client-side filters and drop legacy `clientSideFilters` key. */
+export function setClientSideFiltersByTabAll(byTab: Record<PeopleTabId, ClientSideFilters>): void {
+  try {
+    const storedStr = localStorage.getItem(STORAGE_KEY);
+    const stored: PeopleFiltersStorage = storedStr ? JSON.parse(storedStr) : {};
+    stored.clientSideFiltersByTab = { ...byTab };
+    delete stored.clientSideFilters;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+  } catch (error) {
+    console.error('[People Filters] Error setting client-side filters by tab:', error);
+  }
 }
 
 /**
@@ -125,40 +185,6 @@ export function setOnlineFilters(filters: OnlineFilters): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
   } catch (error) {
     console.error('[People Filters] Error setting online filters:', error);
-  }
-}
-
-/**
- * Get client-side filters from storage
- * Returns default values if not stored
- */
-export function getClientSideFilters(): ClientSideFilters {
-  try {
-    const storedStr = localStorage.getItem(STORAGE_KEY);
-    if (storedStr) {
-      const stored: PeopleFiltersStorage = JSON.parse(storedStr);
-      if (stored.clientSideFilters) {
-        return { ...DEFAULT_CLIENT_SIDE_FILTERS, ...stored.clientSideFilters };
-      }
-    }
-    return { ...DEFAULT_CLIENT_SIDE_FILTERS };
-  } catch (error) {
-    console.error('[People Filters] Error getting client-side filters:', error);
-    return { ...DEFAULT_CLIENT_SIDE_FILTERS };
-  }
-}
-
-/**
- * Set client-side filters in storage
- */
-export function setClientSideFilters(filters: ClientSideFilters): void {
-  try {
-    const storedStr = localStorage.getItem(STORAGE_KEY);
-    const stored: PeopleFiltersStorage = storedStr ? JSON.parse(storedStr) : {};
-    stored.clientSideFilters = filters;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
-  } catch (error) {
-    console.error('[People Filters] Error setting client-side filters:', error);
   }
 }
 

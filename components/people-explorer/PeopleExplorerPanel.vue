@@ -50,7 +50,7 @@ const {
   GENDER_OPTIONS,
   GENDER_OPTIONS_LATEST,
   GENDER_OPTIONS_ONLINE,
-} = usePeopleExplorerState();
+} = usePeopleExplorerState(() => props.activeTab);
 </script>
 
 <template>
