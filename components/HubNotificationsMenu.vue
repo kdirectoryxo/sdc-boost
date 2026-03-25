@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
+import { useMediaQuery } from '@vueuse/core';
 import { IconBell } from '@tabler/icons-vue';
 
 import type { FeedNotificationItem } from '@/lib/sdc-api-types';
@@ -31,6 +32,48 @@ const hasMore = ref(false);
 const scrollRoot = ref<HTMLElement | null>(null);
 const infiniteSentinel = ref<HTMLElement | null>(null);
 let infiniteScrollObserver: IntersectionObserver | null = null;
+
+/** Hover-to-open only on real hover devices; touch keeps click-only. */
+const hoverOpenEnabled = useMediaQuery('(hover: hover) and (pointer: fine)');
+let hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
+const HOVER_CLOSE_DELAY_MS = 200;
+
+function cancelHoverCloseTimer() {
+  if (hoverCloseTimer) {
+    clearTimeout(hoverCloseTimer);
+    hoverCloseTimer = null;
+  }
+}
+
+function scheduleHoverClose() {
+  if (!hoverOpenEnabled.value) return;
+  cancelHoverCloseTimer();
+  hoverCloseTimer = setTimeout(() => {
+    open.value = false;
+    hoverCloseTimer = null;
+  }, HOVER_CLOSE_DELAY_MS);
+}
+
+function onBellMouseEnter() {
+  if (!hoverOpenEnabled.value) return;
+  cancelHoverCloseTimer();
+  open.value = true;
+}
+
+function onBellMouseLeave() {
+  if (!hoverOpenEnabled.value) return;
+  scheduleHoverClose();
+}
+
+function onPanelMouseEnter() {
+  if (!hoverOpenEnabled.value) return;
+  cancelHoverCloseTimer();
+}
+
+function onPanelMouseLeave() {
+  if (!hoverOpenEnabled.value) return;
+  scheduleHoverClose();
+}
 
 function disconnectInfiniteScroll() {
   infiniteScrollObserver?.disconnect();
@@ -117,6 +160,7 @@ watch(open, (isOpen) => {
   if (isOpen) {
     resetAndLoad();
   } else {
+    cancelHoverCloseTimer();
     disconnectInfiniteScroll();
   }
 });
@@ -131,6 +175,7 @@ watch(
 );
 
 onUnmounted(() => {
+  cancelHoverCloseTimer();
   disconnectInfiniteScroll();
 });
 
@@ -163,6 +208,8 @@ function openSenderProfile(n: FeedNotificationItem) {
         size="icon"
         class="relative text-white/70 hover:bg-white/10 hover:text-white"
         :aria-label="badgeLabel ? `Meldingen (${feedCounter} ongelezen)` : 'Meldingen'"
+        @mouseenter="onBellMouseEnter"
+        @mouseleave="onBellMouseLeave"
       >
         <IconBell class="size-5" />
         <span
@@ -177,6 +224,8 @@ function openSenderProfile(n: FeedNotificationItem) {
       align="end"
       :side-offset="8"
       class="w-[min(100vw-1.5rem,22rem)] border border-white/[0.08] bg-[#1c1f26] p-0 text-white shadow-xl"
+      @mouseenter="onPanelMouseEnter"
+      @mouseleave="onPanelMouseLeave"
     >
       <div class="border-b border-white/[0.06] px-3 py-2">
         <p class="text-sm font-semibold text-white">Meldingen</p>

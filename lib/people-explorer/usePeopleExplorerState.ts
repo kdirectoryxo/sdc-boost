@@ -1,4 +1,4 @@
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import type { ViewedFilters, OnlineFilters, LatestMembersFilters } from '@/components/PeopleList.vue';
 import {
   getViewedFilters,
@@ -339,14 +339,12 @@ function loadFiltersFromStorage() {
 
     syncAgeKmInputsFromTab(activePeopleTab.value);
 
-    nextTick(() => {
-      filtersLoaded.value = true;
-    });
+    // Set synchronously after all refs are applied. Using nextTick() here caused the first
+    // user edit to sometimes run before `filtersLoaded` was true, so watchers skipped save.
+    filtersLoaded.value = true;
   } catch (error) {
     console.error('[PeopleExplorer] Error loading filters from storage:', error);
-    nextTick(() => {
-      filtersLoaded.value = true;
-    });
+    filtersLoaded.value = true;
   }
 }
 

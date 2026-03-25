@@ -3,7 +3,7 @@ import type { DateValue } from '@internationalized/date';
 import { DateFormatter, getLocalTimeZone, parseDate, today, toCalendarDate } from '@internationalized/date';
 import { Calendar as CalendarIcon, MapPin } from 'lucide-vue-next';
 import { useDebounceFn } from '@vueuse/core';
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import SpeedDateCard from '@/components/SpeedDateCard.vue';
 import SpeedDateCreateDialog from '@/components/SpeedDateCreateDialog.vue';
@@ -104,6 +104,8 @@ const listFiltersReady = ref(false);
 const filterResetInProgress = ref(false);
 /** False until after first paint post-bootstrap — avoids reset firing before UI is stable */
 const allowFilterReset = ref(false);
+/** Skip persisting until bootstrap finished so hydrateCoords lat/lon updates do not race debounced save */
+const persistReady = ref(false);
 
 const placeSearchQuery = ref(initialFilters.placeSearchQuery);
 const placeSearchResults = ref<LocationSearchPlace[]>([]);
@@ -134,7 +136,7 @@ function buildSpeedDateFiltersSnapshot(): SpeedDateFiltersStored {
 }
 
 const persistSpeedDateFilters = useDebounceFn(() => {
-  if (filterResetInProgress.value) return;
+  if (filterResetInProgress.value || !persistReady.value) return;
   saveSpeedDateFilters(buildSpeedDateFiltersSnapshot());
 }, 300);
 
@@ -155,6 +157,7 @@ watch(
     placeSearchQuery.value,
   ],
   () => {
+    if (!persistReady.value) return;
     persistSpeedDateFilters();
   },
 );
@@ -406,8 +409,14 @@ onMounted(async () => {
   await refreshMySpeed();
   listFiltersReady.value = true;
   bootstrapping.value = false;
+  persistReady.value = true;
   await nextTick();
   allowFilterReset.value = true;
+});
+
+onBeforeUnmount(() => {
+  if (!persistReady.value || filterResetInProgress.value) return;
+  saveSpeedDateFilters(buildSpeedDateFiltersSnapshot());
 });
 
 watch(
