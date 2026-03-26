@@ -19,7 +19,11 @@ const tpl = c.slice(s, e);
 const header = `<script setup lang="ts">
 import { Icon } from '@iconify/vue';
 import type { PeopleTabId } from '@/lib/people/people-tabs';
-import Dropdown from '@/components/ui/Dropdown.vue';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/lib/view-router/ui/dropdown-menu';
 import { usePeopleFilters } from '@/lib/composables/usePeopleFilters';
 import '~/assets/people-filters.css';
 

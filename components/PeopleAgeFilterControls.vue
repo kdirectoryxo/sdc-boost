@@ -1,7 +1,19 @@
 <script lang="ts" setup>
 import { Icon } from '@iconify/vue';
+
 import { usePeopleExplorerState } from '@/lib/people-explorer';
-import { AGE_FILTER_MODE_OPTIONS, AGE_FILTER_MODE_GROUP_HELP } from '@/lib/people-age-filter';
+import {
+  AGE_FILTER_MODE_OPTIONS,
+  AGE_FILTER_MODE_GROUP_HELP,
+  type AgeFilterMode,
+} from '@/lib/people-age-filter';
+import { Button } from '@/lib/view-router/ui/button';
+import { ToggleGroup, ToggleGroupItem } from '@/lib/view-router/ui/toggle-group';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/lib/view-router/ui/tooltip';
 
 const {
   clientSideFilters,
@@ -19,11 +31,23 @@ const {
   <div class="filter-age" :class="{ active: hasAgeFilter }">
     <Icon icon="mdi:account-clock-outline" width="12" height="12" />
     <span class="filter-age-label">Leeftijd</span>
-    <span class="filter-age-help" :title="AGE_FILTER_MODE_GROUP_HELP">
-      <Icon icon="mdi:information-outline" width="14" height="14" />
-    </span>
+    <Tooltip>
+      <TooltipTrigger as-child>
+        <button
+          type="button"
+          class="filter-age-help inline-flex cursor-help items-center border-0 bg-transparent p-0 text-[#6b7280] transition-colors hover:text-[#9ca3af]"
+          :aria-label="AGE_FILTER_MODE_GROUP_HELP"
+        >
+          <Icon icon="mdi:information-outline" width="14" height="14" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" class="max-w-[min(100vw-2rem,20rem)] text-xs leading-snug">
+        {{ AGE_FILTER_MODE_GROUP_HELP }}
+      </TooltipContent>
+    </Tooltip>
     <input
       type="text"
+      inputmode="numeric"
       :value="ageMinInput"
       maxlength="2"
       placeholder="18"
@@ -34,31 +58,53 @@ const {
     <span class="filter-age-sep">-</span>
     <input
       type="text"
-      v-model="ageMaxInput"
+      inputmode="numeric"
+      :value="ageMaxInput"
       maxlength="2"
       placeholder="99"
       class="filter-age-input"
       @input="handleAgeMaxInput"
       @blur="updateAgeFilter"
     />
-    <div class="filter-age-mode" role="group" aria-label="Leeftijd filteren op">
-      <button
+    <ToggleGroup
+      type="single"
+      :model-value="clientSideFilters.ageFilterMode"
+      variant="outline"
+      size="sm"
+      :spacing="0"
+      class="filter-age-mode h-[22px] min-h-0 w-fit rounded border border-white/[0.08] p-0 shadow-none"
+      role="group"
+      aria-label="Leeftijd filteren op"
+      @update:model-value="
+        (v) => {
+          const next = (Array.isArray(v) ? v[0] : v) as AgeFilterMode | undefined;
+          if (next) clientSideFilters.ageFilterMode = next;
+        }
+      "
+    >
+      <ToggleGroupItem
         v-for="opt in AGE_FILTER_MODE_OPTIONS"
         :key="opt.value"
-        type="button"
-        class="filter-age-mode-btn"
-        :class="{ active: clientSideFilters.ageFilterMode === opt.value }"
+        :value="opt.value"
         :title="opt.title"
         :aria-label="opt.label"
-        :aria-pressed="clientSideFilters.ageFilterMode === opt.value"
-        @click="clientSideFilters.ageFilterMode = opt.value"
+        class="h-[22px] w-[26px] min-w-[26px] rounded-none border-0 px-0 text-[#6b7280] data-[state=on]:bg-[rgba(96,165,250,0.22)] data-[state=on]:text-[#93c5fd] first:rounded-l last:rounded-r hover:bg-white/[0.06] hover:text-[#9ca3af]"
       >
         <Icon :icon="opt.icon" width="14" height="14" />
-      </button>
-    </div>
-    <button v-if="hasAgeFilter" type="button" class="filter-age-clear" title="Wissen" @click="clearAgeFilter">
+      </ToggleGroupItem>
+    </ToggleGroup>
+    <Button
+      v-if="hasAgeFilter"
+      type="button"
+      variant="ghost"
+      size="icon"
+      class="filter-age-clear h-3.5 w-3.5 min-w-0 shrink-0 p-0 text-[#6b7280] hover:text-red-400"
+      title="Wissen"
+      aria-label="Wissen"
+      @click="clearAgeFilter"
+    >
       <Icon icon="mdi:close" width="10" height="10" />
-    </button>
+    </Button>
   </div>
 </template>
 
@@ -112,12 +158,6 @@ const {
   display: inline-flex;
   align-items: center;
   margin: 0 -2px 0 -4px;
-  cursor: help;
-  color: #6b7280;
-}
-
-.filter-age-help:hover {
-  color: #9ca3af;
 }
 
 .filter-age-input {
@@ -159,68 +199,7 @@ const {
   color: #9ca3af;
 }
 
-.filter-age-mode {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  margin-left: 2px;
-  border-radius: 4px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.filter-age-mode-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 22px;
-  padding: 0;
-  margin: 0;
-  border: none;
-  background: rgba(0, 0, 0, 0.2);
-  color: #6b7280;
-  cursor: pointer;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
-}
-
-.filter-age-mode-btn + .filter-age-mode-btn {
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.filter-age-mode-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #9ca3af;
-}
-
-.filter-age-mode-btn.active {
-  background: rgba(96, 165, 250, 0.22);
-  color: #93c5fd;
-}
-
 .filter-age.active .filter-age-mode {
   border-color: rgba(96, 165, 250, 0.25);
-}
-
-.filter-age-clear {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  padding: 0;
-  margin-left: 2px;
-  background: transparent;
-  border: none;
-  border-radius: 50%;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.filter-age-clear:hover {
-  color: #f87171;
 }
 </style>

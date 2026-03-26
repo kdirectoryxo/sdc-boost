@@ -8,7 +8,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import SpeedDateCard from '@/components/SpeedDateCard.vue';
 import SpeedDateCreateDialog from '@/components/SpeedDateCreateDialog.vue';
 import SpeedDateMyDialog from '@/components/SpeedDateMyDialog.vue';
-import '@/components/hub/hub-skeleton.css';
 import {
   getMySpeedDates,
   getSpeedDatingV2,
@@ -454,29 +453,29 @@ watch(
         <div class="sticky top-0 z-10 border-b border-white/[0.06] bg-[#0c0d10]/95 px-4 py-3 backdrop-blur">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0 flex-1 space-y-2">
-              <div class="hub-skeleton-shimmer h-5 w-36 rounded-md hub-skeleton-rounded" />
-              <div class="hub-skeleton-shimmer h-3 w-full max-w-md rounded hub-skeleton-rounded" />
+              <Skeleton class="h-5 w-36 rounded-md bg-white/10" />
+              <Skeleton class="h-3 w-full max-w-md rounded-md bg-white/10" />
             </div>
             <div class="flex shrink-0 gap-2 self-end sm:self-auto">
-              <div class="hub-skeleton-shimmer h-8 w-[8.5rem] rounded-md" />
-              <div class="hub-skeleton-shimmer h-8 w-[8.5rem] rounded-md" />
+              <Skeleton class="h-8 w-[8.5rem] rounded-md bg-white/10" />
+              <Skeleton class="h-8 w-[8.5rem] rounded-md bg-white/10" />
             </div>
           </div>
           <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <div v-for="n in 8" :key="`sk-f-${n}`" class="space-y-1.5">
-              <div class="hub-skeleton-shimmer h-3 w-24 rounded hub-skeleton-rounded" />
-              <div class="hub-skeleton-shimmer h-9 w-full rounded-md" />
+              <Skeleton class="h-3 w-24 rounded-md bg-white/10" />
+              <Skeleton class="h-9 w-full rounded-md bg-white/10" />
             </div>
           </div>
         </div>
         <div class="px-4 py-4">
           <div class="speed-grid">
             <div v-for="n in 12" :key="`sk-c-${n}`" class="hub-skeleton-live-card overflow-hidden">
-              <div class="hub-skeleton-shimmer aspect-square w-full rounded-t-[10px]" />
+              <Skeleton class="aspect-square w-full rounded-t-[10px] bg-white/10" />
               <div class="flex flex-col gap-2 p-2.5">
-                <div class="hub-skeleton-shimmer h-2.5 w-[72%] rounded hub-skeleton-rounded" />
-                <div class="hub-skeleton-shimmer h-2.5 w-[48%] rounded hub-skeleton-rounded" />
-                <div class="hub-skeleton-shimmer h-2.5 w-[88%] rounded hub-skeleton-rounded" />
+                <Skeleton class="h-2.5 w-[72%] rounded-md bg-white/10" />
+                <Skeleton class="h-2.5 w-[48%] rounded-md bg-white/10" />
+                <Skeleton class="h-2.5 w-[88%] rounded-md bg-white/10" />
               </div>
             </div>
           </div>
@@ -607,38 +606,40 @@ watch(
                 />
                 <div
                   v-if="showPlaceDropdown"
-                  class="sd-place-dropdown absolute left-0 right-0 top-full z-50 mt-1 max-h-52 min-w-[min(100%,18rem)] overflow-y-auto rounded-md border border-white/[0.1] bg-[#141518] py-1 shadow-xl"
+                  class="sd-place-dropdown absolute left-0 right-0 top-full z-50 mt-1 min-w-[min(100%,18rem)] rounded-md border border-white/[0.1] bg-[#141518] py-1 shadow-xl"
                   role="listbox"
                 >
-                  <div
-                    v-if="placeSearchLoading"
-                    class="px-3 py-2 text-xs text-white/45"
-                  >
-                    Zoeken…
-                  </div>
-                  <div
-                    v-else-if="placeSearchError"
-                    class="px-3 py-2 text-xs text-destructive"
-                  >
-                    {{ placeSearchError }}
-                  </div>
-                  <div
-                    v-else-if="placeSearchEmpty"
-                    class="px-3 py-2 text-xs text-white/45"
-                  >
-                    Geen resultaten
-                  </div>
-                  <button
-                    v-for="p in placeSearchResults"
-                    :key="p.place_id"
-                    type="button"
-                    role="option"
-                    class="flex w-full cursor-pointer items-start gap-2 px-3 py-2 text-left text-xs text-white/85 hover:bg-white/[0.06]"
-                    @mousedown.prevent="selectPlace(p)"
-                  >
-                    <MapPin class="mt-0.5 size-3 shrink-0 text-white/35" aria-hidden="true" />
-                    <span class="min-w-0 leading-snug">{{ p.display_name }}</span>
-                  </button>
+                  <ScrollArea class="max-h-52">
+                    <div
+                      v-if="placeSearchLoading"
+                      class="px-3 py-2 text-xs text-white/45"
+                    >
+                      Zoeken…
+                    </div>
+                    <div
+                      v-else-if="placeSearchError"
+                      class="px-3 py-2 text-xs text-destructive"
+                    >
+                      {{ placeSearchError }}
+                    </div>
+                    <div
+                      v-else-if="placeSearchEmpty"
+                      class="px-3 py-2 text-xs text-white/45"
+                    >
+                      Geen resultaten
+                    </div>
+                    <button
+                      v-for="p in placeSearchResults"
+                      :key="p.place_id"
+                      type="button"
+                      role="option"
+                      class="flex w-full cursor-pointer items-start gap-2 px-3 py-2 text-left text-xs text-white/85 hover:bg-white/[0.06]"
+                      @mousedown.prevent="selectPlace(p)"
+                    >
+                      <MapPin class="mt-0.5 size-3 shrink-0 text-white/35" aria-hidden="true" />
+                      <span class="min-w-0 leading-snug">{{ p.display_name }}</span>
+                    </button>
+                  </ScrollArea>
                 </div>
               </div>
             </div>
@@ -740,11 +741,11 @@ watch(
             aria-label="Speeddates laden"
           >
             <div v-for="n in 12" :key="n" class="hub-skeleton-live-card overflow-hidden">
-              <div class="hub-skeleton-shimmer aspect-square w-full rounded-t-[10px]" />
+              <Skeleton class="aspect-square w-full rounded-t-[10px] bg-white/10" />
               <div class="flex flex-col gap-2 p-2.5">
-                <div class="hub-skeleton-shimmer h-2.5 w-[72%] rounded hub-skeleton-rounded" />
-                <div class="hub-skeleton-shimmer h-2.5 w-[48%] rounded hub-skeleton-rounded" />
-                <div class="hub-skeleton-shimmer h-2.5 w-[88%] rounded hub-skeleton-rounded" />
+                <Skeleton class="h-2.5 w-[72%] rounded-md bg-white/10" />
+                <Skeleton class="h-2.5 w-[48%] rounded-md bg-white/10" />
+                <Skeleton class="h-2.5 w-[88%] rounded-md bg-white/10" />
               </div>
             </div>
           </div>

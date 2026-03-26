@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue';
 import { IconBroadcast } from '@tabler/icons-vue';
 
 import PeopleCard from '@/components/PeopleCard.vue';
-import '@/components/hub/hub-skeleton.css';
+import { Skeleton } from '@/lib/view-router/ui/skeleton';
 import {
   buildOwnLiveStreamChatroomUrl,
   getVoyeurCamListV2,
@@ -104,19 +104,19 @@ async function openOwnStream() {
         <div class="shrink-0 border-b border-white/[0.06] bg-white/[0.015] px-4 py-2.5">
           <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div class="flex min-w-0 flex-1 items-center gap-2.5">
-              <div class="hub-skeleton-shimmer h-4 w-4 shrink-0 rounded-sm" />
-              <div class="hub-skeleton-shimmer h-3 min-h-[2.25rem] w-full max-w-xl rounded hub-skeleton-rounded" />
+              <Skeleton class="h-4 w-4 shrink-0 rounded-sm bg-white/10" />
+              <Skeleton class="h-3 min-h-[2.25rem] w-full max-w-xl rounded-md bg-white/10" />
             </div>
-            <div class="hub-skeleton-shimmer h-8 w-[7.5rem] shrink-0 self-end rounded-md sm:self-auto" />
+            <Skeleton class="h-8 w-[7.5rem] shrink-0 self-end rounded-md bg-white/10 sm:self-auto" />
           </div>
         </div>
         <div class="live-grid px-4 pb-8 pt-2">
           <div v-for="n in 12" :key="n" class="hub-skeleton-live-card">
-            <div class="hub-skeleton-shimmer aspect-square w-full rounded-t-[10px]" />
+            <Skeleton class="aspect-square w-full rounded-t-[10px] bg-white/10" />
             <div class="flex flex-col gap-2 p-2.5">
-              <div class="hub-skeleton-shimmer h-2.5 w-[72%] rounded hub-skeleton-rounded" />
-              <div class="hub-skeleton-shimmer h-2.5 w-[48%] rounded hub-skeleton-rounded" />
-              <div class="hub-skeleton-shimmer h-2.5 w-[88%] rounded hub-skeleton-rounded" />
+              <Skeleton class="h-2.5 w-[72%] rounded-md bg-white/10" />
+              <Skeleton class="h-2.5 w-[48%] rounded-md bg-white/10" />
+              <Skeleton class="h-2.5 w-[88%] rounded-md bg-white/10" />
             </div>
           </div>
         </div>

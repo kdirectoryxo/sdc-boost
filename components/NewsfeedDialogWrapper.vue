@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, provide } from 'vue';
 import NewsfeedDialog from './NewsfeedDialog.vue';
+import { UI_TELEPORT_TARGET } from '@/lib/ui/teleport-target';
+
+const newsfeedTeleportRootRef = ref<HTMLElement | null>(null);
+provide(UI_TELEPORT_TARGET, newsfeedTeleportRootRef);
 
 const dialogOpen = ref(false);
 const isRestoringFromURL = ref(false);
@@ -69,7 +73,10 @@ defineExpose({
 </script>
 
 <template>
-  <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 999999;">
+  <div
+    ref="newsfeedTeleportRootRef"
+    style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 999999;"
+  >
     <NewsfeedDialog 
       :modelValue="dialogOpen" 
       @update:modelValue="dialogOpen = $event"

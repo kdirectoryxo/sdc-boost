@@ -10,7 +10,7 @@ import {
 	unlinkTagFromChat,
 	type Tag
 } from '@/lib/sdc-db/tags';
-import TagBadge from '@/components/ui/TagBadge.vue';
+import ChatTagBadge from '@/components/chat/ChatTagBadge.vue';
 import TagEditDialog from '@/components/chat/TagEditDialog.vue';
 import { useSDCDatabaseStore } from '@/lib/sdc-db/store';
 import {
@@ -270,7 +270,7 @@ async function toggleTagAssignment(tagId: number) {
 									@change="toggleTagAssignment(tag.id)"
 									class="w-4 h-4 rounded border-white/[0.10] bg-background text-blue-500 focus:ring-blue-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
 								/>
-								<TagBadge :text="tag.text" :color="tag.color" />
+								<ChatTagBadge :text="tag.text" :color="tag.color" />
 								<button
 									@click.stop="openEditDialog(tag.id)"
 									class="p-1 hover:bg-white/[0.10] rounded transition-colors ml-1"

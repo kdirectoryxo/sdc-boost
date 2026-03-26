@@ -3,17 +3,25 @@ import { ref, onMounted, computed, onUnmounted } from 'vue';
 import { moduleStates, moduleConfigs, getShowCategoryIcons, getFilterByActive, setFilterByActive } from '@/lib/storage';
 import type { ModuleDefinition, ModuleConfigOption } from '@/lib/modules/types';
 import { getCategoryConfig } from '@/lib/categoryConfig';
-import Switch from '@/components/ui/Switch.vue';
-import Button from '@/components/ui/Button.vue';
-import Collapse from '@/components/ui/Collapse.vue';
 import SettingsView from '@/components/SettingsView.vue';
-import FilterPopup from '@/components/FilterPopup.vue';
+import { Button } from '@/lib/view-router/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/lib/view-router/ui/collapsible';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/lib/view-router/ui/popover';
+import { Switch } from '@/lib/view-router/ui/switch';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '@/lib/view-router/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 interface ModuleInfo {
@@ -39,7 +47,6 @@ const showSettings = ref(false);
 const showCategoryIcons = ref(true);
 const filterByActive = ref(false);
 const showFilterPopup = ref(false);
-const filterButtonRef = ref<HTMLElement | null>(null);
 
 // Get unique categories
 const categories = computed(() => {
@@ -364,34 +371,54 @@ onUnmounted(() => {
             <span>{{ category }}</span>
           </Button>
         </div>
-        <!-- Filter Icon -->
-        <button
-          ref="filterButtonRef"
-          @click.stop="() => { console.log('[Filter] Button clicked, current state:', showFilterPopup); showFilterPopup = !showFilterPopup; console.log('[Filter] New state:', showFilterPopup); }"
-          class="ml-2 p-2 hover:bg-[#333] rounded-md transition-colors relative"
-          :title="filterByActive ? 'Filter: Active only' : 'Filter'"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            :class="filterByActive ? 'text-green-500' : 'text-[#999] hover:text-white'"
+        <!-- Filter -->
+        <Popover v-model:open="showFilterPopup">
+          <PopoverTrigger as-child>
+            <button
+              type="button"
+              class="ml-2 p-2 hover:bg-[#333] rounded-md transition-colors relative"
+              :title="filterByActive ? 'Filter: Active only' : 'Filter'"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                :class="filterByActive ? 'text-green-500' : 'text-[#999] hover:text-white'"
+              >
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+              </svg>
+              <span
+                v-if="activeFiltersCount > 0"
+                class="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1.5 rounded-full bg-green-500 text-white text-[10px] font-semibold leading-none"
+              >
+                {{ activeFiltersCount > 99 ? '99+' : activeFiltersCount }}
+              </span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            side="bottom"
+            :side-offset="8"
+            class="w-auto min-w-[200px] border border-[#333] bg-[#1a1a1a] p-0 text-[#e0e0e0] shadow-lg"
           >
-            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-          </svg>
-          <!-- Badge showing count of active filters -->
-          <span
-            v-if="activeFiltersCount > 0"
-            class="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1.5 rounded-full bg-green-500 text-white text-[10px] font-semibold leading-none"
-          >
-            {{ activeFiltersCount > 99 ? '99+' : activeFiltersCount }}
-          </span>
-        </button>
+            <div class="px-4 py-3">
+              <div class="flex items-center justify-between gap-4 min-w-[200px]">
+                <label class="text-sm text-[#e0e0e0] cursor-pointer flex-1">
+                  Show only active modules
+                </label>
+                <Switch
+                  :checked="filterByActive"
+                  @update:checked="handleFilterByActiveChange"
+                />
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
         <!-- Settings Icon -->
         <Tooltip>
           <TooltipTrigger as-child>
@@ -469,22 +496,28 @@ onUnmounted(() => {
               <p class="m-0 text-[13px] text-[#999] leading-snug">{{ module.description }}</p>
             </div>
             <Switch
-              v-model="module.enabled"
-              @update:model-value="(val) => saveModuleState(module.id, val)"
+              :checked="module.enabled"
+              @update:checked="(val: boolean) => saveModuleState(module.id, val)"
             />
           </div>
 
-          <!-- Settings Collapse -->
-          <Collapse
+          <!-- Settings -->
+          <Collapsible
             v-if="module.configOptions.length > 0"
             :open="module.expanded ?? false"
-            @update:open="(val) => { module.expanded = val; }"
             class="mt-2"
+            @update:open="(val) => { module.expanded = val; }"
           >
-            <template #trigger>
+            <CollapsibleTrigger
+              class="w-full py-2.5 px-2.5 bg-[#2a2a2a] border border-[#333] rounded-md text-[#e0e0e0] cursor-pointer text-[13px] font-medium flex justify-between items-center transition-all duration-200 hover:bg-[#333] hover:border-[#444]"
+            >
               <span>Settings</span>
-            </template>
-
+              <span
+                class="text-[10px] transition-transform duration-200"
+                :class="{ 'rotate-180': module.expanded }"
+              >▼</span>
+            </CollapsibleTrigger>
+            <CollapsibleContent class="mt-3 pt-3 border-t border-[#333] flex flex-col gap-4">
             <div
               v-for="option in module.configOptions"
               :key="option.key"
@@ -536,10 +569,10 @@ onUnmounted(() => {
                 <!-- Boolean Input -->
                 <Switch
                   v-else-if="option.type === 'boolean'"
-                  :model-value="module.config[option.key]"
+                  :checked="module.config[option.key]"
                   :disabled="isOptionDisabled(module, option)"
-                  size="sm"
-                  @update:model-value="(val) => updateModuleConfig(module.id, option.key, val)"
+                  class="scale-90"
+                  @update:checked="(val: boolean) => updateModuleConfig(module.id, option.key, val)"
                 />
 
                 <!-- Reset Button for each setting -->
@@ -569,7 +602,8 @@ onUnmounted(() => {
                 Reset All
               </Button>
             </div>
-          </Collapse>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
 
         <div v-if="filteredModules.length === 0" class="text-center py-10 px-5 text-[#999]">
@@ -578,14 +612,6 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Filter Popup -->
-    <FilterPopup
-      :model-value="showFilterPopup"
-      :filter-by-active="filterByActive"
-      :trigger-ref="filterButtonRef"
-      @update:model-value="showFilterPopup = $event"
-      @update:filter-by-active="handleFilterByActiveChange"
-    />
   </div>
   </TooltipProvider>
 </template>

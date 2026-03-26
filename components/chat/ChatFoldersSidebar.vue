@@ -18,7 +18,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from '@/lib/view-router/ui/tooltip';
 import FolderEditDialog from '@/components/chat/FolderEditDialog.vue';
 import DroppableFolderItem from '@/components/chat/DroppableFolderItem.vue';
 import { useChatFolders } from '@/lib/composables/chat/useChatFolders';

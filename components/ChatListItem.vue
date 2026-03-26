@@ -12,7 +12,7 @@ import {
 import { Button } from '@/lib/view-router/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/lib/view-router/ui/avatar';
 import { Badge } from '@/lib/view-router/ui/badge';
-import TagBadge from '@/components/ui/TagBadge.vue';
+import ChatTagBadge from '@/components/chat/ChatTagBadge.vue';
 import ChatDragPreview from '@/components/chat/ChatDragPreview.vue';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { parseGalleryMessage } from '@/lib/composables/chat/utils';
@@ -168,6 +168,12 @@ function handleClick(e: MouseEvent) {
 }
 
 function handlePointerDown(e: PointerEvent) {
+  // Drag is primary-button only. Right/middle click would otherwise hit the hold-timeout
+  // (pointer barely moves) and show the drag preview with the context menu.
+  if (e.button !== 0) {
+    return;
+  }
+
   chatDndLog('pointerdown', {
     pointerType: e.pointerType,
     button: e.button,
@@ -417,7 +423,7 @@ const displayDistance = computed(() => {
             </Badge>
             <!-- Tags -->
             <div v-if="chatTags.length > 0" class="flex items-center gap-1 shrink-0">
-              <TagBadge
+              <ChatTagBadge
                 v-for="(tag, index) in chatTags.slice(0, 2)"
                 :key="index"
                 :text="tag.text"

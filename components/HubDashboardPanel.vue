@@ -12,7 +12,10 @@ import type {
   OnlineV2Member,
   ViewedV2Member,
 } from '@/lib/sdc-api-types';
-import { Spinner } from '@/lib/view-router/ui/spinner';
+import { Avatar, AvatarFallback, AvatarImage } from '@/lib/view-router/ui/avatar';
+import { Badge } from '@/lib/view-router/ui/badge';
+import { Card } from '@/lib/view-router/ui/card';
+import { Skeleton } from '@/lib/view-router/ui/skeleton';
 import {
   getBoostProfilePath,
   getBoostViewRouterUrl,
@@ -224,7 +227,7 @@ onMounted(() => {
     <div class="dash-grid">
 
       <!-- Bekeken jou -->
-      <section class="dash-section" style="--dash-delay: 0">
+      <Card class="dash-section gap-0 border border-white/[0.07] bg-white/[0.02] py-0 shadow-none" style="--dash-delay: 0">
         <div class="dash-section-header">
           <div class="dash-section-icon" style="--accent: #3a97fe">
             <Icon icon="mdi:eye-outline" width="16" height="16" />
@@ -237,8 +240,14 @@ onMounted(() => {
           </button>
         </div>
         <div class="dash-section-body">
-          <div v-if="loadingVisited" class="dash-loading">
-            <Spinner class="size-5" /><span>Laden…</span>
+          <div v-if="loadingVisited" class="space-y-0 px-2 py-3" aria-busy="true">
+            <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-2 py-2">
+              <Skeleton class="size-9 shrink-0 rounded-full bg-white/10" />
+              <div class="flex min-w-0 flex-1 flex-col gap-2">
+                <Skeleton class="h-3 w-[58%] rounded-md bg-white/10" />
+                <Skeleton class="h-2.5 w-[36%] rounded-md bg-white/10" />
+              </div>
+            </div>
           </div>
           <p v-else-if="errorVisited" class="dash-error">{{ errorVisited }}</p>
           <p v-else-if="visited.length === 0" class="dash-empty">Niemand recent.</p>
@@ -250,11 +259,15 @@ onMounted(() => {
                 @click.prevent="openProfile(m.db_id)"
               >
                 <div class="dash-row-avatar">
-                  <img
-                    :src="memberPhotoUrl(m.primary_photo)"
-                    alt=""
-                    @error="(e) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)"
-                  />
+                  <Avatar class="size-9 border border-white/[0.06]">
+                    <AvatarImage
+                      :src="memberPhotoUrl(m.primary_photo)"
+                      alt=""
+                      class="object-cover"
+                      @error="(e: Event) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)"
+                    />
+                    <AvatarFallback class="text-[10px]">?</AvatarFallback>
+                  </Avatar>
                   <span v-if="m.online === 1" class="dash-online-dot" />
                 </div>
                 <div class="min-w-0 flex-1">
@@ -274,7 +287,7 @@ onMounted(() => {
             </li>
           </ul>
         </div>
-      </section>
+      </Card>
 
       <!-- Laatste chats -->
       <section class="dash-section" style="--dash-delay: 1">
@@ -290,8 +303,14 @@ onMounted(() => {
           </button>
         </div>
         <div class="dash-section-body">
-          <div v-if="loadingChats" class="dash-loading">
-            <Spinner class="size-5" /><span>Laden…</span>
+          <div v-if="loadingChats" class="space-y-0 px-2 py-3" aria-busy="true">
+            <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-2 py-2">
+              <Skeleton class="size-9 shrink-0 rounded-full bg-white/10" />
+              <div class="flex min-w-0 flex-1 flex-col gap-2">
+                <Skeleton class="h-3 w-[58%] rounded-md bg-white/10" />
+                <Skeleton class="h-2.5 w-[36%] rounded-md bg-white/10" />
+              </div>
+            </div>
           </div>
           <p v-else-if="errorChats" class="dash-error">{{ errorChats }}</p>
           <p v-else-if="chats.length === 0" class="dash-empty">Geen chats.</p>
@@ -299,20 +318,25 @@ onMounted(() => {
             <li v-for="c in chats" :key="String(c.group_id)">
               <button type="button" class="dash-row" @click="openChat(c)">
                 <div class="dash-row-avatar">
-                  <img
-                    :src="memberPhotoUrl(c.primary_photo)"
-                    alt=""
-                    @error="(e) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)"
-                  />
+                  <Avatar class="size-9 border border-white/[0.06]">
+                    <AvatarImage
+                      :src="memberPhotoUrl(c.primary_photo)"
+                      alt=""
+                      class="object-cover"
+                      @error="(e: Event) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)"
+                    />
+                    <AvatarFallback class="text-[10px]">?</AvatarFallback>
+                  </Avatar>
                   <span v-if="c.online === 1" class="dash-online-dot" />
                 </div>
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-1.5">
                     <span class="dash-row-name">{{ chatDisplayName(c) }}</span>
-                    <span
+                    <Badge
                       v-if="c.unread_counter > 0"
-                      class="dash-unread"
-                    >{{ c.unread_counter > 99 ? '99+' : c.unread_counter }}</span>
+                      variant="destructive"
+                      class="h-4 min-w-4 shrink-0 rounded-lg px-1 text-[10px] font-semibold leading-none tabular-nums"
+                    >{{ c.unread_counter > 99 ? '99+' : c.unread_counter }}</Badge>
                   </div>
                   <p class="dash-row-preview">{{ stripChatPreview(c.last_message) }}</p>
                 </div>
@@ -324,7 +348,7 @@ onMounted(() => {
       </section>
 
       <!-- Meldingen -->
-      <section class="dash-section" style="--dash-delay: 2">
+      <Card class="dash-section gap-0 border border-white/[0.07] bg-white/[0.02] py-0 shadow-none" style="--dash-delay: 2">
         <div class="dash-section-header">
           <div class="dash-section-icon" style="--accent: #f59e0b">
             <Icon icon="mdi:bell-outline" width="16" height="16" />
@@ -334,8 +358,14 @@ onMounted(() => {
           </div>
         </div>
         <div class="dash-section-body">
-          <div v-if="loadingNotifications" class="dash-loading">
-            <Spinner class="size-5" /><span>Laden…</span>
+          <div v-if="loadingNotifications" class="space-y-0 px-2 py-3" aria-busy="true">
+            <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-2 py-2">
+              <Skeleton class="size-9 shrink-0 rounded-full bg-white/10" />
+              <div class="flex min-w-0 flex-1 flex-col gap-2">
+                <Skeleton class="h-3 w-[58%] rounded-md bg-white/10" />
+                <Skeleton class="h-2.5 w-[36%] rounded-md bg-white/10" />
+              </div>
+            </div>
           </div>
           <p v-else-if="errorNotifications" class="dash-error">{{ errorNotifications }}</p>
           <p v-else-if="notifications.length === 0" class="dash-empty">Geen meldingen.</p>
@@ -343,11 +373,15 @@ onMounted(() => {
             <li v-for="n in notifications" :key="n.id">
               <button type="button" class="dash-row" @click="openProfile(n.sender.db_id)">
                 <div class="dash-row-avatar">
-                  <img
-                    :src="memberPhotoUrl(n.sender.primary_photo)"
-                    alt=""
-                    @error="(e) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)"
-                  />
+                  <Avatar class="size-9 border border-white/[0.06]">
+                    <AvatarImage
+                      :src="memberPhotoUrl(n.sender.primary_photo)"
+                      alt=""
+                      class="object-cover"
+                      @error="(e: Event) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)"
+                    />
+                    <AvatarFallback class="text-[10px]">?</AvatarFallback>
+                  </Avatar>
                 </div>
                 <div class="min-w-0 flex-1">
                   <p class="dash-row-name truncate">{{ formatNotificationTitle(n.post.title, n.post) }}</p>
@@ -358,10 +392,10 @@ onMounted(() => {
             </li>
           </ul>
         </div>
-      </section>
+      </Card>
 
       <!-- Nieuwe leden -->
-      <section class="dash-section" style="--dash-delay: 3">
+      <Card class="dash-section gap-0 border border-white/[0.07] bg-white/[0.02] py-0 shadow-none" style="--dash-delay: 3">
         <div class="dash-section-header">
           <div class="dash-section-icon" style="--accent: #ff60df">
             <Icon icon="mdi:account-plus-outline" width="16" height="16" />
@@ -374,8 +408,14 @@ onMounted(() => {
           </button>
         </div>
         <div class="dash-section-body">
-          <div v-if="loadingNewMembers" class="dash-loading">
-            <Spinner class="size-5" /><span>Laden…</span>
+          <div v-if="loadingNewMembers" class="space-y-0 px-2 py-3" aria-busy="true">
+            <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-2 py-2">
+              <Skeleton class="size-9 shrink-0 rounded-full bg-white/10" />
+              <div class="flex min-w-0 flex-1 flex-col gap-2">
+                <Skeleton class="h-3 w-[58%] rounded-md bg-white/10" />
+                <Skeleton class="h-2.5 w-[36%] rounded-md bg-white/10" />
+              </div>
+            </div>
           </div>
           <p v-else-if="errorNewMembers" class="dash-error">{{ errorNewMembers }}</p>
           <p v-else-if="newMembers.length === 0" class="dash-empty">Geen leden gevonden.</p>
@@ -387,11 +427,15 @@ onMounted(() => {
                 @click.prevent="openProfile(m.db_id)"
               >
                 <div class="dash-row-avatar">
-                  <img
-                    :src="memberPhotoUrl(m.primary_photo)"
-                    alt=""
-                    @error="(e) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)"
-                  />
+                  <Avatar class="size-9 border border-white/[0.06]">
+                    <AvatarImage
+                      :src="memberPhotoUrl(m.primary_photo)"
+                      alt=""
+                      class="object-cover"
+                      @error="(e: Event) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)"
+                    />
+                    <AvatarFallback class="text-[10px]">?</AvatarFallback>
+                  </Avatar>
                   <span v-if="m.online === 1" class="dash-online-dot" />
                 </div>
                 <div class="min-w-0 flex-1">
@@ -411,7 +455,7 @@ onMounted(() => {
             </li>
           </ul>
         </div>
-      </section>
+      </Card>
 
     </div>
     </div>

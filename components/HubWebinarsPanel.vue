@@ -2,10 +2,10 @@
 import { onMounted, ref } from 'vue';
 
 import HubWebinarCard from '@/components/HubWebinarCard.vue';
-import '@/components/hub/hub-skeleton.css';
 import { getWebinarList } from '@/lib/sdc-api/live-chatroom';
 import type { WebinarListInfo, WebinarListItem } from '@/lib/sdc-api-types';
 import { Button } from '@/lib/view-router/ui/button';
+import { Skeleton } from '@/lib/view-router/ui/skeleton';
 
 const PAGE_SIZE = 14;
 
@@ -109,55 +109,55 @@ onMounted(() => {
         aria-label="Loading webinars"
       >
         <section>
-          <div class="mb-3 h-3 w-28 rounded hub-skeleton-shimmer hub-skeleton-rounded" />
+          <Skeleton class="mb-3 h-3 w-28 rounded-md bg-white/10" />
           <div class="webinar-grid">
             <div v-for="n in 6" :key="`sk-live-${n}`" class="hub-skeleton-webinar-card">
-              <div class="aspect-video w-full rounded-t-xl hub-skeleton-shimmer" />
+              <Skeleton class="aspect-video w-full rounded-t-xl bg-white/10" />
               <div class="space-y-2 p-3">
-                <div class="hub-skeleton-shimmer h-4 w-full rounded hub-skeleton-rounded" />
-                <div class="hub-skeleton-shimmer h-3 w-32 rounded hub-skeleton-rounded" />
-                <div class="hub-skeleton-shimmer h-3 w-full rounded hub-skeleton-rounded" />
-                <div class="hub-skeleton-shimmer h-3 w-2/3 rounded hub-skeleton-rounded" />
+                <Skeleton class="h-4 w-full rounded-md bg-white/10" />
+                <Skeleton class="h-3 w-32 rounded-md bg-white/10" />
+                <Skeleton class="h-3 w-full rounded-md bg-white/10" />
+                <Skeleton class="h-3 w-2/3 rounded-md bg-white/10" />
                 <div class="flex gap-1 pt-1">
-                  <div class="hub-skeleton-shimmer h-6 w-6 rounded-md" />
-                  <div class="hub-skeleton-shimmer h-6 w-6 rounded-md" />
-                  <div class="hub-skeleton-shimmer h-6 w-6 rounded-md" />
+                  <Skeleton class="h-6 w-6 rounded-md bg-white/10" />
+                  <Skeleton class="h-6 w-6 rounded-md bg-white/10" />
+                  <Skeleton class="h-6 w-6 rounded-md bg-white/10" />
                 </div>
               </div>
             </div>
           </div>
         </section>
         <section>
-          <div class="mb-3 h-3 w-32 rounded hub-skeleton-shimmer hub-skeleton-rounded" />
+          <Skeleton class="mb-3 h-3 w-32 rounded-md bg-white/10" />
           <div class="webinar-grid">
             <div v-for="n in PAGE_SIZE" :key="`sk-up-${n}`" class="hub-skeleton-webinar-card">
-              <div class="aspect-video w-full rounded-t-xl hub-skeleton-shimmer" />
+              <Skeleton class="aspect-video w-full rounded-t-xl bg-white/10" />
               <div class="space-y-2 p-3">
-                <div class="hub-skeleton-shimmer h-4 w-full rounded hub-skeleton-rounded" />
-                <div class="hub-skeleton-shimmer h-3 w-32 rounded hub-skeleton-rounded" />
-                <div class="hub-skeleton-shimmer h-3 w-full rounded hub-skeleton-rounded" />
-                <div class="hub-skeleton-shimmer h-3 w-2/3 rounded hub-skeleton-rounded" />
+                <Skeleton class="h-4 w-full rounded-md bg-white/10" />
+                <Skeleton class="h-3 w-32 rounded-md bg-white/10" />
+                <Skeleton class="h-3 w-full rounded-md bg-white/10" />
+                <Skeleton class="h-3 w-2/3 rounded-md bg-white/10" />
                 <div class="flex gap-1 pt-1">
-                  <div class="hub-skeleton-shimmer h-6 w-6 rounded-md" />
-                  <div class="hub-skeleton-shimmer h-6 w-6 rounded-md" />
+                  <Skeleton class="h-6 w-6 rounded-md bg-white/10" />
+                  <Skeleton class="h-6 w-6 rounded-md bg-white/10" />
                 </div>
               </div>
             </div>
           </div>
         </section>
         <section>
-          <div class="mb-3 h-3 w-24 rounded hub-skeleton-shimmer hub-skeleton-rounded" />
+          <Skeleton class="mb-3 h-3 w-24 rounded-md bg-white/10" />
           <div class="webinar-grid">
             <div v-for="n in PAGE_SIZE" :key="`sk-past-${n}`" class="hub-skeleton-webinar-card">
-              <div class="aspect-video w-full rounded-t-xl hub-skeleton-shimmer" />
+              <Skeleton class="aspect-video w-full rounded-t-xl bg-white/10" />
               <div class="space-y-2 p-3">
-                <div class="hub-skeleton-shimmer h-4 w-full rounded hub-skeleton-rounded" />
-                <div class="hub-skeleton-shimmer h-3 w-32 rounded hub-skeleton-rounded" />
-                <div class="hub-skeleton-shimmer h-3 w-full rounded hub-skeleton-rounded" />
-                <div class="hub-skeleton-shimmer h-3 w-2/3 rounded hub-skeleton-rounded" />
+                <Skeleton class="h-4 w-full rounded-md bg-white/10" />
+                <Skeleton class="h-3 w-32 rounded-md bg-white/10" />
+                <Skeleton class="h-3 w-full rounded-md bg-white/10" />
+                <Skeleton class="h-3 w-2/3 rounded-md bg-white/10" />
                 <div class="flex gap-1 pt-1">
-                  <div class="hub-skeleton-shimmer h-6 w-6 rounded-md" />
-                  <div class="hub-skeleton-shimmer h-6 w-6 rounded-md" />
+                  <Skeleton class="h-6 w-6 rounded-md bg-white/10" />
+                  <Skeleton class="h-6 w-6 rounded-md bg-white/10" />
                 </div>
               </div>
             </div>
@@ -190,14 +190,14 @@ onMounted(() => {
                 class="hub-skeleton-webinar-card"
                 aria-hidden="true"
               >
-                <div class="aspect-video w-full rounded-t-xl hub-skeleton-shimmer" />
+                <Skeleton class="aspect-video w-full rounded-t-xl bg-white/10" />
                 <div class="space-y-2 p-3">
-                  <div class="hub-skeleton-shimmer h-4 w-full rounded hub-skeleton-rounded" />
-                  <div class="hub-skeleton-shimmer h-3 w-32 rounded hub-skeleton-rounded" />
-                  <div class="hub-skeleton-shimmer h-3 w-3/4 rounded hub-skeleton-rounded" />
+                  <Skeleton class="h-4 w-full rounded-md bg-white/10" />
+                  <Skeleton class="h-3 w-32 rounded-md bg-white/10" />
+                  <Skeleton class="h-3 w-3/4 rounded-md bg-white/10" />
                   <div class="flex gap-[3px] pt-1">
-                    <div class="hub-skeleton-shimmer h-3 w-3 rounded-sm" />
-                    <div class="hub-skeleton-shimmer h-3 w-3 rounded-sm" />
+                    <Skeleton class="h-3 w-3 rounded-sm bg-white/10" />
+                    <Skeleton class="h-3 w-3 rounded-sm bg-white/10" />
                   </div>
                 </div>
               </div>
@@ -208,9 +208,9 @@ onMounted(() => {
             class="mt-4 flex flex-col items-center gap-2"
             :aria-busy="loadingMorePast"
           >
-            <div
+            <Skeleton
               v-if="loadingMorePast"
-              class="hub-skeleton-shimmer h-8 min-w-[10rem] rounded-md hub-skeleton-rounded"
+              class="h-8 min-w-[10rem] rounded-md bg-white/10"
               role="status"
               aria-label="Loading more webinars"
             />

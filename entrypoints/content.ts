@@ -25,6 +25,7 @@ import {
   migrateLegacyDashboardBoostPath,
   persistBoostPathFromCurrentLocationEarly,
 } from '@/lib/view-router/routes';
+import { ensureHostScrollbarGutterStyle } from '@/lib/view-router/host-page-styles';
 import { VIEW_ROUTER_SHELL_STYLE_ID, VIEW_ROUTER_SHELL_CSS } from '@/lib/view-router/shell-css';
 import { logShellCssDebug } from '@/lib/view-router/shell-debug';
 import { viewRouterLog, viewRouterWarn } from '@/lib/view-router/logger';
@@ -38,6 +39,7 @@ export default defineContentScript({
   cssInjectionMode: 'ui',
   async main(ctx) {
     console.log('SDC Boost: Content script loaded');
+    ensureHostScrollbarGutterStyle();
 
     if (window === window.top) {
       persistBoostPathFromCurrentLocationEarly();
@@ -335,17 +337,19 @@ export default defineContentScript({
         chatDialogApp.use(VueDndKitPlugin);
 
         // Mount Vue app to container
-        const instance = chatDialogApp.mount(container);
-        
-        // Get the exposed methods from the component instance
-        if (instance && typeof instance === 'object' && 'open' in instance && 'close' in instance) {
+        const instance = chatDialogApp.mount(container) as Record<string, unknown> & {
+          open?: () => void;
+          close?: () => void;
+        };
+
+        if (typeof instance?.open === 'function' && typeof instance?.close === 'function') {
           dialogController = {
             open: () => {
               console.log('[ChatDialog] Calling wrapper open method');
-              (instance as any).open();
+              instance.open!();
             },
             close: () => {
-              (instance as any).close();
+              instance.close!();
             },
           };
         } else {
@@ -445,17 +449,19 @@ export default defineContentScript({
         moduleControlPanelDialogApp = createApp(ModuleControlPanelDialogWrapper);
 
         // Mount Vue app to container
-        const instance = moduleControlPanelDialogApp.mount(container);
-        
-        // Get the exposed methods from the component instance
-        if (instance && typeof instance === 'object' && 'open' in instance && 'close' in instance) {
+        const instance = moduleControlPanelDialogApp.mount(container) as Record<string, unknown> & {
+          open?: () => void;
+          close?: () => void;
+        };
+
+        if (typeof instance?.open === 'function' && typeof instance?.close === 'function') {
           moduleControlPanelDialogController = {
             open: () => {
               console.log('[ModuleControlPanelDialog] Calling wrapper open method');
-              (instance as any).open();
+              instance.open!();
             },
             close: () => {
-              (instance as any).close();
+              instance.close!();
             },
           };
         } else {
@@ -555,17 +561,19 @@ export default defineContentScript({
         newsfeedDialogApp = createApp(NewsfeedDialogWrapper);
 
         // Mount Vue app to container
-        const instance = newsfeedDialogApp.mount(container);
-        
-        // Get the exposed methods from the component instance
-        if (instance && typeof instance === 'object' && 'open' in instance && 'close' in instance) {
+        const instance = newsfeedDialogApp.mount(container) as Record<string, unknown> & {
+          open?: () => void;
+          close?: () => void;
+        };
+
+        if (typeof instance?.open === 'function' && typeof instance?.close === 'function') {
           newsfeedDialogController = {
             open: () => {
               console.log('[NewsfeedDialog] Calling wrapper open method');
-              (instance as any).open();
+              instance.open!();
             },
             close: () => {
-              (instance as any).close();
+              instance.close!();
             },
           };
         } else {
@@ -665,21 +673,28 @@ export default defineContentScript({
         peopleDialogApp = createApp(PeopleDialogWrapper);
 
         // Mount Vue app to container
-        const instance = peopleDialogApp.mount(container);
-        
-        // Get the exposed methods from the component instance
-        if (instance && typeof instance === 'object' && 'open' in instance && 'close' in instance) {
+        const instance = peopleDialogApp.mount(container) as Record<string, unknown> & {
+          open?: () => void;
+          close?: () => void;
+          openProfile?: (userId: number) => void;
+        };
+
+        // defineExpose may not be enumerable — use typeof, not `in`
+        if (
+          typeof instance?.open === 'function' &&
+          typeof instance?.close === 'function'
+        ) {
           peopleDialogController = {
             open: () => {
               console.log('[PeopleDialog] Calling wrapper open method');
-              (instance as any).open();
+              instance.open!();
             },
             close: () => {
-              (instance as any).close();
+              instance.close!();
             },
             openProfile: (userId: number) => {
               console.log('[PeopleDialog] Calling wrapper openProfile method for user:', userId);
-              (instance as any).openProfile(userId);
+              instance.openProfile?.(userId);
             },
           };
         } else {

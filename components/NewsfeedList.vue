@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, watch, onUnmounted } from 'vue';
 import { Icon } from '@iconify/vue';
-import { getNewsfeed, getAdminFeed, updateNewsfeedFilters, getNewsfeedFilters } from '@/lib/sdc-api/newsfeed';
+import { getNewsfeed, getAdminFeed } from '@/lib/sdc-api/newsfeed';
 import type { NewsfeedItem, NewsfeedFilterOptions } from '@/lib/sdc-api/newsfeed';
 import PartyEventCard from './PartyEventCard.vue';
 import SpeedDatingCard from './SpeedDatingCard.vue';
@@ -29,6 +29,8 @@ const lastKey = ref('');
 const observerTarget = ref<HTMLElement | null>(null);
 const observer = ref<IntersectionObserver | null>(null);
 const abortController = ref<AbortController | null>(null);
+/** Prevents intersection observer from chaining many pages while the sentinel stays “in view”. */
+const loadMoreDebounceId = ref<ReturnType<typeof setTimeout> | null>(null);
 
 // Convert filter options to filter strings
 // Based on SDC source code classes Q7 (Vrienden/filter_f) and Z7 (Algemeen/filter)
@@ -104,14 +106,21 @@ const loadFeed = async (page: number = 0, append: boolean = false) => {
         return;
       }
 
+      const chunk = response.info.newsfeed ?? [];
       if (append) {
-        items.value = [...items.value, ...response.info.newsfeed];
+        items.value = [...items.value, ...chunk];
+        if (chunk.length === 0) {
+          hasMore.value = false;
+        }
       } else {
-        items.value = response.info.newsfeed;
+        items.value = chunk;
       }
 
       lastKey.value = response.info.last_key;
       hasMore.value = response.info.url_more !== '-1';
+      if (append && chunk.length === 0) {
+        hasMore.value = false;
+      }
       currentPage.value = page;
     } else {
       const response = await getAdminFeed(
@@ -129,13 +138,20 @@ const loadFeed = async (page: number = 0, append: boolean = false) => {
         return;
       }
 
+      const chunk = response.info.newsfeed ?? [];
       if (append) {
-        items.value = [...items.value, ...response.info.newsfeed];
+        items.value = [...items.value, ...chunk];
+        if (chunk.length === 0) {
+          hasMore.value = false;
+        }
       } else {
-        items.value = response.info.newsfeed;
+        items.value = chunk;
       }
 
       hasMore.value = response.info.url_more !== '-1';
+      if (append && chunk.length === 0) {
+        hasMore.value = false;
+      }
       currentPage.value = page;
     }
   } catch (err) {
@@ -163,7 +179,21 @@ const loadMore = () => {
   }
 };
 
-// Setup IntersectionObserver for infinite scroll
+/** IO + large rootMargin against viewport caused chained loads (page 12+); debounce + scroll root fixes that. */
+function scheduleLoadMoreFromObserver() {
+  if (!hasMore.value || loading.value) return;
+  if (loadMoreDebounceId.value != null) {
+    clearTimeout(loadMoreDebounceId.value);
+  }
+  loadMoreDebounceId.value = setTimeout(() => {
+    loadMoreDebounceId.value = null;
+    if (!loading.value && hasMore.value) {
+      loadMore();
+    }
+  }, 450);
+}
+
+// Setup IntersectionObserver for infinite scroll (root = scroll container, not viewport)
 const setupObserver = () => {
   if (observer.value) {
     observer.value.disconnect();
@@ -171,14 +201,18 @@ const setupObserver = () => {
 
   if (!observerTarget.value) return;
 
+  const scrollRoot = observerTarget.value.closest('.newsfeed-content');
+
   observer.value = new IntersectionObserver(
     (entries) => {
       if (entries[0].isIntersecting && hasMore.value && !loading.value) {
-        loadMore();
+        scheduleLoadMoreFromObserver();
       }
     },
     {
-      rootMargin: '1000px', // Start loading 1 page ahead (~1000px before reaching bottom)
+      root: scrollRoot instanceof HTMLElement ? scrollRoot : null,
+      rootMargin: '0px 0px 280px 0px',
+      threshold: 0,
     }
   );
 
@@ -223,6 +257,10 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  if (loadMoreDebounceId.value != null) {
+    clearTimeout(loadMoreDebounceId.value);
+    loadMoreDebounceId.value = null;
+  }
   if (observer.value) {
     observer.value.disconnect();
   }

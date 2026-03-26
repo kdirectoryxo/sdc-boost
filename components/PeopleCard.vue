@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 import type { OnlineV2Member, ViewedV2Member } from '@/lib/sdc-api-types';
+import { Badge } from '@/lib/view-router/ui/badge';
 import { parseSummaryIntToLookingForIcons } from '@/lib/looking-for-icons';
 import { formatVoyeurStreamDuration } from '@/lib/voyeur-timed';
 import { getBoostProfilePath, navigateBoostViewRouterPath } from '@/lib/view-router/routes';
@@ -208,12 +209,22 @@ const lookingForIcons = computed(() => parseSummaryIntToLookingForIcons(props.me
       
       <!-- Badges -->
       <div class="card-badges">
-        <div v-if="hasLifetimeStatus" class="badge badge-lifetime" title="Lifetime Member">
+        <Badge
+          v-if="hasLifetimeStatus"
+          variant="secondary"
+          class="size-5 shrink-0 rounded-[5px] border-0 bg-[rgba(234,179,8,0.85)] p-0 text-white backdrop-blur-md hover:bg-[rgba(234,179,8,0.85)]"
+          title="Lifetime Member"
+        >
           <Icon icon="mdi:star" width="12" height="12" />
-        </div>
-        <div v-if="hasSpeedDating" class="badge badge-speed" title="Speed Date">
+        </Badge>
+        <Badge
+          v-if="hasSpeedDating"
+          variant="secondary"
+          class="size-5 shrink-0 rounded-[5px] border-0 bg-[rgba(139,92,246,0.85)] p-0 text-white backdrop-blur-md hover:bg-[rgba(139,92,246,0.85)]"
+          title="Speed Date"
+        >
           <Icon icon="mdi:lightning-bolt" width="12" height="12" />
-        </div>
+        </Badge>
       </div>
       
       <!-- Timed (viewed / non-online); live voyeur uses bottom overlay instead -->
@@ -380,25 +391,6 @@ a.card {
   left: 6px;
   display: flex;
   gap: 4px;
-}
-
-.badge {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 5px;
-  font-size: 10px;
-  backdrop-filter: blur(8px);
-}
-
-.badge-lifetime {
-  background: rgba(234, 179, 8, 0.85);
-}
-
-.badge-speed {
-  background: rgba(139, 92, 246, 0.85);
 }
 
 /* Live voyeur strip (watch count + duration) */

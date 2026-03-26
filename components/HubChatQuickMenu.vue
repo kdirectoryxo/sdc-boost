@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import { computed, inject, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { IconMessage } from '@tabler/icons-vue';
-import {
-  HoverCardContent,
-  HoverCardPortal,
-  HoverCardRoot,
-  HoverCardTrigger,
-} from 'reka-ui';
 
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 import { getMessengerLatest } from '@/lib/sdc-api/messenger';
-import { UI_TELEPORT_TARGET } from '@/lib/ui/teleport-target';
 import { Button } from '@/lib/view-router/ui/button';
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/lib/view-router/ui/hover-card';
 import { Spinner } from '@/lib/view-router/ui/spinner';
 import {
   getBoostViewRouterUrl,
@@ -30,9 +28,6 @@ const FETCH_CACHE_MS = 30_000;
 
 const FALLBACK_AVATAR =
   'https://www.sdc.com/react/assets/couple_male_female_silhouette.cae98680.svg';
-
-const teleportTarget = inject(UI_TELEPORT_TARGET, null);
-const portalTo = computed(() => teleportTarget?.value ?? 'body');
 
 const open = ref(false);
 const loading = ref(false);
@@ -115,7 +110,7 @@ watch(open, (isOpen) => {
 </script>
 
 <template>
-  <HoverCardRoot
+  <HoverCard
     v-model:open="open"
     :open-delay="200"
     :close-delay="200"
@@ -139,84 +134,82 @@ watch(open, (isOpen) => {
       </a>
     </HoverCardTrigger>
 
-    <HoverCardPortal :to="portalTo">
-      <HoverCardContent
-        align="end"
-        :side-offset="8"
-        :class="
-          cn(
-            'w-[min(100vw-1.5rem,22rem)] border border-white/[0.08] bg-[#1c1f26] p-0 text-white shadow-xl',
-            'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-          )
-        "
-      >
-        <div class="border-b border-white/[0.06] px-3 py-2">
-          <p class="text-sm font-semibold text-white">Recent chats</p>
-        </div>
+    <HoverCardContent
+      align="end"
+      :side-offset="8"
+      :class="
+        cn(
+          'w-[min(100vw-1.5rem,22rem)] border border-white/[0.08] bg-[#1c1f26] p-0 text-white shadow-xl',
+          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+        )
+      "
+    >
+      <div class="border-b border-white/[0.06] px-3 py-2">
+        <p class="text-sm font-semibold text-white">Recent chats</p>
+      </div>
 
-        <div class="max-h-[min(360px,55vh)] overflow-y-auto overflow-x-hidden">
-          <div
-            v-if="loading && items.length === 0"
-            class="flex items-center justify-center gap-2 py-10 text-white/50"
+      <div class="max-h-[min(360px,55vh)] overflow-y-auto overflow-x-hidden">
+        <div
+          v-if="loading && items.length === 0"
+          class="flex items-center justify-center gap-2 py-10 text-white/50"
+        >
+          <Spinner class="size-5" />
+          <span class="text-sm">Laden…</span>
+        </div>
+        <p
+          v-else-if="loadError"
+          class="px-3 py-6 text-center text-sm text-rose-400"
+        >
+          {{ loadError }}
+        </p>
+        <p
+          v-else-if="items.length === 0"
+          class="px-3 py-8 text-center text-sm text-white/45"
+        >
+          Geen recente chats.
+        </p>
+        <ul v-else class="divide-y divide-white/[0.05]">
+          <li
+            v-for="chat in items"
+            :key="String(chat.group_id)"
           >
-            <Spinner class="size-5" />
-            <span class="text-sm">Laden…</span>
-          </div>
-          <p
-            v-else-if="loadError"
-            class="px-3 py-6 text-center text-sm text-rose-400"
-          >
-            {{ loadError }}
-          </p>
-          <p
-            v-else-if="items.length === 0"
-            class="px-3 py-8 text-center text-sm text-white/45"
-          >
-            Geen recente chats.
-          </p>
-          <ul v-else class="divide-y divide-white/[0.05]">
-            <li
-              v-for="chat in items"
-              :key="String(chat.group_id)"
+            <button
+              type="button"
+              class="flex w-full cursor-pointer gap-3 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
+              @click="openChat(chat, $event)"
             >
-              <button
-                type="button"
-                class="flex w-full cursor-pointer gap-3 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
-                @click="openChat(chat, $event)"
-              >
-                <img
-                  :src="photoUrl(chat.primary_photo)"
-                  alt=""
-                  class="mt-0.5 size-10 shrink-0 rounded-full object-cover"
-                  @error="(e) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)"
-                />
-                <div class="min-w-0 flex-1">
-                  <p class="truncate text-xs font-medium text-white/90">
-                    {{ chatDisplayName(chat) }}
-                  </p>
-                  <p class="truncate text-xs text-white/55">
-                    {{ stripChatPreview(chat.last_message) }}
-                  </p>
-                  <p class="mt-0.5 text-[11px] text-white/35">
-                    {{ chat.time_elapsed || chat.date_time }}
-                  </p>
-                </div>
-              </button>
-            </li>
-          </ul>
-        </div>
+              <img
+                :src="photoUrl(chat.primary_photo)"
+                alt=""
+                class="mt-0.5 size-10 shrink-0 rounded-full object-cover"
+                @error="(e) => ((e.target as HTMLImageElement).src = FALLBACK_AVATAR)"
+              />
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-xs font-medium text-white/90">
+                  {{ chatDisplayName(chat) }}
+                </p>
+                <p class="truncate text-xs text-white/55">
+                  {{ stripChatPreview(chat.last_message) }}
+                </p>
+                <p class="mt-0.5 text-[11px] text-white/35">
+                  {{ chat.time_elapsed || chat.date_time }}
+                </p>
+              </div>
+            </button>
+          </li>
+        </ul>
+      </div>
 
-        <div class="border-t border-white/[0.06] p-2">
-          <Button
-            type="button"
-            variant="secondary"
-            class="h-9 w-full bg-white/[0.06] text-white hover:bg-white/10"
-            @click="onViewAllClick"
-          >
-            View All
-          </Button>
-        </div>
-      </HoverCardContent>
-    </HoverCardPortal>
-  </HoverCardRoot>
+      <div class="border-t border-white/[0.06] p-2">
+        <Button
+          type="button"
+          variant="secondary"
+          class="h-9 w-full bg-white/[0.06] text-white hover:bg-white/10"
+          @click="onViewAllClick"
+        >
+          View All
+        </Button>
+      </div>
+    </HoverCardContent>
+  </HoverCard>
 </template>

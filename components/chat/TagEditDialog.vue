@@ -3,7 +3,7 @@ import { ref, watch, computed } from 'vue';
 import { X } from 'lucide-vue-next';
 import { createTag, updateTag as updateTagGlobal, getAllTags, type Tag } from '@/lib/sdc-db/tags';
 import { TAG_COLOR_PALETTE, isValidHexColor, normalizeHexColor } from '@/lib/tag-colors';
-import TagBadge from '@/components/ui/TagBadge.vue';
+import ChatTagBadge from '@/components/chat/ChatTagBadge.vue';
 import {
 	Dialog,
 	DialogContent,
@@ -305,7 +305,7 @@ function toggleCustomColor() {
 					<!-- Preview -->
 					<div class="mt-3 flex items-center gap-2">
 						<span class="text-sm text-muted-foreground">Preview:</span>
-						<TagBadge :text="tagText || 'Tag text'" :color="currentColor" />
+						<ChatTagBadge :text="tagText || 'Tag text'" :color="currentColor" />
 					</div>
 				</div>
 			</div>

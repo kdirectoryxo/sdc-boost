@@ -10,6 +10,8 @@ import {
   getWebinarCategoryLine,
   getWebinarPeopleCount,
 } from '@/lib/webinar-meta';
+import { Badge } from '@/lib/view-router/ui/badge';
+import { Card } from '@/lib/view-router/ui/card';
 
 const props = defineProps<{
   item: WebinarListItem;
@@ -26,7 +28,10 @@ function open() {
 </script>
 
 <template>
-  <article class="wcard" @click="open">
+  <Card
+    class="wcard gap-0 overflow-hidden rounded-[10px] border border-white/[0.04] bg-[#1a1d21] p-0 py-0 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-500/30 hover:shadow-lg"
+    @click="open"
+  >
     <div class="wcard-poster">
       <img
         v-if="item.flyer"
@@ -38,10 +43,14 @@ function open() {
       </div>
 
       <!-- Live pill -->
-      <span v-if="item.live" class="wcard-live-pill">
+      <Badge
+        v-if="item.live"
+        variant="destructive"
+        class="wcard-live-pill border-0 bg-[rgba(239,68,68,0.85)] px-[7px] py-0.5 pl-[5px] text-[9px] font-bold uppercase tracking-wide text-white backdrop-blur-md hover:bg-[rgba(239,68,68,0.85)]"
+      >
         <span class="wcard-live-dot" />
         LIVE
-      </span>
+      </Badge>
     </div>
 
     <div class="wcard-body">
@@ -88,25 +97,14 @@ function open() {
         </template>
       </div>
     </div>
-  </article>
+  </Card>
 </template>
 
 <style scoped>
 .wcard {
-  background: #1a1d21;
-  border-radius: 10px;
-  overflow: hidden;
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
-}
-
-.wcard:hover {
-  transform: translateY(-2px);
-  border-color: rgba(59, 130, 246, 0.3);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 /* Poster */

@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, provide } from 'vue';
 import PeopleDialog from './PeopleDialog.vue';
+import { UI_TELEPORT_TARGET } from '@/lib/ui/teleport-target';
+
+/** Portal dialogs/popovers into the shadow overlay so z-index stacks above the React app (same as ChatDialogWrapper). */
+const peopleTeleportRootRef = ref<HTMLElement | null>(null);
+provide(UI_TELEPORT_TARGET, peopleTeleportRootRef);
 
 const dialogOpen = ref(false);
 const isRestoringFromURL = ref(false);
@@ -32,13 +37,20 @@ function readURLParams(): { open: boolean } {
   return { open };
 }
 
-// Check URL on mount - only restore from browser navigation, not initial load
 onMounted(() => {
-  // Listen for browser back/forward navigation
-  window.addEventListener('popstate', () => {
-    const { open } = readURLParams();
+  const { open } = readURLParams();
+  if (open) {
     isRestoringFromURL.value = true;
-    dialogOpen.value = open;
+    dialogOpen.value = true;
+    setTimeout(() => {
+      isRestoringFromURL.value = false;
+    }, 0);
+  }
+
+  window.addEventListener('popstate', () => {
+    const { open: fromHistory } = readURLParams();
+    isRestoringFromURL.value = true;
+    dialogOpen.value = fromHistory;
     setTimeout(() => {
       isRestoringFromURL.value = false;
     }, 0);
@@ -76,7 +88,10 @@ defineExpose({
 </script>
 
 <template>
-  <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 999999;">
+  <div
+    ref="peopleTeleportRootRef"
+    style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 999999;"
+  >
     <PeopleDialog 
       ref="peopleDialogRef"
       :modelValue="dialogOpen" 

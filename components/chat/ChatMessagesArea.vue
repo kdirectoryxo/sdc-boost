@@ -19,7 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/lib/view-router/ui/avatar
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/lib/view-router/ui/empty';
 import { Spinner } from '@/lib/view-router/ui/spinner';
 import ScrollBar from '@/lib/view-router/ui/scroll-area/ScrollBar.vue';
-import TagBadge from '@/components/ui/TagBadge.vue';
+import ChatTagBadge from '@/components/chat/ChatTagBadge.vue';
 import type { MessengerChatItem, MessengerMessage } from '@/lib/sdc-api-types';
 import ChatMessageItem from '@/components/chat/ChatMessageItem.vue';
 import { useChatPin } from '@/lib/composables/chat/useChatPin';
@@ -326,7 +326,7 @@ const displayDistance = computed(() => {
               </span>
               <!-- Tags -->
               <div v-if="chatTags.length > 0" class="flex items-center gap-1 shrink-0">
-                <TagBadge
+                <ChatTagBadge
                   v-for="(tag, index) in chatTags"
                   :key="index"
                   :text="tag.text"

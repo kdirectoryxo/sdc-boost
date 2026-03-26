@@ -10,8 +10,9 @@ import {
   CHATROOM_PERSONAL_IMAGE_URL,
   getOfficialChatroomCardImageUrl,
 } from '@/lib/chatroom-card-assets';
-import '@/components/hub/hub-skeleton.css';
 import { Button } from '@/lib/view-router/ui/button';
+import { Card } from '@/lib/view-router/ui/card';
+import { Skeleton } from '@/lib/view-router/ui/skeleton';
 
 const fixedRooms = ref<ChatroomListFixedRoom[]>([]);
 const personalRooms = ref<ChatroomListPersonalItem[]>([]);
@@ -55,21 +56,21 @@ function openExternal(url: string) {
         aria-label="Loading chatrooms"
       >
         <div v-for="n in 12" :key="n" class="hub-skeleton-chatroom-card">
-          <div class="mx-auto mb-2 h-4 w-[85%] rounded hub-skeleton-shimmer hub-skeleton-rounded" />
-          <div class="mx-auto mb-3 h-3 w-20 rounded hub-skeleton-shimmer hub-skeleton-rounded" />
-          <div
-            class="mx-auto mb-2 flex max-h-[130px] w-[70%] items-center justify-center rounded-md hub-skeleton-shimmer"
+          <Skeleton class="mx-auto mb-2 h-4 w-[85%] rounded-md bg-white/10" />
+          <Skeleton class="mx-auto mb-3 h-3 w-20 rounded-md bg-white/10" />
+          <Skeleton
+            class="mx-auto mb-2 max-h-[130px] w-[70%] rounded-md bg-white/10"
             style="min-height: 100px"
           />
-          <div class="mt-auto h-10 w-full rounded-md hub-skeleton-shimmer hub-skeleton-rounded-lg" />
+          <Skeleton class="mt-auto h-10 w-full rounded-lg bg-white/10" />
         </div>
       </div>
       <div v-else class="chatroom-page-grid">
         <!-- Official rooms — same imagery as sdc.com/react -->
-        <article
+        <Card
           v-for="room in fixedRooms"
           :key="room.id"
-          class="chatroom-card chatroom-card--official flex flex-col overflow-hidden rounded-lg border border-white/[0.07] bg-[#16181c] shadow-sm"
+          class="chatroom-card chatroom-card--official flex flex-col overflow-hidden rounded-lg border border-white/[0.07] bg-[#16181c] p-0 shadow-sm"
         >
           <div class="chatroom-card__inner flex flex-1 flex-col bg-[#16181c] px-2 pb-2 pt-3">
             <p class="chatroom-title line-clamp-2 min-h-[2.5rem] text-center text-sm font-medium leading-tight text-white">
@@ -85,21 +86,22 @@ function openExternal(url: string) {
                 class="chatroom-illus-official max-h-[130px] w-[70%] object-contain"
               />
             </div>
-            <button
+            <Button
               type="button"
-              class="btn-entree mt-2 w-full rounded-md border border-white/10 bg-gradient-to-b from-white/[0.12] to-white/[0.05] py-2.5 text-center text-sm font-medium text-white/95 transition hover:from-white/[0.16] hover:to-white/[0.08]"
+              variant="secondary"
+              class="btn-entree mt-2 w-full rounded-md border border-white/10 bg-gradient-to-b from-white/[0.12] to-white/[0.05] py-2.5 text-sm font-medium text-white/95 shadow-none hover:from-white/[0.16] hover:to-white/[0.08]"
               @click="openExternal(room.url)"
             >
               Entree
-            </button>
+            </Button>
           </div>
-        </article>
+        </Card>
 
         <!-- Member rooms -->
-        <article
+        <Card
           v-for="room in personalRooms"
           :key="room.chatroom_id"
-          class="chatroom-card chatroom-card--personal flex flex-col overflow-hidden rounded-lg border border-white/[0.07] bg-[#16181c] shadow-sm"
+          class="chatroom-card chatroom-card--personal flex flex-col overflow-hidden rounded-lg border border-white/[0.07] bg-[#16181c] p-0 shadow-sm"
         >
           <div class="chatroom-card__inner flex flex-1 flex-col bg-[#16181c] px-2 pb-2 pt-3">
             <p class="chatroom-title line-clamp-2 min-h-[2.5rem] text-center text-sm font-medium leading-tight text-white">
@@ -117,15 +119,16 @@ function openExternal(url: string) {
                 class="h-[110px] w-[110px] object-contain"
               />
             </div>
-            <button
+            <Button
               type="button"
-              class="btn-entree btn-entree--personal mt-2 w-full rounded-md border border-fuchsia-500/25 bg-gradient-to-b from-fuchsia-600/35 to-fuchsia-900/25 py-2.5 text-center text-sm font-medium text-white transition hover:from-fuchsia-500/45 hover:to-fuchsia-900/35"
+              variant="secondary"
+              class="btn-entree btn-entree--personal mt-2 w-full rounded-md border border-fuchsia-500/25 bg-gradient-to-b from-fuchsia-600/35 to-fuchsia-900/25 py-2.5 text-sm font-medium text-white shadow-none hover:from-fuchsia-500/45 hover:to-fuchsia-900/35"
               @click="openExternal(room.url)"
             >
               Entree
-            </button>
+            </Button>
           </div>
-        </article>
+        </Card>
       </div>
 
       <p

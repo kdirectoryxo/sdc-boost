@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
 import { getShowCategoryIcons, setShowCategoryIcons } from '@/lib/storage';
-import Switch from '@/components/ui/Switch.vue';
+import { Switch } from '@/lib/view-router/ui/switch';
 
 const loading = ref(true);
 const showCategoryIcons = ref(true);
@@ -77,8 +77,9 @@ async function updateCategoryIcons(show: boolean) {
               </span>
             </div>
             <Switch
-              :model-value="showCategoryIcons"
-              @update:model-value="updateCategoryIcons"
+              :checked="showCategoryIcons"
+              :disabled="savingCategoryIcons"
+              @update:checked="updateCategoryIcons"
             />
           </div>
         </div>

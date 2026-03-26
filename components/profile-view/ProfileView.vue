@@ -12,6 +12,9 @@ import { startChat } from '@/lib/sdc-api/messenger';
 import { chatStorage } from '@/lib/chat-storage';
 import { noteCache } from '@/lib/note-cache';
 import { navigateBoostHubChatWithGroupId } from '@/lib/view-router/routes';
+import { Card, CardContent } from '@/lib/view-router/ui/card';
+import { Spinner } from '@/lib/view-router/ui/spinner';
+import { Tabs, TabsList, TabsTrigger } from '@/lib/view-router/ui/tabs';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
 
 interface Props {
@@ -952,31 +955,32 @@ async function saveNote() {
         </div>
       </div>
 
-      <!-- Tab Navigation -->
-      <div class="border-b border-white/[0.06] shrink-0 overflow-x-auto scrollbar-hide" style="scrollbar-width: none; -ms-overflow-style: none;">
-        <div class="flex items-center gap-1 px-4 min-w-max">
-          <button
-            v-for="tab in tabs"
-            :key="tab.id"
-            @click="activeTab = tab.id"
-            :class="[
-              'px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2',
-              activeTab === tab.id
-                ? 'text-blue-400 border-blue-400'
-                : 'text-[#999] border-transparent hover:text-white hover:border-white/20'
-            ]"
+      <Tabs v-model="activeTab" class="flex min-h-0 min-w-0 flex-1 flex-col gap-0">
+        <!-- Tab Navigation -->
+        <div
+          class="shrink-0 overflow-x-auto border-b border-white/[0.06] scrollbar-hide"
+          style="scrollbar-width: none; -ms-overflow-style: none;"
+        >
+          <TabsList
+            class="inline-flex h-auto min-h-0 w-max min-w-full items-stretch justify-start gap-0 rounded-none border-0 bg-transparent p-0 px-4 text-[#999] shadow-none"
           >
-            {{ tab.label }}
-          </button>
+            <TabsTrigger
+              v-for="tab in tabs"
+              :key="tab.id"
+              :value="tab.id"
+              class="flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-4 py-3 text-sm font-medium text-[#999] shadow-none ring-offset-0 transition-colors hover:border-white/20 hover:text-white focus-visible:ring-0 data-[state=active]:border-blue-400 data-[state=active]:bg-transparent data-[state=active]:text-blue-400 data-[state=active]:shadow-none"
+            >
+              {{ tab.label }}
+            </TabsTrigger>
+          </TabsList>
         </div>
-      </div>
 
-      <!-- Content Area -->
-      <div class="flex-1 overflow-y-auto">
+        <!-- Content Area -->
+        <div class="min-h-0 flex-1 overflow-y-auto">
         <!-- Loading State -->
         <div v-if="isLoading" class="flex items-center justify-center h-full">
           <div class="flex flex-col items-center gap-4">
-            <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <Spinner class="size-12 text-blue-500" />
             <div class="text-[#999] text-sm">Loading profile...</div>
           </div>
         </div>
@@ -997,7 +1001,8 @@ async function saveNote() {
         <!-- Profile Tab -->
         <div v-else-if="activeTab === 'profile' && profileData" class="p-6">
           <!-- Profile Header Card -->
-          <div class="bg-gradient-to-br from-[#1a1d21] to-[#111315] rounded-xl p-6 mb-6 border border-white/[0.06]">
+          <Card class="mb-6 border border-white/[0.06] bg-gradient-to-br from-[#1a1d21] to-[#111315] p-0 shadow-sm">
+            <CardContent class="p-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
               <!-- Profile Picture -->
               <div class="md:col-span-1 flex flex-col items-center">
@@ -1147,7 +1152,8 @@ async function saveNote() {
                 </div>
               </div>
             </div>
-          </div>
+            </CardContent>
+          </Card>
 
           <!-- Bio -->
           <div v-if="profileData.profile_description" class="mb-6 bg-[#111315] rounded-xl p-6 border border-white/[0.06]">
@@ -1778,6 +1784,7 @@ async function saveNote() {
           </div>
         </div>
       </div>
+      </Tabs>
     </div>
 
     <!-- Gallery Modal -->
