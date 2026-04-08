@@ -252,6 +252,26 @@ export function isOwnMessage(message: MessengerMessage): boolean {
 }
 
 /**
+ * SDC: `profile_type === 1` is club / business — use the same header accent as broadcasts.
+ */
+export function isClubProfileChat(chat: Pick<MessengerChatItem, 'profile_type'>): boolean {
+  return chat.profile_type === 1;
+}
+
+/**
+ * Tailwind classes for chat list / header display name (broadcasts, clubs, gender-based couples).
+ */
+export function getChatHeaderNameColorClass(chat: MessengerChatItem): string {
+  if (chat.broadcast || chat.type === 100 || isClubProfileChat(chat)) {
+    return 'text-yellow-400';
+  }
+  if (chat.gender1 === 1 && chat.gender2 === 2) {
+    return 'text-pink-400';
+  }
+  return 'text-purple-400';
+}
+
+/**
  * Get a unique key for a chat (for Vue keys)
  */
 export function getChatKey(chat: MessengerChatItem | null): string {

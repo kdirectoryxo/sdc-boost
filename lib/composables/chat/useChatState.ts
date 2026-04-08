@@ -3,6 +3,7 @@ import { createGlobalState } from '@vueuse/core';
 import type { MessengerChatItem, MessengerFolder } from '@/lib/sdc-api-types';
 import { useLiveQuery } from '@/lib/composables/useLiveQuery';
 import { db } from '@/lib/db';
+import { normalizeMessengerFolder } from '@/lib/folder-storage';
 import { tagChangeTrigger } from '@/lib/sdc-db/tag-change-trigger';
 import { useSDCDatabaseStore } from '@/lib/sdc-db/store';
 
@@ -138,7 +139,9 @@ export const useChatState = createGlobalState(() => {
   
   return {
     chatList: computed(() => chatList.value || []),
-    folders: computed(() => folders.value || []),
+    folders: computed(() =>
+      (folders.value || []).map((f) => normalizeMessengerFolder(f))
+    ),
     selectedChat,
     selectedFolderId,
     showArchives,

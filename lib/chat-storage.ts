@@ -301,6 +301,139 @@ class ChatStorage {
     }
 
     /**
+     * Next page index for list endpoints (`messenger_latest`, folders, archives, groups).
+     * `url_more` may be a query string (`?page=N`), a numeric flag (`1` = more pages, `-1` = done), or a plain next page index.
+     */
+    private resolveNextListPage(urlMore: string | number | null | undefined, currentPage: number): number | null {
+        if (urlMore === undefined || urlMore === null) {
+            return null;
+        }
+        if (typeof urlMore === 'number') {
+            if (urlMore === -1) {
+                return null;
+            }
+            if (urlMore === 0) {
+                return null;
+            }
+            if (urlMore === 1) {
+                return currentPage + 1;
+            }
+            if (urlMore > currentPage) {
+                return urlMore;
+            }
+            return null;
+        }
+        const s = String(urlMore).trim();
+        if (s === '' || s === '-1') {
+            return null;
+        }
+        const match = s.match(/page=(\d+)/);
+        if (match) {
+            const next = parseInt(match[1], 10);
+            if (!Number.isNaN(next) && next > currentPage) {
+                return next;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Next batch cursor from `info.next_token` (same semantics as chat-details history).
+     */
+    private resolveNextCursorToken(info: { next_token?: string | number | null }): string | null {
+        const nt = info.next_token;
+        if (nt === undefined || nt === null) {
+            return null;
+        }
+        if (typeof nt === 'number' && nt === -1) {
+            return null;
+        }
+        if (String(nt) === '-1') {
+            return null;
+        }
+        const s = String(nt).trim();
+        return s.length > 0 ? s : null;
+    }
+
+    /**
+     * Sync chats using `next_token` pagination only (e.g. `messenger_folder_items`).
+     */
+    async syncChatsFromCursorEndpoint(
+        fetchFn: (nextToken: string | null) => Promise<{
+            info: {
+                chat_list?: MessengerChatItem[];
+                next_token?: string | number | null;
+            };
+        }>,
+        onProgress?: (pageChats: MessengerChatItem[], totalSynced: number) => void,
+        lastSyncTime: string | null = null,
+        maxBatches: number | null = null
+    ): Promise<{ totalSynced: number; mostRecentDateTime: string | null }> {
+        let totalSynced = 0;
+        let nextToken: string | null = null;
+        let hasMore = true;
+        let batchesFetched = 0;
+        let mostRecentDateTime: string | null = null;
+        const lastSyncTimestamp = lastSyncTime ? this.getDateTimeTimestamp(lastSyncTime) : null;
+
+        while (hasMore) {
+            if (maxBatches !== null && batchesFetched >= maxBatches) {
+                hasMore = false;
+                break;
+            }
+            const response = await fetchFn(nextToken);
+            const chats = response.info.chat_list || [];
+
+            if (chats.length === 0) {
+                hasMore = false;
+                break;
+            }
+
+            const deduplicatedPageChats = deduplicateChats(chats);
+
+            let shouldStopDueToOlderChats = false;
+            for (const chat of deduplicatedPageChats) {
+                if (chat.date_time && chat.date_time !== '') {
+                    const chatTimestamp = this.getDateTimeTimestamp(chat.date_time);
+                    if (!mostRecentDateTime || chatTimestamp > this.getDateTimeTimestamp(mostRecentDateTime)) {
+                        mostRecentDateTime = chat.date_time;
+                    }
+                }
+
+                if (lastSyncTimestamp !== null) {
+                    const chatTimestamp = this.getDateTimeTimestamp(chat.date_time);
+                    if (chatTimestamp > 0 && chatTimestamp < lastSyncTimestamp) {
+                        shouldStopDueToOlderChats = true;
+                    }
+                }
+            }
+
+            await this.upsertChats(deduplicatedPageChats);
+            totalSynced += deduplicatedPageChats.length;
+
+            if (onProgress) {
+                onProgress(deduplicatedPageChats, totalSynced);
+            }
+
+            batchesFetched++;
+
+            if (shouldStopDueToOlderChats) {
+                hasMore = false;
+                break;
+            }
+
+            const cursor = this.resolveNextCursorToken(response.info);
+            if (cursor) {
+                nextToken = cursor;
+            } else {
+                hasMore = false;
+            }
+        }
+
+        return { totalSynced, mostRecentDateTime };
+    }
+
+    /**
      * Sync chats from an endpoint with pagination, upserting after each page
      * @param fetchFn Function to fetch a page, returns response with chat_list and url_more
      * @param onProgress Optional callback called after each page is upserted
@@ -309,7 +442,9 @@ class ChatStorage {
      * @returns Object with total number of chats synced and most recent date_time
      */
     async syncChatsFromEndpoint(
-        fetchFn: (page: number) => Promise<{ info: { chat_list?: MessengerChatItem[]; url_more?: string } }>,
+        fetchFn: (page: number) => Promise<{
+            info: { chat_list?: MessengerChatItem[]; url_more?: string | number | null };
+        }>,
         onProgress?: (pageChats: MessengerChatItem[], totalSynced: number) => void,
         lastSyncTime: string | null = null,
         maxPages: number | null = null
@@ -376,23 +511,12 @@ class ChatStorage {
                 break;
             }
 
-            // Check if there are more pages
-            const urlMore = response.info.url_more;
-            if (!urlMore || urlMore === '-1' || urlMore === '') {
+            // Check if there are more pages (SDC may return `url_more` as a query string or a numeric flag)
+            const nextPage = this.resolveNextListPage(response.info.url_more, page);
+            if (nextPage === null) {
                 hasMore = false;
             } else {
-                // Extract next page number from url_more
-                const match = urlMore.match(/page=(\d+)/);
-                if (match) {
-                    const nextPage = parseInt(match[1], 10);
-                    if (nextPage > page) {
-                        page = nextPage;
-                    } else {
-                        hasMore = false;
-                    }
-                } else {
-                    hasMore = false;
-                }
+                page = nextPage;
             }
         }
 

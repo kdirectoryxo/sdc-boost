@@ -128,15 +128,16 @@ export async function getMessengerFolders(muid?: string | null): Promise<Messeng
 
 /**
  * Get messenger_folder_items data (chats in a specific folder)
+ * Pagination: first request omits `next_token`; further batches use `next_token` from the previous `info.next_token` (no `page` param).
  * @param folderId The folder ID to fetch chats for
- * @param page Page number (default: 0)
  * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @param nextToken Cursor from the previous response for older chats in this folder
  * @returns Messenger chat list data for the folder
  */
 export async function getMessengerFolderItems(
     folderId: number,
-    page: number = 0,
-    muid?: string | null
+    muid?: string | null,
+    nextToken?: string | null
 ): Promise<MessengerLatestResponse> {
     const currentMuid = await resolveMuidOrAwait(muid);
 
@@ -147,8 +148,10 @@ export async function getMessengerFolderItems(
     const url = new URL('https://api.sdc.com/v1/messenger_folder_items');
     url.searchParams.set('muid', currentMuid);
     url.searchParams.set('folder_id', folderId.toString());
-    url.searchParams.set('page', page.toString());
     url.searchParams.set('search_member', ''); // Empty for now, client-side filtering
+    if (nextToken) {
+        url.searchParams.set('next_token', nextToken);
+    }
 
     try {
         const response = await fetch(url.toString(), {
@@ -369,9 +372,9 @@ export async function syncFolderChats(folderId: number, onPageSynced?: () => voi
         console.log(`[Messenger API] First-time sync for folder ${folderId}: fetching all pages`);
     }
     
-    // Sync folder chats with incremental sync support
-    const result = await chatStorage.syncChatsFromEndpoint(
-        (page) => getMessengerFolderItems(folderId, page),
+    // Sync folder chats with incremental sync (`next_token` pagination)
+    const result = await chatStorage.syncChatsFromCursorEndpoint(
+        (nextToken) => getMessengerFolderItems(folderId, undefined, nextToken),
         async (chats, total) => {
             console.log(`[Messenger API] Synced ${chats.length} chats from folder ${folderId} (total: ${total})`);
             // Trigger UI update after each page
@@ -744,8 +747,8 @@ export async function syncAllChatsFirstPageOnly(
     const folderList = await folderStorage.getAllFolders();
     for (const folder of folderList) {
         try {
-            const folderResult = await chatStorage.syncChatsFromEndpoint(
-                (page) => getMessengerFolderItems(folder.id, page),
+            const folderResult = await chatStorage.syncChatsFromCursorEndpoint(
+                (nextToken) => getMessengerFolderItems(folder.id, undefined, nextToken),
                 async (chats, total) => {
                     console.log(`[Messenger API] Synced ${chats.length} chats from folder ${folder.id} (total: ${total})`);
                     if (onPageSynced) {
@@ -753,7 +756,7 @@ export async function syncAllChatsFirstPageOnly(
                     }
                 },
                 null, // No lastSyncTime - force resync
-                1 // maxPages = 1 (only first page)
+                1 // maxBatches = 1 (only first batch)
             );
             totalSynced += folderResult.totalSynced;
             if (onFolderSynced) {

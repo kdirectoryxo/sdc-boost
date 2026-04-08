@@ -27,6 +27,7 @@ import { useChatProfile, getAgeColorClass, isGender2Real } from '@/lib/composabl
 import { useChatFolders } from '@/lib/composables/chat/useChatFolders';
 import { confirm } from '@/lib/confirm';
 import { toast } from '@/lib/toast';
+import { getChatHeaderNameColorClass } from '@/lib/composables/chat/utils';
 
 interface Props {
   selectedChat: MessengerChatItem | null;
@@ -119,15 +120,20 @@ const isGroup = computed(() => {
   return props.selectedChat.group_type === 1;
 });
 
-// Name color based on gender (same logic as ChatListItem)
+/** Club / business profile (SDC `profile_type === 1`), not a broadcast row */
+const isClub = computed(() => {
+  if (!props.selectedChat) return false;
+  return (
+    props.selectedChat.profile_type === 1 &&
+    !isGroup.value &&
+    !isBroadcast.value
+  );
+});
+
+// Name color (same logic as ChatListItem — yellow for broadcast + club)
 const nameColor = computed(() => {
   if (!props.selectedChat) return 'text-white';
-  if (props.selectedChat.broadcast || props.selectedChat.type === 100) {
-    return 'text-yellow-400'; // Yellow for broadcasts
-  } else if (props.selectedChat.gender1 === 1 && props.selectedChat.gender2 === 2) {
-    return 'text-pink-400'; // Pink for couples with female
-  }
-  return 'text-purple-400'; // Purple default
+  return getChatHeaderNameColorClass(props.selectedChat);
 });
 
 function handleContainerClick() {
@@ -334,10 +340,11 @@ const displayDistance = computed(() => {
                 />
               </div>
             </div>
-            <p v-if="selectedChat.online === 1 && !isBroadcast && !isGroup" class="text-[11px] text-green-500">Online</p>
-            <p v-else-if="!isBroadcast && !isGroup" class="text-[11px] text-muted-foreground">Offline</p>
-            <p v-else-if="isGroup" class="text-[11px] text-blue-400">👥 Group</p>
-            <p v-else class="text-[11px] text-yellow-400">📢 Broadcast</p>
+            <p v-if="isGroup" class="text-[11px] text-blue-400">👥 Group</p>
+            <p v-else-if="isBroadcast" class="text-[11px] text-yellow-400">📢 Broadcast</p>
+            <p v-else-if="isClub" class="text-[11px] text-yellow-400">🏢 Club</p>
+            <p v-else-if="selectedChat.online === 1" class="text-[11px] text-green-500">Online</p>
+            <p v-else class="text-[11px] text-muted-foreground">Offline</p>
           </div>
         </div>
         

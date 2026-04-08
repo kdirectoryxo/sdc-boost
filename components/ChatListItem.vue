@@ -15,7 +15,7 @@ import { Badge } from '@/lib/view-router/ui/badge';
 import ChatTagBadge from '@/components/chat/ChatTagBadge.vue';
 import ChatDragPreview from '@/components/chat/ChatDragPreview.vue';
 import type { MessengerChatItem } from '@/lib/sdc-api-types';
-import { parseGalleryMessage } from '@/lib/composables/chat/utils';
+import { getChatHeaderNameColorClass, parseGalleryMessage } from '@/lib/composables/chat/utils';
 import { useChatPin } from '@/lib/composables/chat/useChatPin';
 import { useChatProfile, getAgeColorClass, formatLocation, isGender2Real } from '@/lib/composables/chat/useChatProfile';
 import { useChatFolders } from '@/lib/composables/chat/useChatFolders';
@@ -100,14 +100,7 @@ const shouldFetchProfile = computed(() => {
 
 const { profileData } = useChatProfile(computed(() => shouldFetchProfile.value ? props.chat.db_id : null));
 
-const nameColor = computed(() => {
-  if (props.chat.broadcast || props.chat.type === 100) {
-    return 'text-yellow-400'; // Yellow for broadcasts
-  } else if (props.chat.gender1 === 1 && props.chat.gender2 === 2) {
-    return 'text-pink-400'; // Pink for couples with female
-  }
-  return 'text-purple-400'; // Purple default
-});
+const nameColor = computed(() => getChatHeaderNameColorClass(props.chat));
 
 /**
  * Strip HTML tags and extract plain text from HTML string

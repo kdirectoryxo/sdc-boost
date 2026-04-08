@@ -447,7 +447,10 @@ export interface MessengerChatItem {
 export interface MessengerLatestInfo {
     code: string;
     chat_list: MessengerChatItem[];
-    url_more?: string;
+    /** Query string with `page=N`, or a numeric flag (`1` = more pages, `-1` = none). */
+    url_more?: string | number;
+    /** Cursor for the next batch (`messenger_folder_items` and other list endpoints); `-1` or missing means done. */
+    next_token?: string | number;
 }
 
 export interface MessengerLatestResponse {
