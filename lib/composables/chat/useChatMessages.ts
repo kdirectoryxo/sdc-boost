@@ -8,6 +8,7 @@ import { chatStorage } from '@/lib/chat-storage';
 import { useChatState } from './useChatState';
 import { useChatFilters } from './useChatFilters';
 import { highlightText } from './utils';
+import { confirm } from '@/lib/confirm';
 import { useLiveQuery } from '@/lib/composables/useLiveQuery';
 import { db } from '@/lib/db';
 
@@ -503,15 +504,10 @@ export const useChatMessages = createGlobalState(() => {
   async function handleDeleteMessage(message: MessengerMessage): Promise<void> {
     if (!selectedChat.value) return;
     
-    // Access confirm dialog from global window
-    const confirmDialog = (window as any).__sdcBoostConfirm;
-    if (!confirmDialog) {
-      console.warn('[useChatMessages] Confirm dialog not available');
-      return;
-    }
-    
-    // Show confirmation dialog
-    const confirmed = await confirmDialog.confirm('Are you sure you want to delete this message?');
+    const confirmed = await confirm.confirm('Are you sure you want to delete this message?', {
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    });
     if (!confirmed) {
       return; // User cancelled
     }

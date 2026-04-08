@@ -4,6 +4,7 @@ import { pinChat, markChatUnread, deleteBroadcast, deleteConversation } from '@/
 import { chatStorage } from '@/lib/chat-storage';
 import { messageStorage } from '@/lib/message-storage';
 import { toast } from '@/lib/toast';
+import { confirm } from '@/lib/confirm';
 import { useChatSync } from './useChatSync';
 import { useChatState } from './useChatState';
 
@@ -109,15 +110,10 @@ export const useChatPin = createGlobalState(() => {
    * @param chat The chat to delete
    */
   async function deleteChat(chat: MessengerChatItem): Promise<void> {
-    // Show confirmation dialog
-    const confirmDialog = (window as any).__sdcBoostConfirm;
-    if (!confirmDialog) {
-      console.warn('[useChatPin] Confirm dialog not available');
-      toast.error('Confirmation dialog not available');
-      return;
-    }
-
-    const confirmed = await confirmDialog.confirm('Are you sure you want to delete this chat?');
+    const confirmed = await confirm.confirm('Are you sure you want to delete this chat?', {
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    });
     if (!confirmed) {
       return; // User cancelled
     }
