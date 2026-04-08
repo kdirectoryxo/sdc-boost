@@ -81,6 +81,25 @@ export const useChatMessages = createGlobalState(() => {
   const messageSearchQuery = ref('');
   const messageSearchResults = ref<number[]>([]); // Array of message IDs matching the query
   const currentSearchIndex = ref<number>(-1); // Current highlighted result index (-1 means no selection)
+
+  /** Captured before DOM updates when message list length increases (prepend history). */
+  interface MessagesScrollSnapshot {
+    groupId: number | string;
+    scrollHeight: number;
+    scrollTop: number;
+    clientHeight: number;
+    /** First visible message identity before this patch (see `messageStableKey`). */
+    oldFirstKey: string | null;
+  }
+  let pendingMessagesScrollSnapshot: MessagesScrollSnapshot | null = null;
+  const NEAR_BOTTOM_THRESHOLD_PX = 120;
+  /** Updated after each scroll adjust — matches the list head after the last render. */
+  const lastRenderedFirstMessageKey = ref<string | null>(null);
+
+  function messageStableKey(m: MessengerMessage | undefined): string | null {
+    if (!m) return null;
+    return m.message_id > 0 ? String(m.message_id) : `opt_${m.date2}`;
+  }
   
   /**
    * Get search query for messages
@@ -282,6 +301,86 @@ export const useChatMessages = createGlobalState(() => {
       requestAnimationFrame(apply);
     });
   }
+
+  /**
+   * When history loads in chunks, older rows are prepended → scrollHeight grows at the top.
+   * Without adjusting scrollTop, the viewport jumps so the user sees the oldest messages.
+   * - If the user was near the bottom, keep them pinned to the bottom.
+   * - If they scrolled up, add (newHeight - oldHeight) to scrollTop so the same messages stay in view.
+   */
+  watch(
+    () => messages.value.length,
+    () => {
+      const el = messagesContainer.value;
+      const gid = selectedChatGroupId.value;
+      if (!el || gid == null) return;
+      pendingMessagesScrollSnapshot = {
+        groupId: gid,
+        scrollHeight: el.scrollHeight,
+        scrollTop: el.scrollTop,
+        clientHeight: el.clientHeight,
+        oldFirstKey: lastRenderedFirstMessageKey.value,
+      };
+    },
+    { flush: 'sync' }
+  );
+
+  watch(
+    () => messages.value.length,
+    async (newLen, oldLen) => {
+      const snap = pendingMessagesScrollSnapshot;
+      pendingMessagesScrollSnapshot = null;
+
+      if (oldLen !== undefined && newLen <= oldLen) return;
+
+      const el = messagesContainer.value;
+      const gid = selectedChatGroupId.value;
+      if (!el || !snap || snap.groupId !== gid) return;
+
+      const chat = selectedChat.value;
+      if (chat?.broadcast || chat?.type === 100) return;
+
+      await nextTick();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+      const delta = el.scrollHeight - snap.scrollHeight;
+      if (delta <= 0) {
+        lastRenderedFirstMessageKey.value = messageStableKey(messages.value[0]);
+        return;
+      }
+
+      const distanceFromBottom = snap.scrollHeight - snap.scrollTop - snap.clientHeight;
+      const wasNearBottom = distanceFromBottom <= NEAR_BOTTOM_THRESHOLD_PX;
+
+      const newFirstKey = messageStableKey(messages.value[0]);
+      const prepended =
+        snap.oldFirstKey != null &&
+        newFirstKey != null &&
+        newFirstKey !== snap.oldFirstKey;
+
+      if (wasNearBottom) {
+        el.scrollTop = el.scrollHeight;
+      } else if (prepended) {
+        // Older history inserted above — keep the same messages in view.
+        el.scrollTop = snap.scrollTop + delta;
+      }
+
+      lastRenderedFirstMessageKey.value = newFirstKey;
+    },
+    { flush: 'post' }
+  );
+
+  /** New chat selection: start at the latest messages (same id twice = no-op). */
+  watch(
+    selectedChatGroupId,
+    (gid, prevGid) => {
+      if (gid == null || gid === prevGid) return;
+      lastRenderedFirstMessageKey.value = null;
+      void nextTick(() => {
+        requestAnimationFrame(() => scrollMessagesToBottom());
+      });
+    }
+  );
   
   /**
    * Handle keyboard shortcuts for search navigation
@@ -350,13 +449,7 @@ export const useChatMessages = createGlobalState(() => {
         // Always set loading to false after loadMessages completes
         isLoadingMessages.value = false;
         isSyncing.value = false; // Hide syncing notice when done
-        
-        // Always scroll to bottom after loading (skip for broadcasts)
-        const isBroadcast = selectedChat.value.broadcast || selectedChat.value.type === 100;
-        if (!isBroadcast) {
-          await nextTick();
-          scrollMessagesToBottom();
-        }
+        // Scroll position while loading is handled by watch on messages.length (prepend anchor + near-bottom pin).
       } else {
         // Chat was switched, ensure loading state is cleared
         isLoadingMessages.value = false;

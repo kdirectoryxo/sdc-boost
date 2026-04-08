@@ -1,7 +1,10 @@
 /**
  * WebSocket Manager for SDC Messenger
  * Handles Socket.IO connection and event management
+ *
+ * Socket host must match the main site (production uses `ws-messengerv3`, not v2).
  */
+const MESSENGER_WS_ORIGIN = 'wss://ws-messengerv3.sdc.com';
 
 type EventCallback = (data: any) => void;
 type EventMap = Map<string, Set<EventCallback>>;
@@ -77,7 +80,7 @@ class WebSocketManager {
         const { dbId, connId, id1, clientToken, messengerHash } = this.connectionParams;
 
         // Build Socket.IO URL with query parameters
-        const url = new URL('wss://ws-messengerv2.sdc.com/socket.io/');
+        const url = new URL(`${MESSENGER_WS_ORIGIN}/socket.io/`);
         url.searchParams.set('DB_ID', dbId);
         url.searchParams.set('ConnID', connId);
         url.searchParams.set('ID1', id1);
