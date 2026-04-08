@@ -130,72 +130,77 @@ const isSecondaryGender2Real = computed(() => isSecondAgeReal(secondaryAges.valu
 const isSenderGender2Real = computed(() => isSecondAgeReal(senderAges.value.second));
 const isReceiverGender2Real = computed(() => isSecondAgeReal(receiverAges.value.second));
 
-// Get age color based on gender (1 = female = pink, 0 = male = blue)
-const getAgeColor = (gender: number | undefined) => {
-  return gender === 1 ? 'rgb(255, 96, 223)' : 'rgb(58, 151, 254)';
-};
+/** Tailwind: female = pink, male = blue (matches previous rgb values) */
+const getAgeColorClass = (gender: number | undefined) =>
+  gender === 1 ? 'text-[rgb(255,96,223)]' : 'text-[rgb(58,151,254)]';
 
 const formatDistance = (km: number | undefined) => {
   if (!km) return '';
   return `${km} km`;
 };
+
+const rootCardClass = computed(() => {
+  const stripe = props.index !== undefined && props.index % 2 === 0;
+  return [
+    'relative overflow-hidden rounded-[10px] border border-white/6 border-l-[3px] border-l-purple-500/40 bg-white/3 transition-all duration-200 ease-in-out',
+    stripe ? 'bg-white/[0.025]' : 'bg-white/[0.035]',
+    'hover:border-white/10 hover:bg-white/5 hover:border-l-purple-500/60',
+  ].join(' ');
+});
 </script>
 
 <template>
-  <div :class="['profile-interaction-card', `profile-interaction-card-${props.index !== undefined && props.index % 2 === 0 ? 'even' : 'odd'}`]">
+  <div :class="rootCardClass">
     <!-- Header -->
-    <div class="profile-interaction-card-header">
-      <div class="profile-interaction-card-header-content">
-        <span class="profile-interaction-card-header-icon">{{ actionInfo.icon }}</span>
-        <p class="profile-interaction-card-header-text">{{ actionInfo.title }}</p>
+    <div class="flex items-center justify-between border-b border-white/6 bg-white/2 px-3.5 py-2.5">
+      <div class="flex items-center gap-2">
+        <span class="text-sm leading-none">{{ actionInfo.icon }}</span>
+        <p class="m-0 text-sm font-semibold tracking-tight text-white">{{ actionInfo.title }}</p>
       </div>
-      <p class="profile-interaction-card-header-time">{{ item.timed }}</p>
+      <p class="m-0 text-xs font-medium text-gray-500">{{ item.timed }}</p>
     </div>
 
     <!-- Content -->
-    <div class="profile-interaction-card-content">
+    <div class="flex flex-col gap-3 px-3.5 py-3">
       <!-- All profile types use 2-column grid layout -->
-      <div class="profile-interaction-card-profiles-grid">
+      <div class="grid grid-cols-1 gap-3 min-[601px]:grid-cols-2">
         <!-- For match: show sender and receiver -->
         <template v-if="actionInfo.type === 'match'">
           <!-- Sender Profile -->
-          <div class="profile-interaction-card-profile-section">
-            <div class="profile-interaction-card-profile-label">{{ sender?.account_id || 'Gebruiker 1' }}</div>
-            <div class="profile-interaction-card-profile">
+          <div class="flex flex-col gap-1.5">
+            <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{{ sender?.account_id || 'Gebruiker 1' }}</div>
+            <div class="flex items-start gap-2.5">
               <img
                 v-if="sender?.primary_photo && sender.primary_photo !== '/thumbnail/'"
                 :src="sender.primary_photo.startsWith('http') ? sender.primary_photo : `https://pictures.sdc.com/photos/${sender.primary_photo}`"
                 :alt="sender?.account_id"
-                class="profile-interaction-card-profile-img"
+                class="h-[60px] w-[60px] shrink-0 rounded-lg border-2 border-purple-500/60 object-cover"
               />
-              <div v-else class="profile-interaction-card-profile-placeholder">
-                <span>{{ sender?.account_id?.charAt(0) || '?' }}</span>
+              <div
+                v-else
+                class="flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-lg border-2 border-purple-500/60 bg-linear-to-br from-purple-500/15 to-purple-500/5"
+              >
+                <span class="text-xl font-semibold text-blue-400">{{ sender?.account_id?.charAt(0) || '?' }}</span>
               </div>
-              <div class="profile-interaction-card-profile-info">
-                <p class="profile-interaction-card-profile-name">{{ sender?.account_id || 'Onbekend' }}</p>
-                
+              <div class="flex flex-1 flex-col gap-1">
+                <p class="m-0 text-sm font-semibold tracking-tight text-white">{{ sender?.account_id || 'Onbekend' }}</p>
+
                 <!-- Age with colors - only show second if real -->
-                <div v-if="senderAges.first" class="profile-interaction-card-age">
-                  <span 
-                    class="profile-interaction-card-age-first"
-                    :style="{ color: getAgeColor(sender?.gender1) }"
-                  >
+                <div v-if="senderAges.first" class="inline-block text-[13px] font-medium">
+                  <span :class="['font-semibold', getAgeColorClass(sender?.gender1)]">
                     {{ senderAges.first }}
                   </span>
                   <template v-if="isSenderGender2Real">
-                    <span class="profile-interaction-card-age-separator"> | </span>
-                    <span 
-                      class="profile-interaction-card-age-second"
-                      :style="{ color: getAgeColor(sender?.gender2) }"
-                    >
+                    <span class="mx-0.5 text-white/40"> | </span>
+                    <span :class="['font-semibold', getAgeColorClass(sender?.gender2)]">
                       {{ senderAges.second }}
                     </span>
                   </template>
                 </div>
 
                 <!-- Location -->
-                <div v-if="sender?.location && sender.location !== ', USA'" class="profile-interaction-card-profile-location">
-                  <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="profile-interaction-card-location-icon" />
+                <div v-if="sender?.location && sender.location !== ', USA'" class="flex items-center gap-1 text-xs text-gray-400">
+                  <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="h-3 w-3 opacity-70" />
                   <span>{{ sender.location }}</span>
                 </div>
               </div>
@@ -203,45 +208,42 @@ const formatDistance = (km: number | undefined) => {
           </div>
 
           <!-- Receiver Profile -->
-          <div class="profile-interaction-card-profile-section">
-            <div class="profile-interaction-card-profile-label">{{ receiver?.account_id || 'Gebruiker 2' }}</div>
-            <div class="profile-interaction-card-profile">
+          <div class="flex flex-col gap-1.5">
+            <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{{ receiver?.account_id || 'Gebruiker 2' }}</div>
+            <div class="flex items-start gap-2.5">
               <img
                 v-if="receiver?.primary_photo && receiver.primary_photo !== '/thumbnail/'"
                 :src="receiver.primary_photo.startsWith('http') ? receiver.primary_photo : `https://pictures.sdc.com/photos/${receiver.primary_photo}`"
                 :alt="receiver?.account_id"
-                class="profile-interaction-card-profile-img"
+                class="h-[60px] w-[60px] shrink-0 rounded-lg border-2 border-purple-500/60 object-cover"
               />
-              <div v-else class="profile-interaction-card-profile-placeholder">
-                <span>{{ receiver?.account_id?.charAt(0) || '?' }}</span>
+              <div
+                v-else
+                class="flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-lg border-2 border-purple-500/60 bg-linear-to-br from-purple-500/15 to-purple-500/5"
+              >
+                <span class="text-xl font-semibold text-blue-400">{{ receiver?.account_id?.charAt(0) || '?' }}</span>
               </div>
-              <div class="profile-interaction-card-profile-info">
-                <p class="profile-interaction-card-profile-name">{{ receiver?.account_id || 'Onbekend' }}</p>
-                
+              <div class="flex flex-1 flex-col gap-1">
+                <p class="m-0 text-sm font-semibold tracking-tight text-white">{{ receiver?.account_id || 'Onbekend' }}</p>
+
                 <!-- Age with colors - only show second if real -->
-                <div v-if="receiverAges.first" class="profile-interaction-card-age">
-                  <span 
-                    class="profile-interaction-card-age-first"
-                    :style="{ color: getAgeColor(receiver?.gender1) }"
-                  >
+                <div v-if="receiverAges.first" class="inline-block text-[13px] font-medium">
+                  <span :class="['font-semibold', getAgeColorClass(receiver?.gender1)]">
                     {{ receiverAges.first }}
                   </span>
                   <template v-if="isReceiverGender2Real">
-                    <span class="profile-interaction-card-age-separator"> | </span>
-                    <span 
-                      class="profile-interaction-card-age-second"
-                      :style="{ color: getAgeColor(receiver?.gender2) }"
-                    >
+                    <span class="mx-0.5 text-white/40"> | </span>
+                    <span :class="['font-semibold', getAgeColorClass(receiver?.gender2)]">
                       {{ receiverAges.second }}
                     </span>
                   </template>
                 </div>
 
                 <!-- Location -->
-                <div v-if="receiver?.location" class="profile-interaction-card-profile-location">
-                  <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="profile-interaction-card-location-icon" />
+                <div v-if="receiver?.location" class="flex items-center gap-1 text-xs text-gray-400">
+                  <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="h-3 w-3 opacity-70" />
                   <span>{{ receiver.location }}</span>
-                  <span v-if="item.location_how_far" class="profile-interaction-card-profile-location-distance">
+                  <span v-if="item.location_how_far" class="ml-1 text-gray-500">
                     {{ formatDistance(item.location_how_far) }}
                   </span>
                 </div>
@@ -253,54 +255,51 @@ const formatDistance = (km: number | undefined) => {
         <!-- For like and validation: show primary and secondary profiles side by side -->
         <template v-else>
           <!-- Primary Profile (who did the action) -->
-          <div class="profile-interaction-card-profile-section">
-            <div class="profile-interaction-card-profile-label">{{ primaryProfile?.account_id || 'Iemand' }}</div>
-            <div class="profile-interaction-card-profile">
+          <div class="flex flex-col gap-1.5">
+            <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{{ primaryProfile?.account_id || 'Iemand' }}</div>
+            <div class="flex items-start gap-2.5">
               <img
                 v-if="primaryPhotoUrl"
                 :src="primaryPhotoUrl"
                 :alt="primaryProfile?.account_id"
-                class="profile-interaction-card-profile-img"
+                class="h-[60px] w-[60px] shrink-0 rounded-lg border-2 border-purple-500/60 object-cover"
               />
-              <div v-else class="profile-interaction-card-profile-placeholder">
-                <span>{{ primaryProfile?.account_id?.charAt(0) || '?' }}</span>
+              <div
+                v-else
+                class="flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-lg border-2 border-purple-500/60 bg-linear-to-br from-purple-500/15 to-purple-500/5"
+              >
+                <span class="text-xl font-semibold text-blue-400">{{ primaryProfile?.account_id?.charAt(0) || '?' }}</span>
               </div>
-              <div class="profile-interaction-card-profile-info">
-                <p class="profile-interaction-card-profile-name">{{ primaryProfile?.account_id || 'Onbekend' }}</p>
-                
+              <div class="flex flex-1 flex-col gap-1">
+                <p class="m-0 text-sm font-semibold tracking-tight text-white">{{ primaryProfile?.account_id || 'Onbekend' }}</p>
+
                 <!-- Age with colors - only show second if real -->
-                <div v-if="primaryAges.first" class="profile-interaction-card-age">
-                  <span 
-                    class="profile-interaction-card-age-first"
-                    :style="{ color: getAgeColor(primaryProfile?.gender1) }"
-                  >
+                <div v-if="primaryAges.first" class="inline-block text-[13px] font-medium">
+                  <span :class="['font-semibold', getAgeColorClass(primaryProfile?.gender1)]">
                     {{ primaryAges.first }}
                   </span>
                   <template v-if="isPrimaryGender2Real">
-                    <span class="profile-interaction-card-age-separator"> | </span>
-                    <span 
-                      class="profile-interaction-card-age-second"
-                      :style="{ color: getAgeColor(primaryProfile?.gender2) }"
-                    >
+                    <span class="mx-0.5 text-white/40"> | </span>
+                    <span :class="['font-semibold', getAgeColorClass(primaryProfile?.gender2)]">
                       {{ primaryAges.second }}
                     </span>
                   </template>
                 </div>
 
                 <!-- Location -->
-                <div v-if="primaryProfile?.location && primaryProfile.location !== ', USA'" class="profile-interaction-card-profile-location">
-                  <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="profile-interaction-card-location-icon" />
+                <div v-if="primaryProfile?.location && primaryProfile.location !== ', USA'" class="flex items-center gap-1 text-xs text-gray-400">
+                  <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="h-3 w-3 opacity-70" />
                   <span>{{ primaryProfile.location }}</span>
                 </div>
 
                 <!-- Stats -->
-                <div class="profile-interaction-card-profile-stats">
-                  <div v-if="primaryProfile?.photo_count" class="profile-interaction-card-stat">
-                    <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="profile-interaction-card-stat-icon" />
+                <div class="mt-1 flex items-center gap-2.5">
+                  <div v-if="primaryProfile?.photo_count" class="flex items-center gap-[3px] text-xs text-gray-400">
+                    <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="h-3.5 w-3.5 opacity-80" />
                     <span>{{ primaryProfile.photo_count }}</span>
                   </div>
-                  <div v-if="primaryProfile?.likes_count" class="profile-interaction-card-stat">
-                    <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="profile-interaction-card-stat-icon" />
+                  <div v-if="primaryProfile?.likes_count" class="flex items-center gap-[3px] text-xs text-gray-400">
+                    <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="h-3.5 w-3.5 opacity-80" />
                     <span>{{ primaryProfile.likes_count }}</span>
                   </div>
                 </div>
@@ -309,57 +308,54 @@ const formatDistance = (km: number | undefined) => {
           </div>
 
           <!-- Secondary Profile (who received the action) -->
-          <div class="profile-interaction-card-profile-section">
-            <div class="profile-interaction-card-profile-label">{{ secondaryProfile?.account_id || 'Jij' }}</div>
-            <div class="profile-interaction-card-profile">
+          <div class="flex flex-col gap-1.5">
+            <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{{ secondaryProfile?.account_id || 'Jij' }}</div>
+            <div class="flex items-start gap-2.5">
               <img
                 v-if="secondaryPhotoUrl"
                 :src="secondaryPhotoUrl"
                 :alt="secondaryProfile?.account_id"
-                class="profile-interaction-card-profile-img"
+                class="h-[60px] w-[60px] shrink-0 rounded-lg border-2 border-purple-500/60 object-cover"
               />
-              <div v-else class="profile-interaction-card-profile-placeholder">
-                <span>{{ secondaryProfile?.account_id?.charAt(0) || '?' }}</span>
+              <div
+                v-else
+                class="flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-lg border-2 border-purple-500/60 bg-linear-to-br from-purple-500/15 to-purple-500/5"
+              >
+                <span class="text-xl font-semibold text-blue-400">{{ secondaryProfile?.account_id?.charAt(0) || '?' }}</span>
               </div>
-              <div class="profile-interaction-card-profile-info">
-                <p class="profile-interaction-card-profile-name">{{ secondaryProfile?.account_id || 'Jij' }}</p>
-                
+              <div class="flex flex-1 flex-col gap-1">
+                <p class="m-0 text-sm font-semibold tracking-tight text-white">{{ secondaryProfile?.account_id || 'Jij' }}</p>
+
                 <!-- Age with colors - only show second if real -->
-                <div v-if="secondaryAges.first" class="profile-interaction-card-age">
-                  <span 
-                    class="profile-interaction-card-age-first"
-                    :style="{ color: getAgeColor(secondaryProfile?.gender1) }"
-                  >
+                <div v-if="secondaryAges.first" class="inline-block text-[13px] font-medium">
+                  <span :class="['font-semibold', getAgeColorClass(secondaryProfile?.gender1)]">
                     {{ secondaryAges.first }}
                   </span>
                   <template v-if="isSecondaryGender2Real">
-                    <span class="profile-interaction-card-age-separator"> | </span>
-                    <span 
-                      class="profile-interaction-card-age-second"
-                      :style="{ color: getAgeColor(secondaryProfile?.gender2) }"
-                    >
+                    <span class="mx-0.5 text-white/40"> | </span>
+                    <span :class="['font-semibold', getAgeColorClass(secondaryProfile?.gender2)]">
                       {{ secondaryAges.second }}
                     </span>
                   </template>
                 </div>
 
                 <!-- Location -->
-                <div v-if="secondaryProfile?.location" class="profile-interaction-card-profile-location">
-                  <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="profile-interaction-card-location-icon" />
+                <div v-if="secondaryProfile?.location" class="flex items-center gap-1 text-xs text-gray-400">
+                  <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="h-3 w-3 opacity-70" />
                   <span>{{ secondaryProfile.location }}</span>
-                  <span v-if="item.location_how_far && actionInfo.type !== 'validation'" class="profile-interaction-card-profile-location-distance">
+                  <span v-if="item.location_how_far && actionInfo.type !== 'validation'" class="ml-1 text-gray-500">
                     {{ formatDistance(item.location_how_far) }}
                   </span>
                 </div>
 
                 <!-- Stats -->
-                <div class="profile-interaction-card-profile-stats">
-                  <div v-if="secondaryProfile?.photo_count" class="profile-interaction-card-stat">
-                    <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="profile-interaction-card-stat-icon" />
+                <div class="mt-1 flex items-center gap-2.5">
+                  <div v-if="secondaryProfile?.photo_count" class="flex items-center gap-[3px] text-xs text-gray-400">
+                    <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="h-3.5 w-3.5 opacity-80" />
                     <span>{{ secondaryProfile.photo_count }}</span>
                   </div>
-                  <div v-if="secondaryProfile?.likes_count" class="profile-interaction-card-stat">
-                    <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="profile-interaction-card-stat-icon" />
+                  <div v-if="secondaryProfile?.likes_count" class="flex items-center gap-[3px] text-xs text-gray-400">
+                    <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="h-3.5 w-3.5 opacity-80" />
                     <span>{{ secondaryProfile.likes_count }}</span>
                   </div>
                 </div>
@@ -370,238 +366,12 @@ const formatDistance = (km: number | undefined) => {
       </div>
 
       <!-- Validation Subject (for action 21) - shown below the grid -->
-      <div v-if="actionInfo.type === 'validation' && actionInfo.subject" class="profile-interaction-card-validation-subject">
-        <p class="profile-interaction-card-validation-label">Bericht:</p>
-        <p class="profile-interaction-card-validation-text">{{ actionInfo.subject }}</p>
+      <div v-if="actionInfo.type === 'validation' && actionInfo.subject" class="mt-2 border-t border-white/6 pt-2.5">
+        <p class="mb-1.5 mt-0 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Bericht:</p>
+        <p class="m-0 rounded-md border-l-2 border-l-blue-500/40 bg-white/3 px-2.5 py-2 text-[11px] italic leading-relaxed text-gray-200">
+          {{ actionInfo.subject }}
+        </p>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.profile-interaction-card {
-  background-color: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-left: 3px solid rgba(168, 85, 247, 0.4);
-  border-radius: 10px;
-  overflow: hidden;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.profile-interaction-card-even {
-  background-color: rgba(255, 255, 255, 0.025);
-}
-
-.profile-interaction-card-odd {
-  background-color: rgba(255, 255, 255, 0.035);
-}
-
-.profile-interaction-card:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
-  border-left-color: rgba(168, 85, 247, 0.6);
-}
-
-.profile-interaction-card-header {
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.profile-interaction-card-header-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.profile-interaction-card-header-icon {
-  font-size: 14px;
-  line-height: 1;
-}
-
-.profile-interaction-card-header-text {
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-
-.profile-interaction-card-header-time {
-  color: #6b7280;
-  font-size: 12px;
-  margin: 0;
-  font-weight: 500;
-}
-
-.profile-interaction-card-content {
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.profile-interaction-card-profiles-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-@media (max-width: 600px) {
-  .profile-interaction-card-profiles-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.profile-interaction-card-profile-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.profile-interaction-card-profile-label {
-  font-size: 10px;
-  color: #6b7280;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.profile-interaction-card-profile {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.profile-interaction-card-profile-img {
-  width: 60px;
-  height: 60px;
-  border-radius: 8px;
-  object-fit: cover;
-  flex-shrink: 0;
-  border: 2px solid rgba(168, 85, 247, 0.6);
-}
-
-.profile-interaction-card-profile-placeholder {
-  width: 60px;
-  height: 60px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%);
-  border: 2px solid rgba(168, 85, 247, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.profile-interaction-card-profile-placeholder span {
-  color: #60a5fa;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.profile-interaction-card-profile-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.profile-interaction-card-profile-name {
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-
-.profile-interaction-card-age {
-  font-size: 13px;
-  display: inline-block;
-  font-weight: 500;
-}
-
-.profile-interaction-card-age-first {
-  font-weight: 600;
-}
-
-.profile-interaction-card-age-separator {
-  color: rgba(255, 255, 255, 0.4);
-  margin: 0 3px;
-}
-
-.profile-interaction-card-age-second {
-  font-weight: 600;
-}
-
-.profile-interaction-card-profile-location {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-.profile-interaction-card-location-icon {
-  width: 12px;
-  height: 12px;
-  opacity: 0.7;
-}
-
-.profile-interaction-card-profile-location-distance {
-  margin-left: 4px;
-  color: #6b7280;
-}
-
-.profile-interaction-card-profile-stats {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.profile-interaction-card-stat {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-.profile-interaction-card-stat-icon {
-  width: 14px;
-  height: 14px;
-  opacity: 0.8;
-}
-
-.profile-interaction-card-validation-subject {
-  margin-top: 8px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.profile-interaction-card-validation-label {
-  font-size: 10px;
-  color: #6b7280;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0 0 6px 0;
-}
-
-.profile-interaction-card-validation-text {
-  color: #e5e7eb;
-  font-size: 11px;
-  margin: 0;
-  font-style: italic;
-  line-height: 1.5;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 6px;
-  border-left: 2px solid rgba(59, 130, 246, 0.4);
-}
-</style>

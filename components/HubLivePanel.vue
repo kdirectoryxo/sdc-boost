@@ -110,8 +110,14 @@ async function openOwnStream() {
             <Skeleton class="h-8 w-[7.5rem] shrink-0 self-end rounded-md bg-white/10 sm:self-auto" />
           </div>
         </div>
-        <div class="live-grid px-4 pb-8 pt-2">
-          <div v-for="n in 12" :key="n" class="hub-skeleton-live-card">
+        <div
+          class="grid grid-cols-2 gap-2.5 px-4 pb-8 pt-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-6"
+        >
+          <div
+            v-for="n in 12"
+            :key="n"
+            class="overflow-hidden rounded-[10px] border border-white/[0.04] bg-[#1a1d21]"
+          >
             <Skeleton class="aspect-square w-full rounded-t-[10px] bg-white/10" />
             <div class="flex flex-col gap-2 p-2.5">
               <Skeleton class="h-2.5 w-[72%] rounded-md bg-white/10" />
@@ -126,7 +132,10 @@ async function openOwnStream() {
         No live streams right now.
       </div>
 
-      <div v-else class="live-grid px-4 pb-8 pt-2">
+      <div
+        v-else
+        class="grid grid-cols-2 gap-2.5 px-4 pb-8 pt-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-6"
+      >
         <PeopleCard
           v-for="member in liveMembers"
           :key="member.db_id"
@@ -139,31 +148,3 @@ async function openOwnStream() {
     </div>
   </div>
 </template>
-
-<style scoped>
-/* Match chatroom hub: wider cards, fewer columns on small viewports */
-.live-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-@media (min-width: 640px) {
-  .live-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .live-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1280px) {
-  .live-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-</style>

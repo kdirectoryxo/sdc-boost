@@ -28,14 +28,30 @@ const {
 </script>
 
 <template>
-  <div class="filter-age" :class="{ active: hasAgeFilter }">
-    <Icon icon="mdi:account-clock-outline" width="12" height="12" />
-    <span class="filter-age-label">Leeftijd</span>
+  <div
+    class="flex flex-wrap items-center gap-[5px] rounded-md border px-2.5 py-[5px] transition-all duration-150 ease-in-out"
+    :class="
+      hasAgeFilter
+        ? 'border-blue-400/30 bg-blue-400/15'
+        : 'border-white/[0.06] bg-white/[0.04] hover:border-white/10 hover:bg-white/[0.08]'
+    "
+  >
+    <Icon
+      icon="mdi:account-clock-outline"
+      width="12"
+      height="12"
+      class="shrink-0 transition-colors"
+      :class="hasAgeFilter ? 'text-blue-400' : 'text-gray-500'"
+    />
+    <span
+      class="text-xs font-medium transition-colors"
+      :class="hasAgeFilter ? 'text-white' : 'text-gray-400'"
+    >Leeftijd</span>
     <Tooltip>
       <TooltipTrigger as-child>
         <button
           type="button"
-          class="filter-age-help inline-flex cursor-help items-center border-0 bg-transparent p-0 text-[#6b7280] transition-colors hover:text-[#9ca3af]"
+          class="-mx-1 -ml-1 inline-flex cursor-help items-center border-0 bg-transparent p-0 text-gray-500 transition-colors hover:text-gray-400"
           :aria-label="AGE_FILTER_MODE_GROUP_HELP"
         >
           <Icon icon="mdi:information-outline" width="14" height="14" />
@@ -51,18 +67,20 @@ const {
       :value="ageMinInput"
       maxlength="2"
       placeholder="18"
-      class="filter-age-input"
+      class="w-6 border-0 border-b border-white/15 bg-transparent p-0 text-center text-xs font-medium text-white outline-none transition-all placeholder:font-normal placeholder:text-gray-600 focus:border-blue-400"
+      :class="hasAgeFilter ? 'border-blue-400/50' : ''"
       @input="handleAgeMinInput"
       @blur="updateAgeFilter"
     />
-    <span class="filter-age-sep">-</span>
+    <span class="text-xs font-normal text-gray-600" :class="hasAgeFilter && 'text-gray-400'">-</span>
     <input
       type="text"
       inputmode="numeric"
       :value="ageMaxInput"
       maxlength="2"
       placeholder="99"
-      class="filter-age-input"
+      class="w-6 border-0 border-b border-white/15 bg-transparent p-0 text-center text-xs font-medium text-white outline-none transition-all placeholder:font-normal placeholder:text-gray-600 focus:border-blue-400"
+      :class="hasAgeFilter ? 'border-blue-400/50' : ''"
       @input="handleAgeMaxInput"
       @blur="updateAgeFilter"
     />
@@ -73,6 +91,7 @@ const {
       size="sm"
       :spacing="0"
       class="filter-age-mode h-[22px] min-h-0 w-fit rounded border border-white/[0.08] p-0 shadow-none"
+      :class="hasAgeFilter && 'border-blue-400/25'"
       role="group"
       aria-label="Leeftijd filteren op"
       @update:model-value="
@@ -98,7 +117,7 @@ const {
       type="button"
       variant="ghost"
       size="icon"
-      class="filter-age-clear h-3.5 w-3.5 min-w-0 shrink-0 p-0 text-[#6b7280] hover:text-red-400"
+      class="h-3.5 w-3.5 min-w-0 shrink-0 p-0 text-gray-500 hover:text-red-400"
       title="Wissen"
       aria-label="Wissen"
       @click="clearAgeFilter"
@@ -107,99 +126,3 @@ const {
     </Button>
   </div>
 </template>
-
-<style scoped>
-.filter-age {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding: 5px 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
-  transition: all 0.15s ease;
-}
-
-.filter-age:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.filter-age.active {
-  background: rgba(96, 165, 250, 0.15);
-  border-color: rgba(96, 165, 250, 0.3);
-}
-
-.filter-age .iconify,
-.filter-age svg {
-  flex-shrink: 0;
-  color: #6b7280;
-  transition: color 0.15s ease;
-}
-
-.filter-age.active .iconify:first-child,
-.filter-age.active > svg:first-child {
-  color: #60a5fa;
-}
-
-.filter-age-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #9ca3af;
-  transition: color 0.15s ease;
-}
-
-.filter-age.active .filter-age-label {
-  color: white;
-}
-
-.filter-age-help {
-  display: inline-flex;
-  align-items: center;
-  margin: 0 -2px 0 -4px;
-}
-
-.filter-age-input {
-  width: 24px;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-  color: white;
-  font-size: 12px;
-  font-weight: 500;
-  text-align: center;
-  padding: 0;
-  margin: 0;
-  outline: none;
-  transition: all 0.15s ease;
-}
-
-.filter-age-input:focus {
-  border-color: #60a5fa;
-}
-
-.filter-age.active .filter-age-input {
-  color: white;
-  border-color: rgba(96, 165, 250, 0.5);
-}
-
-.filter-age-input::placeholder {
-  color: #4b5563;
-  font-weight: 400;
-}
-
-.filter-age-sep {
-  color: #4b5563;
-  font-size: 12px;
-  font-weight: 400;
-}
-
-.filter-age.active .filter-age-sep {
-  color: #9ca3af;
-}
-
-.filter-age.active .filter-age-mode {
-  border-color: rgba(96, 165, 250, 0.25);
-}
-</style>

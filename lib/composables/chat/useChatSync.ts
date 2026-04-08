@@ -9,6 +9,7 @@ import { messageStorage } from '@/lib/message-storage';
 import { useChatState } from './useChatState';
 import { useChatFolders } from './useChatFolders';
 import { useChatFilters } from './useChatFilters';
+import { toast } from '@/lib/toast';
 
 export const useChatSync = createGlobalState(() => {
   const { chatList, selectedFolderId, showArchives } = useChatState();
@@ -163,8 +164,6 @@ export const useChatSync = createGlobalState(() => {
     // Cancel flag to stop sync operation
     let cancelled = false;
     
-    // Access toast from global window
-    const toast = (window as any).__sdcBoostToast;
     let progressToast: { update: (current: number, total: number, message?: string) => void; dismiss: () => void } | null = null;
     
     try {
@@ -197,16 +196,14 @@ export const useChatSync = createGlobalState(() => {
       
       if (unsyncedChats.length === 0) {
         console.log('[useChatSync] No unsynced chats found');
-        if (toast) {
-          toast.success('All chats are already synced');
-        }
+        toast.success('All chats are already synced');
         return;
       }
       
       console.log(`[useChatSync] Syncing messages for ${unsyncedChats.length} unsynced chats...`);
       
       // Show progress toast with cancel button
-      if (toast && toast.progress) {
+      if (toast.progress) {
         progressToast = toast.progress(unsyncedChats.length, () => {
           cancelled = true;
           console.log('[useChatSync] Sync cancelled by user');
@@ -257,14 +254,10 @@ export const useChatSync = createGlobalState(() => {
       
       if (cancelled) {
         console.log(`[useChatSync] Sync cancelled. Synced ${syncedCount}/${unsyncedChats.length} chats before cancellation`);
-        if (toast) {
-          toast.error(`Sync cancelled. Synced ${syncedCount} chat${syncedCount !== 1 ? 's' : ''} before cancellation`);
-        }
+        toast.error(`Sync cancelled. Synced ${syncedCount} chat${syncedCount !== 1 ? 's' : ''} before cancellation`);
       } else {
         console.log(`[useChatSync] Successfully synced ${syncedCount}/${unsyncedChats.length} chats`);
-        if (toast) {
-          toast.success(`Synced messages for ${syncedCount} chat${syncedCount !== 1 ? 's' : ''}`);
-        }
+        toast.success(`Synced messages for ${syncedCount} chat${syncedCount !== 1 ? 's' : ''}`);
       }
     } catch (err) {
       console.error('[useChatSync] Failed to sync messages:', err);
@@ -275,9 +268,7 @@ export const useChatSync = createGlobalState(() => {
         progressToast.dismiss();
       }
       
-      if (toast) {
-        toast.error('Failed to sync messages');
-      }
+      toast.error('Failed to sync messages');
     } finally {
       isSyncingMessages.value = false;
     }
@@ -292,7 +283,6 @@ export const useChatSync = createGlobalState(() => {
     isRefreshing.value = true;
     error.value = null;
 
-    const toast = (window as any).__sdcBoostToast;
     let progressToast: { update: (current: number, total: number, message?: string) => void; dismiss: () => void } | null = null;
     
     // Count total items to sync
@@ -324,14 +314,12 @@ export const useChatSync = createGlobalState(() => {
       }
       
       if (totalItems === 0) {
-        if (toast) {
-          toast.success('All chats are already synced');
-        }
+        toast.success('All chats are already synced');
         return;
       }
       
       // Show progress toast
-      if (toast && toast.progress) {
+      if (toast.progress) {
         progressToast = toast.progress(totalItems, () => {
           // Cancel not supported for chat sync
         });
@@ -357,9 +345,7 @@ export const useChatSync = createGlobalState(() => {
         progressToast.dismiss();
       }
       
-      if (toast) {
-        toast.success(`Synced ${syncedItems} unsynced chat${syncedItems !== 1 ? 's' : ''}`);
-      }
+      toast.success(`Synced ${syncedItems} unsynced chat${syncedItems !== 1 ? 's' : ''}`);
     } catch (err) {
       console.error('[useChatSync] Failed to sync unsynced chats:', err);
       
@@ -369,21 +355,17 @@ export const useChatSync = createGlobalState(() => {
         if (progressToast) {
           progressToast.dismiss();
         }
-        if (toast) {
-          toast.error('Sync stopped: Rate limit exceeded. Please wait a moment and try again.');
-        }
+        toast.error('Sync stopped: Rate limit exceeded. Please wait a moment and try again.');
         return;
       }
-      
+
       error.value = 'Failed to sync unsynced chats. Please try again.';
       
       if (progressToast) {
         progressToast.dismiss();
       }
       
-      if (toast) {
-        toast.error('Failed to sync unsynced chats');
-      }
+      toast.error('Failed to sync unsynced chats');
     } finally {
       isRefreshing.value = false;
     }
@@ -399,7 +381,6 @@ export const useChatSync = createGlobalState(() => {
     isRefreshing.value = true;
     error.value = null;
 
-    const toast = (window as any).__sdcBoostToast;
     let progressToast: { update: (current: number, total: number, message?: string) => void; dismiss: () => void } | null = null;
     
     // Count total folders/areas to sync (inbox + folders + archives)
@@ -417,7 +398,7 @@ export const useChatSync = createGlobalState(() => {
       totalFolders += 1; // archives
       
       // Show progress toast
-      if (toast && toast.progress) {
+      if (toast.progress) {
         progressToast = toast.progress(totalFolders, () => {
           // Cancel not supported for chat sync
         });
@@ -449,7 +430,7 @@ export const useChatSync = createGlobalState(() => {
       }
       
       // Show new progress toast for message syncing
-      if (toast && toast.progress && totalChats > 0) {
+      if (toast.progress && totalChats > 0) {
         progressToast = toast.progress(totalChats, () => {
           // Cancel not supported for message sync
         });
@@ -482,13 +463,11 @@ export const useChatSync = createGlobalState(() => {
             if (progressToast) {
               progressToast.dismiss();
             }
-            if (toast) {
-              toast.error('Sync stopped: Rate limit exceeded. Please wait a moment and try again.');
-            }
+            toast.error('Sync stopped: Rate limit exceeded. Please wait a moment and try again.');
             error.value = 'Rate limit exceeded. Please wait a moment and try again.';
             return;
           }
-          
+
           console.error(`[useChatSync] Failed to sync messages for chat ${chat.group_id}:`, err);
           // Continue with next chat even if one fails (unless it's a rate limit)
           if (progressToast) {
@@ -501,9 +480,7 @@ export const useChatSync = createGlobalState(() => {
         progressToast.dismiss();
       }
       
-      if (toast) {
-        toast.success(`Resynced all chats and ${syncedChats} chat${syncedChats !== 1 ? 's' : ''} messages`);
-      }
+      toast.success(`Resynced all chats and ${syncedChats} chat${syncedChats !== 1 ? 's' : ''} messages`);
     } catch (err) {
       console.error('[useChatSync] Failed to resync all chats:', err);
       
@@ -513,21 +490,17 @@ export const useChatSync = createGlobalState(() => {
         if (progressToast) {
           progressToast.dismiss();
         }
-        if (toast) {
-          toast.error('Sync stopped: Rate limit exceeded. Please wait a moment and try again.');
-        }
+        toast.error('Sync stopped: Rate limit exceeded. Please wait a moment and try again.');
         return;
       }
-      
+
       error.value = 'Failed to resync all chats. Please try again.';
       
       if (progressToast) {
         progressToast.dismiss();
       }
       
-      if (toast) {
-        toast.error('Failed to resync all chats');
-      }
+      toast.error('Failed to resync all chats');
     } finally {
       isRefreshing.value = false;
     }
@@ -542,7 +515,6 @@ export const useChatSync = createGlobalState(() => {
     isRefreshing.value = true;
     error.value = null;
 
-    const toast = (window as any).__sdcBoostToast;
     let progressToast: { update: (current: number, total: number, message?: string) => void; dismiss: () => void } | null = null;
     
     try {
@@ -552,14 +524,12 @@ export const useChatSync = createGlobalState(() => {
       let syncedChats = 0;
       
       if (totalChats === 0) {
-        if (toast) {
-          toast.success('No chats to sync');
-        }
+        toast.success('No chats to sync');
         return;
       }
       
       // Show progress toast for message syncing
-      if (toast && toast.progress) {
+      if (toast.progress) {
         progressToast = toast.progress(totalChats, () => {
           // Cancel not supported for message sync
         });
@@ -592,13 +562,11 @@ export const useChatSync = createGlobalState(() => {
             if (progressToast) {
               progressToast.dismiss();
             }
-            if (toast) {
-              toast.error('Sync stopped: Rate limit exceeded. Please wait a moment and try again.');
-            }
+            toast.error('Sync stopped: Rate limit exceeded. Please wait a moment and try again.');
             error.value = 'Rate limit exceeded. Please wait a moment and try again.';
             return;
           }
-          
+
           console.error(`[useChatSync] Failed to sync latest messages for chat ${chat.group_id}:`, err);
           // Continue with next chat even if one fails (unless it's a rate limit)
           if (progressToast) {
@@ -611,9 +579,7 @@ export const useChatSync = createGlobalState(() => {
         progressToast.dismiss();
       }
       
-      if (toast) {
-        toast.success(`Resynced latest messages for ${syncedChats} chat${syncedChats !== 1 ? 's' : ''}`);
-      }
+      toast.success(`Resynced latest messages for ${syncedChats} chat${syncedChats !== 1 ? 's' : ''}`);
     } catch (err) {
       console.error('[useChatSync] Failed to resync newest chats:', err);
       
@@ -623,21 +589,17 @@ export const useChatSync = createGlobalState(() => {
         if (progressToast) {
           progressToast.dismiss();
         }
-        if (toast) {
-          toast.error('Sync stopped: Rate limit exceeded. Please wait a moment and try again.');
-        }
+        toast.error('Sync stopped: Rate limit exceeded. Please wait a moment and try again.');
         return;
       }
-      
+
       error.value = 'Failed to resync newest chats. Please try again.';
       
       if (progressToast) {
         progressToast.dismiss();
       }
       
-      if (toast) {
-        toast.error('Failed to resync newest chats');
-      }
+      toast.error('Failed to resync newest chats');
     } finally {
       isRefreshing.value = false;
     }

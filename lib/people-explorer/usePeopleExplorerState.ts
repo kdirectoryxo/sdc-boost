@@ -12,6 +12,7 @@ import {
   type ClientSideFilters,
 } from '@/lib/people-filters-storage';
 import type { PeopleTabId } from '@/lib/view-router/routes';
+import { countersManager } from '@/lib/counters-manager';
 
 /** Debounce helper */
 function debounce<T extends (...args: unknown[]) => unknown>(func: T, wait: number): (...args: Parameters<T>) => void {
@@ -349,18 +350,13 @@ function loadFiltersFromStorage() {
 }
 
 function subscribeCounters() {
-  const countersManager = (window as unknown as Record<string, unknown>)['__sdcBoostCounters'] as
-    | { getCounters: () => { viewed?: number }; onUpdate: (cb: (c: { viewed?: number }) => void) => () => void }
-    | undefined;
-  if (countersManager) {
-    const counters = countersManager.getCounters();
-    if (counters) {
-      viewedCount.value = counters.viewed || 0;
-    }
-    unsubscribeCounters = countersManager.onUpdate((counters: { viewed?: number }) => {
-      viewedCount.value = counters.viewed || 0;
-    });
+  const counters = countersManager.getCounters();
+  if (counters) {
+    viewedCount.value = counters.viewed || 0;
   }
+  unsubscribeCounters = countersManager.onUpdate((c: { viewed?: number }) => {
+    viewedCount.value = c.viewed || 0;
+  });
 }
 
 /**

@@ -11,6 +11,7 @@ import { TypingManager } from '@/lib/typing-manager';
 import { useChatState } from './useChatState';
 import { useChatMessages } from './useChatMessages';
 import { getChatKey } from './utils';
+import { toast } from '@/lib/toast';
 
 export const useChatInput = createGlobalState(() => {
   const { selectedChat, chatList } = useChatState();
@@ -82,19 +83,12 @@ export const useChatInput = createGlobalState(() => {
       } catch (error: any) {
         console.error('[useChatInput] Failed to upload media:', error);
         isUploading.value = false;
-        const toast = (window as any).__sdcBoostToast;
-        if (toast) {
-          // Show the API error message if available, otherwise show generic error
-          const errorMessage = error?.message || 'Failed to upload media. Please try again.';
-          
-          // Translate common Dutch error messages
-          let translatedMessage = errorMessage;
-          if (errorMessage.includes('Je moet berichten met de gebruiker hebben uitgewisseld')) {
-            translatedMessage = 'You must have exchanged messages with this user before you can send an image or video.';
-          }
-          
-          toast.error(translatedMessage);
+        const errorMessage = error?.message || 'Failed to upload media. Please try again.';
+        let translatedMessage = errorMessage;
+        if (errorMessage.includes('Je moet berichten met de gebruiker hebben uitgewisseld')) {
+          translatedMessage = 'You must have exchanged messages with this user before you can send an image or video.';
         }
+        toast.error(translatedMessage);
         // Clear uploaded media on error so user can try again
         uploadedMedia.value = [];
         return;

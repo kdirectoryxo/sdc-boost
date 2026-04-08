@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DateValue } from '@internationalized/date';
 import { DateFormatter, getLocalTimeZone, parseDate, today, toCalendarDate } from '@internationalized/date';
-import { Calendar as CalendarIcon, MapPin } from 'lucide-vue-next';
+import { Calendar as CalendarIcon, ChevronDown, MapPin } from 'lucide-vue-next';
 import { useDebounceFn } from '@vueuse/core';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
@@ -35,6 +35,20 @@ import { Checkbox } from '@/lib/view-router/ui/checkbox';
 import { Input } from '@/lib/view-router/ui/input';
 import { Label } from '@/lib/view-router/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/lib/view-router/ui/popover';
+import { Skeleton } from '@/lib/view-router/ui/skeleton';
+
+/** Matches `hub-skeleton.css` `.hub-skeleton-live-card` */
+const hubSkLiveCard =
+  'overflow-hidden rounded-[10px] border border-white/[0.04] bg-[#1a1d21]';
+/** Matches `hub-skeleton.css` `.hub-skeleton-shimmer` */
+const hubSkShimmer =
+  'bg-[linear-gradient(90deg,#16181c_25%,#1e2227_50%,#16181c_75%)] bg-[length:200%_100%] animate-hub-shimmer';
+
+const speedGridClass =
+  'grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-5';
+
+const sdInputClass =
+  'h-8 min-h-8 text-[13px] border-white/[0.08] bg-white/[0.04] text-white placeholder:text-white/35 focus-visible:border-white/20 focus-visible:ring-0';
 
 const props = defineProps<{
   getProfileHref?: (userId: number) => string;
@@ -436,12 +450,12 @@ watch(
   () => {
     if (!listFiltersReady.value || filterResetInProgress.value) return;
     void loadList(true);
-  }
+  },
 );
 </script>
 
 <template>
-  <div class="hub-speed-date flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0c0d10]">
+  <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0c0d10]">
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <!-- First paint: no real Selects yet (avoids empty placeholder flash). -->
       <div
@@ -469,13 +483,13 @@ watch(
           </div>
         </div>
         <div class="px-4 py-4">
-          <div class="speed-grid">
-            <div v-for="n in 12" :key="`sk-c-${n}`" class="hub-skeleton-live-card overflow-hidden">
-              <Skeleton class="aspect-square w-full rounded-t-[10px] bg-white/10" />
+          <div :class="speedGridClass">
+            <div v-for="n in 12" :key="`sk-c-${n}`" :class="cn(hubSkLiveCard)">
+              <div :class="cn('aspect-square w-full rounded-t-[10px]', hubSkShimmer)" />
               <div class="flex flex-col gap-2 p-2.5">
-                <Skeleton class="h-2.5 w-[72%] rounded-md bg-white/10" />
-                <Skeleton class="h-2.5 w-[48%] rounded-md bg-white/10" />
-                <Skeleton class="h-2.5 w-[88%] rounded-md bg-white/10" />
+                <div :class="cn('h-2.5 w-[72%] rounded-md', hubSkShimmer)" />
+                <div :class="cn('h-2.5 w-[48%] rounded-md', hubSkShimmer)" />
+                <div :class="cn('h-2.5 w-[88%] rounded-md', hubSkShimmer)" />
               </div>
             </div>
           </div>
@@ -523,8 +537,14 @@ watch(
             <span class="text-[11px] font-medium uppercase tracking-wider text-white/40">Soort</span>
             <button
               type="button"
-              class="sd-filter-chip"
-              :class="{ 'sd-filter-chip--active': filterPrive }"
+              :class="
+                cn(
+                  'inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border py-[5px] pl-2 pr-3 text-xs font-medium leading-none transition-all duration-150 ease-in-out',
+                  filterPrive
+                    ? 'border-white/[0.14] bg-white/[0.08] text-white/90'
+                    : 'border-white/[0.06] bg-white/[0.04] text-white/50 hover:bg-white/[0.07] hover:text-white/70',
+                )
+              "
               @click="toggleLocFilter('prive')"
             >
               <Checkbox
@@ -536,8 +556,14 @@ watch(
             </button>
             <button
               type="button"
-              class="sd-filter-chip"
-              :class="{ 'sd-filter-chip--active': filterOpenbaar }"
+              :class="
+                cn(
+                  'inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border py-[5px] pl-2 pr-3 text-xs font-medium leading-none transition-all duration-150 ease-in-out',
+                  filterOpenbaar
+                    ? 'border-white/[0.14] bg-white/[0.08] text-white/90'
+                    : 'border-white/[0.06] bg-white/[0.04] text-white/50 hover:bg-white/[0.07] hover:text-white/70',
+                )
+              "
               @click="toggleLocFilter('openbaar')"
             >
               <Checkbox
@@ -549,8 +575,14 @@ watch(
             </button>
             <button
               type="button"
-              class="sd-filter-chip"
-              :class="{ 'sd-filter-chip--active': filterVirtueel }"
+              :class="
+                cn(
+                  'inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border py-[5px] pl-2 pr-3 text-xs font-medium leading-none transition-all duration-150 ease-in-out',
+                  filterVirtueel
+                    ? 'border-white/[0.14] bg-white/[0.08] text-white/90'
+                    : 'border-white/[0.06] bg-white/[0.04] text-white/50 hover:bg-white/[0.07] hover:text-white/70',
+                )
+              "
               @click="toggleLocFilter('virtueel')"
             >
               <Checkbox
@@ -563,33 +595,39 @@ watch(
           </div>
 
           <!-- Compact filter row -->
-          <div class="sd-filters mt-3">
-            <div class="sd-filter-field">
-              <Label class="sd-filter-label">Sortering</Label>
-              <select
-                :value="orderStr"
-                class="sd-native-select"
-                @change="orderStr = ($event.target as HTMLSelectElement).value"
-              >
-                <option value="1">Recent</option>
-                <option value="0">Oud</option>
-              </select>
+          <div class="mt-3 grid grid-cols-2 gap-x-2.5 gap-y-2 sm:grid-cols-3 lg:grid-cols-5">
+            <div class="flex flex-col gap-1">
+              <Label class="text-[10px] font-medium uppercase tracking-wider text-white/35">Sortering</Label>
+              <div class="relative">
+                <select
+                  :value="orderStr"
+                  class="h-8 w-full appearance-none rounded-md border border-white/[0.08] bg-white/[0.04] px-2 pr-8 text-[13px] text-white outline-none transition-colors focus:border-white/20 focus:outline-none focus:ring-0 [&>option]:bg-[#1a1b1f]"
+                  @change="orderStr = ($event.target as HTMLSelectElement).value"
+                >
+                  <option value="1">Recent</option>
+                  <option value="0">Oud</option>
+                </select>
+                <ChevronDown
+                  class="pointer-events-none absolute right-2 top-1/2 size-3 -translate-y-1/2 text-[#999]"
+                  aria-hidden="true"
+                />
+              </div>
             </div>
-            <div class="sd-filter-field">
-              <Label class="sd-filter-label">Afstand</Label>
+            <div class="flex flex-col gap-1">
+              <Label class="text-[10px] font-medium uppercase tracking-wider text-white/35">Afstand</Label>
               <div class="relative">
                 <Input
                   v-model.number="distance"
                   type="number"
                   min="1"
                   max="2000"
-                  class="sd-input pr-8"
+                  :class="cn(sdInputClass, 'pr-8')"
                 />
                 <span class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-white/30">km</span>
               </div>
             </div>
-            <div class="sd-filter-field">
-              <Label class="sd-filter-label">Plaats</Label>
+            <div class="flex flex-col gap-1">
+              <Label class="text-[10px] font-medium uppercase tracking-wider text-white/35">Plaats</Label>
               <div class="relative">
                 <MapPin
                   class="pointer-events-none absolute left-2.5 top-1/2 z-[1] size-3.5 -translate-y-1/2 text-white/35"
@@ -600,7 +638,7 @@ watch(
                   type="search"
                   autocomplete="off"
                   placeholder="Stad of regio…"
-                  class="sd-input pl-8"
+                  :class="cn(sdInputClass, 'pl-8')"
                   @focus="placeInputFocused = true"
                   @blur="onPlaceInputBlur"
                 />
@@ -643,8 +681,8 @@ watch(
                 </div>
               </div>
             </div>
-            <div class="sd-filter-field">
-              <Label class="sd-filter-label">Datum</Label>
+            <div class="flex flex-col gap-1">
+              <Label class="text-[10px] font-medium uppercase tracking-wider text-white/35">Datum</Label>
               <Popover v-model:open="datePickerOpen">
                 <PopoverTrigger as-child>
                   <Button
@@ -652,8 +690,9 @@ watch(
                     variant="outline"
                     :class="
                       cn(
-                        'sd-input w-full justify-start text-left font-normal',
-                        !pickedFilterDate && 'text-white/40'
+                        sdInputClass,
+                        'w-full justify-start border-white/[0.08] bg-white/[0.04] text-left font-normal',
+                        !pickedFilterDate && 'text-white/40',
                       )
                     "
                   >
@@ -685,8 +724,8 @@ watch(
                 </PopoverContent>
               </Popover>
             </div>
-            <div class="sd-filter-field">
-              <Label class="sd-filter-label">Leeftijd</Label>
+            <div class="flex flex-col gap-1">
+              <Label class="text-[10px] font-medium uppercase tracking-wider text-white/35">Leeftijd</Label>
               <div class="flex items-center gap-1.5">
                 <Input
                   v-model="ageFromStr"
@@ -694,7 +733,7 @@ watch(
                   min="18"
                   max="100"
                   placeholder="van"
-                  class="sd-input min-w-0 flex-1"
+                  :class="cn(sdInputClass, 'min-w-0 flex-1')"
                 />
                 <span class="text-[11px] text-white/25">–</span>
                 <Input
@@ -703,7 +742,7 @@ watch(
                   min="18"
                   max="100"
                   placeholder="tot"
-                  class="sd-input min-w-0 flex-1"
+                  :class="cn(sdInputClass, 'min-w-0 flex-1')"
                 />
               </div>
             </div>
@@ -736,22 +775,22 @@ watch(
 
           <div
             v-else-if="loading"
-            class="speed-grid"
+            :class="speedGridClass"
             aria-busy="true"
             aria-label="Speeddates laden"
           >
-            <div v-for="n in 12" :key="n" class="hub-skeleton-live-card overflow-hidden">
-              <Skeleton class="aspect-square w-full rounded-t-[10px] bg-white/10" />
+            <div v-for="n in 12" :key="n" :class="cn(hubSkLiveCard)">
+              <div :class="cn('aspect-square w-full rounded-t-[10px]', hubSkShimmer)" />
               <div class="flex flex-col gap-2 p-2.5">
-                <Skeleton class="h-2.5 w-[72%] rounded-md bg-white/10" />
-                <Skeleton class="h-2.5 w-[48%] rounded-md bg-white/10" />
-                <Skeleton class="h-2.5 w-[88%] rounded-md bg-white/10" />
+                <div :class="cn('h-2.5 w-[72%] rounded-md', hubSkShimmer)" />
+                <div :class="cn('h-2.5 w-[48%] rounded-md', hubSkShimmer)" />
+                <div :class="cn('h-2.5 w-[88%] rounded-md', hubSkShimmer)" />
               </div>
             </div>
           </div>
 
           <template v-else>
-            <div class="speed-grid">
+            <div :class="speedGridClass">
               <SpeedDateCard
                 v-for="row in items"
                 :key="row.db_id"
@@ -799,120 +838,3 @@ watch(
     />
   </div>
 </template>
-
-<style scoped>
-.speed-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-@media (min-width: 640px) {
-  .speed-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-  }
-}
-@media (min-width: 1024px) {
-  .speed-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1280px) {
-  .speed-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
-
-/* ── Filter chips (location type checkboxes) ── */
-.sd-filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  user-select: none;
-  padding: 5px 12px 5px 8px;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1;
-  color: rgba(255 255 255 / 0.5);
-  background: rgba(255 255 255 / 0.04);
-  border: 1px solid rgba(255 255 255 / 0.06);
-  transition: all 0.15s ease;
-}
-.sd-filter-chip:hover {
-  background: rgba(255 255 255 / 0.07);
-  color: rgba(255 255 255 / 0.7);
-}
-.sd-filter-chip--active {
-  color: rgba(255 255 255 / 0.9);
-  background: rgba(255 255 255 / 0.08);
-  border-color: rgba(255 255 255 / 0.14);
-}
-
-/* ── Compact filter grid ── */
-.sd-filters {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 10px;
-}
-@media (min-width: 640px) {
-  .sd-filters {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-@media (min-width: 1024px) {
-  .sd-filters {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
-
-.sd-filter-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.sd-filter-label {
-  font-size: 10px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: rgba(255 255 255 / 0.35);
-}
-
-.sd-input {
-  height: 32px;
-  font-size: 13px;
-  border-color: rgba(255 255 255 / 0.08);
-  background: rgba(255 255 255 / 0.04);
-  color: white;
-}
-.sd-input:focus {
-  border-color: rgba(255 255 255 / 0.2);
-}
-
-.sd-native-select {
-  height: 32px;
-  width: 100%;
-  font-size: 13px;
-  padding: 0 8px;
-  border-radius: 6px;
-  border: 1px solid rgba(255 255 255 / 0.08);
-  background: rgba(255 255 255 / 0.04);
-  color: white;
-  outline: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%23999' stroke-width='2' stroke-linecap='round' d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  padding-right: 24px;
-}
-.sd-native-select:focus {
-  border-color: rgba(255 255 255 / 0.2);
-}
-.sd-native-select option {
-  background: #1a1b1f;
-  color: white;
-}
-</style>

@@ -18,7 +18,7 @@ export const VIEW_ROUTER_HUB_DASHBOARD_PATH = '/sdc/dashboard';
 /** @deprecated Use {@link VIEW_ROUTER_HUB_DASHBOARD_PATH}. Kept for legacy `getViewRouterViewId`. */
 export const VIEW_ROUTER_DASHBOARD_PATH = VIEW_ROUTER_HUB_DASHBOARD_PATH;
 
-/** People explorer tabs (aligned with PeopleDialog `activeTab`). */
+/** People explorer tabs (aligned with `PeopleExplorerPanel` / `PeopleTabId`). */
 export type PeopleTabId = 'online' | 'viewed' | 'latest' | 'featured';
 
 export const VIEW_ROUTER_PEOPLE_ONLINE_PATH = '/sdc/online';

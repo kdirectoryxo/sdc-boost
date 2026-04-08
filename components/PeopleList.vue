@@ -35,8 +35,6 @@ interface Props {
   clientSideFilters?: ClientSideFilters;
   /** Real URLs for `<a href>` (view router); enables middle-click / new tab. */
   getProfileHref?: (userId: number) => string;
-  /** Legacy: callback when `getProfileHref` is not used. */
-  openProfile?: (userId: number) => void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -383,277 +381,117 @@ watch(() => props.clientSideFilters, async () => {
 </script>
 
 <template>
-  <div class="list">
+  <div
+    class="min-h-0 w-full flex-1 overflow-y-auto p-3 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-white/[0.06] hover:[&::-webkit-scrollbar-thumb]:bg-white/10"
+  >
     <!-- Error -->
-    <div v-if="error" class="list-error">
-      <div class="list-error-icon">
+    <div
+      v-if="error"
+      class="flex flex-col items-center rounded-[10px] border border-red-500/15 bg-red-500/[0.06] px-5 py-10 text-center"
+    >
+      <div
+        class="mb-3 flex size-10 items-center justify-center rounded-full bg-red-500/10 text-red-400"
+      >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"></circle>
           <line x1="12" y1="8" x2="12" y2="12"></line>
           <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
       </div>
-      <p class="list-error-text">{{ error }}</p>
-      <button @click="loadMembers(0, false)" class="list-error-btn">Retry</button>
+      <p class="mb-4 text-[13px] text-red-400">{{ error }}</p>
+      <button
+        type="button"
+        class="cursor-pointer rounded-md border border-red-500/25 bg-red-500/15 px-4 py-2 text-xs font-medium text-red-400 transition-all duration-150 ease-in-out hover:bg-red-500/20"
+        @click="loadMembers(0, false)"
+      >
+        Retry
+      </button>
     </div>
 
     <!-- Loading Initial -->
-    <div v-else-if="loading && items.length === 0" class="list-loading">
-      <div class="skeleton-grid">
-        <div v-for="i in 12" :key="i" class="skeleton-card">
-          <div class="skeleton-photo"></div>
-          <div class="skeleton-info">
-            <div class="skeleton-line w-60"></div>
-            <div class="skeleton-line w-40"></div>
-            <div class="skeleton-line w-80"></div>
+    <div v-else-if="loading && items.length === 0">
+      <div
+        class="grid grid-cols-2 gap-2.5 min-[640px]:grid-cols-3 min-[900px]:grid-cols-4 min-[1200px]:grid-cols-5 min-[1500px]:grid-cols-6"
+      >
+        <div
+          v-for="i in 12"
+          :key="i"
+          class="overflow-hidden rounded-[10px] border border-white/[0.04] bg-[#1a1d21]"
+        >
+          <div
+            class="aspect-square w-full bg-[linear-gradient(90deg,#16181c_25%,#1e2227_50%,#16181c_75%)] bg-[length:200%_100%] animate-hub-shimmer"
+          />
+          <div class="flex flex-col gap-1.5 p-2.5">
+            <div
+              class="h-2.5 w-[60%] rounded bg-[linear-gradient(90deg,#16181c_25%,#1e2227_50%,#16181c_75%)] bg-[length:200%_100%] animate-hub-shimmer"
+            />
+            <div
+              class="h-2.5 w-[40%] rounded bg-[linear-gradient(90deg,#16181c_25%,#1e2227_50%,#16181c_75%)] bg-[length:200%_100%] animate-hub-shimmer"
+            />
+            <div
+              class="h-2.5 w-[80%] rounded bg-[linear-gradient(90deg,#16181c_25%,#1e2227_50%,#16181c_75%)] bg-[length:200%_100%] animate-hub-shimmer"
+            />
           </div>
         </div>
       </div>
     </div>
 
     <!-- Empty -->
-    <div v-else-if="!loading && filteredItems.length === 0" class="list-empty">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+    <div
+      v-else-if="!loading && filteredItems.length === 0"
+      class="flex flex-col items-center px-5 py-16 text-center text-gray-600"
+    >
+      <svg
+        class="mb-4 opacity-50"
+        width="40"
+        height="40"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+      >
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
         <circle cx="9" cy="7" r="4"></circle>
         <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
         <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
       </svg>
-      <p class="list-empty-title">No members found</p>
-      <p class="list-empty-text">{{ activeTab === 'online' ? 'No online members right now' : activeTab === 'latest' ? 'No new members found' : activeTab === 'featured' ? 'No featured members found' : 'No viewed members yet' }}</p>
+      <p class="mb-1 text-base font-semibold text-gray-500">No members found</p>
+      <p class="text-[13px] text-gray-600">
+        {{
+          activeTab === 'online'
+            ? 'No online members right now'
+            : activeTab === 'latest'
+              ? 'No new members found'
+              : activeTab === 'featured'
+                ? 'No featured members found'
+                : 'No viewed members yet'
+        }}
+      </p>
     </div>
 
     <!-- Grid -->
-    <div v-else class="grid">
+    <div
+      v-else
+      class="grid grid-cols-2 gap-2.5 min-[640px]:grid-cols-3 min-[900px]:grid-cols-4 min-[1200px]:grid-cols-5 min-[1500px]:grid-cols-6"
+    >
       <PeopleCard
         v-for="member in filteredItems"
         :key="member.db_id"
         :member="member"
         :is-online="activeTab === 'online'"
         :profile-href="getProfileHref?.(member.db_id)"
-        :open-profile="openProfile"
       />
     </div>
 
     <!-- Loading More -->
-    <div v-if="loading && filteredItems.length > 0" class="list-loading-more">
-      <div class="spinner"></div>
+    <div
+      v-if="loading && filteredItems.length > 0"
+      class="flex items-center justify-center gap-2.5 p-6 text-xs text-gray-500"
+    >
+      <div class="size-[18px] animate-spin rounded-full border-2 border-blue-500/20 border-t-blue-500" />
       <span>Loading more...</span>
     </div>
 
-    <div ref="observerTarget" class="observer"></div>
+    <div ref="observerTarget" class="h-px w-full" />
   </div>
 </template>
-
-<style scoped>
-.list {
-  width: 100%;
-  padding: 12px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-}
-
-.list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
-}
-
-.list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-/* Error */
-.list-error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 40px 20px;
-  background: rgba(239, 68, 68, 0.06);
-  border: 1px solid rgba(239, 68, 68, 0.15);
-  border-radius: 10px;
-}
-
-.list-error-icon {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(239, 68, 68, 0.1);
-  border-radius: 50%;
-  color: #f87171;
-  margin-bottom: 12px;
-}
-
-.list-error-text {
-  color: #f87171;
-  font-size: 13px;
-  margin-bottom: 16px;
-}
-
-.list-error-btn {
-  padding: 8px 16px;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  border-radius: 6px;
-  color: #f87171;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.15s ease;
-}
-
-.list-error-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-}
-
-/* Loading */
-.list-loading {
-  padding: 0;
-}
-
-.skeleton-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-
-@media (min-width: 640px) {
-  .skeleton-grid { grid-template-columns: repeat(3, 1fr); }
-}
-@media (min-width: 900px) {
-  .skeleton-grid { grid-template-columns: repeat(4, 1fr); }
-}
-@media (min-width: 1200px) {
-  .skeleton-grid { grid-template-columns: repeat(5, 1fr); }
-}
-@media (min-width: 1500px) {
-  .skeleton-grid { grid-template-columns: repeat(6, 1fr); }
-}
-
-.skeleton-card {
-  background: #1a1d21;
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.skeleton-photo {
-  width: 100%;
-  aspect-ratio: 1;
-  background: linear-gradient(90deg, #16181c 25%, #1e2227 50%, #16181c 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-}
-
-.skeleton-info {
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.skeleton-line {
-  height: 10px;
-  background: linear-gradient(90deg, #16181c 25%, #1e2227 50%, #16181c 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: 4px;
-}
-
-.w-60 { width: 60%; }
-.w-40 { width: 40%; }
-.w-80 { width: 80%; }
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* Empty */
-.list-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 60px 20px;
-  color: #4b5563;
-}
-
-.list-empty svg {
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-
-.list-empty-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #6b7280;
-  margin: 0 0 4px 0;
-}
-
-.list-empty-text {
-  font-size: 13px;
-  color: #4b5563;
-  margin: 0;
-}
-
-/* Grid */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-
-@media (min-width: 640px) {
-  .grid { grid-template-columns: repeat(3, 1fr); }
-}
-@media (min-width: 900px) {
-  .grid { grid-template-columns: repeat(4, 1fr); }
-}
-@media (min-width: 1200px) {
-  .grid { grid-template-columns: repeat(5, 1fr); }
-}
-@media (min-width: 1500px) {
-  .grid { grid-template-columns: repeat(6, 1fr); }
-}
-
-/* Loading More */
-.list-loading-more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 24px;
-  color: #6b7280;
-  font-size: 12px;
-}
-
-.spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(59, 130, 246, 0.2);
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.observer {
-  height: 1px;
-  width: 100%;
-}
-</style>

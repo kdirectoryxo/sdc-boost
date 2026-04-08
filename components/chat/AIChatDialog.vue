@@ -6,7 +6,7 @@ import { profileStorage } from '@/lib/profile-storage';
 import { messageStorage } from '@/lib/message-storage';
 import { getMessengerGroupInfo, getMessengerGroupChatDetails } from '@/lib/sdc-api/messenger';
 import { marked } from 'marked';
-import { parseImageMessage, parseVideoMessage, parseGalleryMessage, highlightText } from '@/lib/composables/chat/utils';
+import { parseImageMessage, parseVideoMessage, parseGalleryMessage } from '@/lib/composables/chat/utils';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,32 @@ import {
   CHAT_NESTED_DIALOG_OVERLAY_CLASS,
   CHAT_NESTED_DIALOG_CONTENT_CLASS,
 } from '@/lib/chat-ui/nested-dialog-classes';
+
+/** Tailwind for v-html markdown: prose-like defaults without a scoped style block */
+const AI_MESSAGE_VHTML_CLASS = cn(
+  'break-words min-w-0 mb-0 pb-0',
+  '[&_*:last-child]:!mb-0 [&_*:last-child]:!pb-0',
+  '[&_p]:block [&_p]:mt-0 [&_p]:mb-[0.5em] [&_p]:p-0 [&_p]:leading-[1.3]',
+  '[&_p:last-child]:leading-[1.2] [&_p:last-child]:!mb-0 [&_p:last-child]:!pb-0',
+  '[&_p:only-child]:!mb-0 [&_p:only-child]:!pb-0',
+  '[&_strong]:font-semibold [&_strong]:text-inherit',
+  '[&_em]:italic',
+  '[&_ul]:list-disc [&_ul]:ml-5 [&_ul]:mt-1 [&_ul]:mb-2 [&_ul]:pl-3',
+  '[&_ol]:list-decimal [&_ol]:ml-5 [&_ol]:mt-1 [&_ol]:mb-2 [&_ol]:pl-3',
+  '[&_li]:mb-[0.2em] [&_li]:leading-[1.4] [&_li:last-child]:mb-0',
+  '[&_li>p]:mb-[0.2em] [&_li>p:last-child]:mb-0',
+  '[&_h1,&_h2,&_h3,&_h4,&_h5,&_h6]:font-semibold [&_h1,&_h2,&_h3,&_h4,&_h5,&_h6]:mt-[1em] [&_h1,&_h2,&_h3,&_h4,&_h5,&_h6]:mb-[0.5em] [&_h1,&_h2,&_h3,&_h4,&_h5,&_h6]:leading-[1.3]',
+  '[&_h1]:text-[1.5em] [&_h2]:text-[1.3em] [&_h3]:text-[1.1em]',
+  '[&_code]:rounded [&_code]:bg-white/10 [&_code]:px-[0.4em] [&_code]:py-[0.2em] [&_code]:font-mono [&_code]:text-[0.9em]',
+  '[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-black/30 [&_pre]:p-4',
+  '[&_pre_code]:bg-transparent [&_pre_code]:p-0',
+  '[&_blockquote]:my-3 [&_blockquote]:border-l-[3px] [&_blockquote]:border-white/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-white/80',
+  '[&_a]:text-blue-400 [&_a]:underline [&_a:hover]:text-blue-300',
+  '[&_hr]:my-4 [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-white/20',
+  '[&_table]:my-3 [&_table]:w-full [&_table]:border-collapse',
+  '[&_th]:border [&_th]:border-white/20 [&_th]:p-2 [&_th]:text-left [&_th]:bg-white/5 [&_th]:font-semibold',
+  '[&_td]:border [&_td]:border-white/20 [&_td]:p-2 [&_td]:text-left',
+);
 
 interface Props {
   visible: boolean;
@@ -254,7 +280,6 @@ async function loadData() {
   } catch (err) {
     console.error('[AIChatDialog] Failed to load data:', err);
     error.value = err instanceof Error ? err.message : 'Failed to load data';
-    dataLoaded.value = false;
   }
 }
 
@@ -723,13 +748,13 @@ onMounted(() => {
               </div>
               <!-- Normal Message Display -->
               <template v-else>
-                <div class="wrap-break-word ai-message-content" v-html="formatAIMessage(msg.content)"></div>
+                <div :class="AI_MESSAGE_VHTML_CLASS" v-html="formatAIMessage(msg.content)"></div>
                 <div class="flex items-center justify-between mt-0.5">
                   <div
-                    :class="[
-                      'text-xs ai-timestamp',
-                      msg.role === 'user' ? 'text-blue-100' : 'text-white/40'
-                    ]"
+                    :class="cn(
+                      'text-xs mt-0.5 pt-0 leading-none',
+                      msg.role === 'user' ? 'text-blue-100' : 'text-white/40',
+                    )"
                   >
                     {{ msg.timestamp.toLocaleTimeString() }}
                   </div>
@@ -841,175 +866,3 @@ onMounted(() => {
     </DialogContent>
   </Dialog>
 </template>
-
-<style scoped>
-/* Ensure text wraps properly */
-.break-words {
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
-/* AI message content styling - Markdown rendering */
-.ai-message-content {
-  margin-bottom: 0 !important;
-  padding-bottom: 0 !important;
-}
-
-.ai-message-content :deep(p) {
-  display: block;
-  margin-block-start: 0;
-  margin-block-end: 0;
-  margin-top: 0;
-  margin-bottom: 0.5em;
-  line-height: 1.3;
-  padding: 0;
-}
-
-.ai-message-content :deep(p:last-child) {
-  line-height: 1.2;
-}
-
-.ai-message-content :deep(p:last-child),
-.ai-message-content :deep(p:only-child) {
-  margin-bottom: 0 !important;
-  margin-block-end: 0 !important;
-  padding-bottom: 0 !important;
-}
-
-.ai-message-content :deep(*:last-child) {
-  margin-bottom: 0 !important;
-  padding-bottom: 0 !important;
-}
-
-.ai-timestamp {
-  margin-top: 2px !important;
-  padding-top: 0 !important;
-  line-height: 1;
-}
-
-.ai-message-content :deep(strong) {
-  font-weight: 600;
-  color: inherit;
-}
-
-.ai-message-content :deep(em) {
-  font-style: italic;
-}
-
-.ai-message-content :deep(ul),
-.ai-message-content :deep(ol) {
-  list-style-type: disc;
-  margin-left: 1.25em;
-  margin-top: 0.25em;
-  margin-bottom: 0.5em;
-  padding-left: 0.75em;
-}
-
-.ai-message-content :deep(ol) {
-  list-style-type: decimal;
-}
-
-.ai-message-content :deep(li) {
-  margin-bottom: 0.2em;
-  line-height: 1.4;
-}
-
-.ai-message-content :deep(li:last-child) {
-  margin-bottom: 0;
-}
-
-.ai-message-content :deep(li > p) {
-  margin-bottom: 0.2em;
-}
-
-.ai-message-content :deep(li > p:last-child) {
-  margin-bottom: 0;
-}
-
-.ai-message-content :deep(h1),
-.ai-message-content :deep(h2),
-.ai-message-content :deep(h3),
-.ai-message-content :deep(h4),
-.ai-message-content :deep(h5),
-.ai-message-content :deep(h6) {
-  font-weight: 600;
-  margin-top: 1em;
-  margin-bottom: 0.5em;
-  line-height: 1.3;
-}
-
-.ai-message-content :deep(h1) {
-  font-size: 1.5em;
-}
-
-.ai-message-content :deep(h2) {
-  font-size: 1.3em;
-}
-
-.ai-message-content :deep(h3) {
-  font-size: 1.1em;
-}
-
-.ai-message-content :deep(code) {
-  background-color: rgba(255, 255, 255, 0.1);
-  padding: 0.2em 0.4em;
-  border-radius: 0.25em;
-  font-size: 0.9em;
-  font-family: 'Courier New', monospace;
-}
-
-.ai-message-content :deep(pre) {
-  background-color: rgba(0, 0, 0, 0.3);
-  padding: 1em;
-  border-radius: 0.5em;
-  overflow-x: auto;
-  margin: 0.75em 0;
-}
-
-.ai-message-content :deep(pre code) {
-  background-color: transparent;
-  padding: 0;
-}
-
-.ai-message-content :deep(blockquote) {
-  border-left: 3px solid rgba(255, 255, 255, 0.3);
-  padding-left: 1em;
-  margin: 0.75em 0;
-  font-style: italic;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.ai-message-content :deep(a) {
-  color: #60a5fa;
-  text-decoration: underline;
-}
-
-.ai-message-content :deep(a:hover) {
-  color: #93c5fd;
-}
-
-.ai-message-content :deep(hr) {
-  border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-  margin: 1em 0;
-}
-
-.ai-message-content :deep(table) {
-  border-collapse: collapse;
-  margin: 0.75em 0;
-  width: 100%;
-}
-
-.ai-message-content :deep(th),
-.ai-message-content :deep(td) {
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 0.5em;
-  text-align: left;
-}
-
-.ai-message-content :deep(th) {
-  font-weight: 600;
-  background-color: rgba(255, 255, 255, 0.05);
-}
-</style>

@@ -17,8 +17,6 @@ interface Props {
    * middle-click / ctrl+click open a new tab; plain click uses in-app navigation.
    */
   profileHref?: string;
-  /** When set (no `profileHref`), called instead of the global profile dialog hook. */
-  openProfile?: (userId: number) => void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -159,17 +157,7 @@ function handleClick(e: MouseEvent) {
     return;
   }
 
-  if (props.openProfile) {
-    props.openProfile(id);
-    return;
-  }
-  const w = window as unknown as { __sdcBoostOpenProfileDialog?: (uid: number) => void };
-  const profileDialog = w.__sdcBoostOpenProfileDialog;
-  if (profileDialog) {
-    profileDialog(id);
-  } else {
-    window.open(`https://www.sdc.com/react/#/profile?idUser=${id}`, '_blank');
-  }
+  navigateBoostViewRouterPath(getBoostProfilePath(id));
 }
 
 // Profile type indicator color
@@ -192,23 +180,28 @@ const lookingForIcons = computed(() => parseSummaryIntToLookingForIcons(props.me
   <component
     :is="profileHref ? 'a' : 'div'"
     :href="profileHref || undefined"
-    class="card"
+    class="group cursor-pointer overflow-hidden rounded-[10px] border border-white/4 bg-[#1a1d21] transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-blue-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.3)]"
+    :class="profileHref ? 'block text-inherit no-underline outline-none' : ''"
     @click="handleClick"
   >
     <!-- Photo -->
-    <div class="card-photo">
+    <div class="relative aspect-square w-full overflow-hidden bg-[#131517]">
       <img 
         :key="`${member.db_id}-${imageError}`"
         :src="displayImageUrl" 
         :alt="member.account_id" 
+        class="h-full w-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105"
         @error="handleImageError" 
       />
       
       <!-- Online indicator -->
-      <div v-if="member.online === 1" class="card-online"></div>
+      <div
+        v-if="member.online === 1"
+        class="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[#1a1d21] bg-green-500 shadow-[0_0_0_2px_rgba(34,197,94,0.3)]"
+      />
       
       <!-- Badges -->
-      <div class="card-badges">
+      <div class="absolute left-1.5 top-1.5 flex gap-1">
         <Badge
           v-if="hasLifetimeStatus"
           variant="secondary"
@@ -228,46 +221,55 @@ const lookingForIcons = computed(() => parseSummaryIntToLookingForIcons(props.me
       </div>
       
       <!-- Timed (viewed / non-online); live voyeur uses bottom overlay instead -->
-      <div v-if="timedText && !isOnline && !liveVoyeur" class="card-timed">{{ timedText }}</div>
+      <div
+        v-if="timedText && !isOnline && !liveVoyeur"
+        class="absolute right-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-medium text-white/90 backdrop-blur-md"
+      >
+        {{ timedText }}
+      </div>
 
       <!-- Live voyeur: watchers + stream duration (voyeur_cam_list_v2) -->
       <div
         v-if="liveVoyeur && (liveWatchCount != null || liveTimedFormatted)"
-        class="card-live-voyeur"
+        class="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-[linear-gradient(to_top,rgba(0,0,0,0.78)_0%,rgba(0,0,0,0.35)_55%,transparent_100%)] px-2 pb-[7px] pt-1.5 text-[10px] font-semibold text-white/95 [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]"
       >
-        <span v-if="liveWatchCount != null" class="card-live-voyeur-stat">
+        <span v-if="liveWatchCount != null" class="inline-flex items-center gap-1">
           <Icon icon="mdi:eye-outline" width="12" height="12" />
           {{ liveWatchCount }}
         </span>
-        <span v-if="liveTimedFormatted" class="card-live-voyeur-time">{{ liveTimedFormatted }}</span>
+        <span v-if="liveTimedFormatted" class="font-medium opacity-90">{{ liveTimedFormatted }}</span>
       </div>
       
       <!-- Device -->
-      <div v-if="member.is_app_user || member.is_web_user" class="card-device">
+      <div
+        v-if="member.is_app_user || member.is_web_user"
+        class="absolute bottom-1.5 right-1.5 flex gap-[3px] rounded bg-black/60 px-[5px] py-[3px] backdrop-blur-md [&_svg]:opacity-90"
+      >
         <Icon v-if="member.is_app_user" icon="mdi:cellphone" width="12" height="12" />
         <Icon v-if="member.is_web_user" icon="mdi:monitor" width="12" height="12" />
       </div>
     </div>
 
     <!-- Info -->
-    <div class="card-info" :style="{ borderTop: `3px solid ${profileTypeColor}` }">
+    <div
+      class="flex flex-col gap-1 p-[10px]"
+      :style="{ borderTop: `3px solid ${profileTypeColor}` }"
+    >
       <!-- Name row -->
-      <div class="card-row">
-        <span class="card-name">{{ member.account_id }}</span>
+      <div class="flex flex-row items-center gap-1.5">
+        <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold text-white">{{ member.account_id }}</span>
         <!-- Looking For Icons -->
-        <div v-if="lookingForIcons.length > 0" class="card-looking-for">
+        <div v-if="lookingForIcons.length > 0" class="ml-auto flex shrink-0 flex-row items-center gap-[3px]">
           <template v-for="(item, index) in lookingForIcons" :key="index">
-            <div v-if="item.type === 'couple-group'" class="looking-for-couple">
+            <div v-if="item.type === 'couple-group'" class="flex items-center">
               <Icon 
                 v-for="(icon, i) in item.icons" 
                 :key="i"
                 :icon="icon.icon"
                 width="12"
                 height="12"
-                :style="{ 
-                  color: icon.color,
-                  marginLeft: i === 1 ? '-8px' : '0'
-                }"
+                :class="i === 1 ? '-ml-2' : ''"
+                :style="{ color: icon.color }"
               />
             </div>
             <Icon 
@@ -282,32 +284,32 @@ const lookingForIcons = computed(() => parseSummaryIntToLookingForIcons(props.me
       </div>
       
       <!-- Age row -->
-      <div class="card-row">
-        <div class="card-ages">
+      <div class="flex flex-row items-center gap-1.5">
+        <div class="flex items-center gap-[3px] text-[13px] font-semibold">
           <span v-if="ages.first" :style="{ color: getAgeColor(member.gender1) }">{{ ages.first }}</span>
-          <span v-if="ages.first && ages.second && isGender2Real" class="age-sep">|</span>
+          <span v-if="ages.first && ages.second && isGender2Real" class="text-[11px] text-white/20">|</span>
           <span v-if="ages.second && isGender2Real" :style="{ color: getAgeColor(member.gender2) }">{{ ages.second }}</span>
         </div>
-        <span v-if="distanceText" class="card-distance">{{ distanceText }}</span>
+        <span v-if="distanceText" class="rounded bg-blue-400/12 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">{{ distanceText }}</span>
       </div>
       
       <!-- Location -->
-      <div v-if="locationText" class="card-location">
-        <Icon icon="mdi:map-marker-outline" width="10" height="10" class="card-location-icon" />
-        <span>{{ locationText }}</span>
+      <div v-if="locationText" class="flex items-center gap-1 overflow-hidden text-[10px] text-gray-500">
+        <Icon icon="mdi:map-marker-outline" width="10" height="10" class="shrink-0 text-gray-600" />
+        <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{{ locationText }}</span>
       </div>
 
       <!-- Stats -->
-      <div v-if="member.photo_count || member.likes_count || member.valid_count" class="card-stats">
-        <span v-if="member.photo_count" class="stat">
+      <div v-if="member.photo_count || member.likes_count || member.valid_count" class="mt-1 flex items-center gap-1 border-t border-white/4 pt-1.5">
+        <span v-if="member.photo_count" class="flex items-center gap-[3px] text-[10px] text-gray-500 [&_svg]:opacity-60 group-hover:text-gray-400">
           <Icon icon="mdi:image-outline" width="11" height="11" />
           {{ member.photo_count }}
         </span>
-        <span v-if="member.likes_count" class="stat">
+        <span v-if="member.likes_count" class="flex items-center gap-[3px] text-[10px] text-gray-500 [&_svg]:opacity-60 group-hover:text-gray-400">
           <Icon icon="mdi:heart-outline" width="11" height="11" />
           {{ member.likes_count }}
         </span>
-        <span v-if="member.valid_count" class="stat">
+        <span v-if="member.valid_count" class="flex items-center gap-[3px] text-[10px] text-gray-500 [&_svg]:opacity-60 group-hover:text-gray-400">
           <Icon icon="mdi:check-circle-outline" width="11" height="11" />
           {{ member.valid_count }}
         </span>
@@ -315,250 +317,3 @@ const lookingForIcons = computed(() => parseSummaryIntToLookingForIcons(props.me
     </div>
   </component>
 </template>
-
-<style scoped>
-.card {
-  background: #1a1d21;
-  border-radius: 10px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-a.card {
-  display: block;
-  text-decoration: none;
-  color: inherit;
-  outline: none;
-}
-
-.card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(59, 130, 246, 0.3);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-}
-
-/* Photo */
-.card-photo {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1;
-  background: #131517;
-  overflow: hidden;
-}
-
-.card-photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.card:hover .card-photo img {
-  transform: scale(1.05);
-}
-
-.card-photo-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #1e2227 0%, #131517 100%);
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 32px;
-  font-weight: 700;
-}
-
-/* Online indicator */
-.card-online {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 10px;
-  height: 10px;
-  background: #22c55e;
-  border-radius: 50%;
-  border: 2px solid #1a1d21;
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
-}
-
-/* Badges */
-.card-badges {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  display: flex;
-  gap: 4px;
-}
-
-/* Live voyeur strip (watch count + duration) */
-.card-live-voyeur {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 8px 7px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.35) 55%, transparent 100%);
-  font-size: 10px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.95);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
-  pointer-events: none;
-}
-
-.card-live-voyeur-stat {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.card-live-voyeur-time {
-  font-weight: 500;
-  opacity: 0.92;
-}
-
-/* Timed */
-.card-timed {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  padding: 3px 6px;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-  border-radius: 4px;
-  font-size: 9px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-/* Device */
-.card-device {
-  position: absolute;
-  bottom: 6px;
-  right: 6px;
-  display: flex;
-  gap: 3px;
-  padding: 3px 5px;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  border-radius: 4px;
-}
-
-.card-device .iconify {
-  opacity: 0.9;
-}
-
-/* Info */
-.card-info {
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.card-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-}
-
-.card-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: white;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-}
-
-.card-looking-for {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 3px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.card-ages {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.age-sep {
-  color: rgba(255, 255, 255, 0.2);
-  font-size: 11px;
-}
-
-.card-distance {
-  font-size: 9px;
-  font-weight: 500;
-  color: #60a5fa;
-  background: rgba(96, 165, 250, 0.12);
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.card-location {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #6b7280;
-  overflow: hidden;
-}
-
-.card-location-icon {
-  flex-shrink: 0;
-  color: #4b5563;
-}
-
-.card-location span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Stats */
-.card-stats {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 4px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.stat {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  color: #6b7280;
-}
-
-.stat svg {
-  opacity: 0.6;
-}
-
-.card:hover .stat {
-  color: #9ca3af;
-}
-
-.looking-for-couple {
-  display: flex;
-  align-items: center;
-}
-</style>

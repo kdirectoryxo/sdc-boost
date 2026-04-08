@@ -4,12 +4,12 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
-const dialogPath = path.join(root, 'components', 'PeopleDialog.vue');
+const panelPath = path.join(root, 'components', 'people-explorer', 'PeopleExplorerPanel.vue');
 const outPath = path.join(root, 'components', 'people', 'PeopleFiltersPanels.vue');
 
-const c = fs.readFileSync(dialogPath, 'utf8');
+const c = fs.readFileSync(panelPath, 'utf8');
 const s = c.indexOf('<!-- Compact Filter Bar for Viewed -->');
-const e = c.indexOf('<!-- Content -->');
+const e = c.indexOf('<div class="people-content">');
 if (s === -1 || e === -1) {
   console.error('markers not found', { s, e });
   process.exit(1);

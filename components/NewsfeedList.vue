@@ -275,54 +275,92 @@ watch(observerTarget, () => {
 </script>
 
 <template>
-  <div class="newsfeed-list">
+  <div class="w-full max-w-full px-6 pb-6 pt-4">
     <!-- Error State -->
-    <div v-if="error" class="newsfeed-error">
-      <div class="newsfeed-error-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="8" x2="12" y2="12"/>
-          <line x1="12" y1="16" x2="12.01" y2="16"/>
+    <div
+      v-if="error"
+      class="mb-3 flex flex-col items-center rounded-[10px] border border-red-500/20 bg-red-500/[0.08] px-4 py-8 text-center"
+    >
+      <div
+        class="mb-3 flex size-9 items-center justify-center rounded-full bg-red-500/15 text-red-400"
+      >
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
       </div>
-      <p class="newsfeed-error-title">Something went wrong</p>
-      <p class="newsfeed-error-text">{{ error }}</p>
+      <p class="mb-1.5 text-[15px] font-semibold text-red-400">Something went wrong</p>
+      <p class="text-sm text-red-300">{{ error }}</p>
     </div>
 
     <!-- Loading State (Initial) -->
-    <div v-else-if="loading && items.length === 0" class="newsfeed-loading">
-      <div class="newsfeed-loading-skeleton">
-        <div v-for="i in 6" :key="i" class="skeleton-card">
-          <div class="skeleton-header">
-            <div class="skeleton-avatar"></div>
-            <div class="skeleton-text-group">
-              <div class="skeleton-line skeleton-line-short"></div>
-              <div class="skeleton-line skeleton-line-shorter"></div>
+    <div v-else-if="loading && items.length === 0" class="py-1">
+      <div class="flex flex-col gap-2.5">
+        <div
+          v-for="i in 6"
+          :key="i"
+          class="rounded-[10px] border border-white/[0.05] bg-white/[0.03] p-3.5"
+        >
+          <div class="mb-3 flex items-center gap-2.5">
+            <div
+              class="size-11 shrink-0 rounded-full bg-[linear-gradient(90deg,rgba(255,255,255,0.04)_25%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0.04)_75%)] bg-[length:200%_100%] animate-hub-shimmer"
+            />
+            <div class="flex min-w-0 flex-1 flex-col gap-2">
+              <div
+                class="h-3 w-[40%] rounded bg-[linear-gradient(90deg,rgba(255,255,255,0.04)_25%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0.04)_75%)] bg-[length:200%_100%] animate-hub-shimmer"
+              />
+              <div
+                class="h-2.5 w-1/4 rounded bg-[linear-gradient(90deg,rgba(255,255,255,0.04)_25%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0.04)_75%)] bg-[length:200%_100%] animate-hub-shimmer"
+              />
             </div>
           </div>
-          <div class="skeleton-content">
-            <div class="skeleton-line"></div>
-            <div class="skeleton-line skeleton-line-medium"></div>
+          <div class="flex flex-col gap-2">
+            <div
+              class="h-3 rounded bg-[linear-gradient(90deg,rgba(255,255,255,0.04)_25%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0.04)_75%)] bg-[length:200%_100%] animate-hub-shimmer"
+            />
+            <div
+              class="h-3 w-[70%] rounded bg-[linear-gradient(90deg,rgba(255,255,255,0.04)_25%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0.04)_75%)] bg-[length:200%_100%] animate-hub-shimmer"
+            />
           </div>
         </div>
       </div>
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="!loading && items.length === 0" class="newsfeed-empty">
-      <div class="newsfeed-empty-icon">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <div v-else-if="!loading && items.length === 0" class="flex flex-col items-center px-4 py-10 text-center">
+      <div
+        class="mb-3.5 flex size-14 items-center justify-center rounded-full border border-white/[0.06] bg-white/[0.03] text-gray-600"
+      >
+        <svg
+          class="size-7"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M4 11a9 9 0 0 1 9 9" />
           <path d="M4 4a16 16 0 0 1 16 16" />
           <circle cx="5" cy="19" r="1" />
         </svg>
       </div>
-      <p class="newsfeed-empty-title">No activity yet</p>
-      <p class="newsfeed-empty-text">When there's new activity, it will show up here</p>
+      <p class="mb-1.5 text-[15px] font-semibold text-gray-400">No activity yet</p>
+      <p class="max-w-[260px] text-sm text-gray-500">When there's new activity, it will show up here</p>
     </div>
 
     <!-- Feed Items -->
-    <div v-else class="newsfeed-items">
+    <div v-else class="flex flex-col gap-3">
       <template v-for="(item, index) in items" :key="item.action_id">
         <!-- Guest List Card: action 600 -->
         <GuestListCard v-if="item.action === 600" :item="item" :index="index" />
@@ -346,210 +384,17 @@ watch(observerTarget, () => {
     </div>
 
     <!-- Loading More Indicator -->
-    <div v-if="loading && items.length > 0" class="newsfeed-loading-more">
-      <div class="loading-more-spinner"></div>
+    <div
+      v-if="loading && items.length > 0"
+      class="flex items-center justify-center gap-2 py-4 text-[13px] text-gray-500"
+    >
+      <div
+        class="size-3.5 animate-spin rounded-full border-2 border-blue-500/20 border-t-blue-500"
+      />
       <span>Loading more...</span>
     </div>
 
     <!-- Observer Target for Infinite Scroll -->
-    <div ref="observerTarget" class="newsfeed-observer-target"></div>
+    <div ref="observerTarget" class="h-px" />
   </div>
 </template>
-
-<style scoped>
-.newsfeed-list {
-  width: 100%;
-  max-width: 100%;
-  padding: 16px 24px 24px;
-}
-
-/* Error State */
-.newsfeed-error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 32px 16px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 10px;
-  margin-bottom: 12px;
-}
-
-.newsfeed-error-icon {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(239, 68, 68, 0.15);
-  border-radius: 50%;
-  color: #f87171;
-  margin-bottom: 12px;
-}
-
-.newsfeed-error-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.newsfeed-error-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #f87171;
-  margin-bottom: 6px;
-}
-
-.newsfeed-error-text {
-  color: #fca5a5;
-  font-size: 14px;
-}
-
-/* Loading State - Skeleton */
-.newsfeed-loading {
-  padding: 4px 0;
-}
-
-.newsfeed-loading-skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.skeleton-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
-  padding: 14px;
-}
-
-.skeleton-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.skeleton-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-.skeleton-text-group {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.skeleton-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.skeleton-line {
-  height: 12px;
-  border-radius: 4px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-.skeleton-line-short {
-  width: 40%;
-}
-
-.skeleton-line-shorter {
-  width: 25%;
-  height: 10px;
-}
-
-.skeleton-line-medium {
-  width: 70%;
-}
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* Empty State */
-.newsfeed-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 40px 16px;
-}
-
-.newsfeed-empty-icon {
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 50%;
-  color: #4b5563;
-  margin-bottom: 14px;
-}
-
-.newsfeed-empty-icon svg {
-  width: 28px;
-  height: 28px;
-}
-
-.newsfeed-empty-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #9ca3af;
-  margin-bottom: 6px;
-}
-
-.newsfeed-empty-text {
-  color: #6b7280;
-  font-size: 14px;
-  max-width: 260px;
-}
-
-/* Feed Items */
-.newsfeed-items {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* Loading More Indicator */
-.newsfeed-loading-more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 16px 0;
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.loading-more-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(59, 130, 246, 0.2);
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.newsfeed-observer-target {
-  height: 1px;
-}
-</style>

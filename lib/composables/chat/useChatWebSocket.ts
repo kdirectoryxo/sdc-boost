@@ -20,6 +20,8 @@ export const useChatWebSocket = createGlobalState(() => {
   let typingUnsubscribe: (() => void) | null = null;
   let connectionCheckInterval: ReturnType<typeof setInterval> | null = null;
   let countersUnsubscribe: (() => void) | null = null;
+  /** Removes `sdc-boost:*` window listeners registered in setupEventListeners */
+  let domEventCleanup: (() => void) | null = null;
   
   /**
    * Set up WebSocket-related UI listeners (window, counters, typing).
@@ -124,8 +126,7 @@ export const useChatWebSocket = createGlobalState(() => {
     window.addEventListener('sdc-boost:new-message', handleNewMessage);
     window.addEventListener('sdc-boost:chat-seen', handleSeen);
 
-    // Store cleanup functions
-    (window as any).__sdcBoostChatDialogCleanup = () => {
+    domEventCleanup = () => {
       window.removeEventListener('sdc-boost:new-message', handleNewMessage);
       window.removeEventListener('sdc-boost:chat-seen', handleSeen);
       if (connectionCheckInterval) {
@@ -153,10 +154,10 @@ export const useChatWebSocket = createGlobalState(() => {
       clearInterval(connectionCheckInterval);
       connectionCheckInterval = null;
     }
-    
-    if ((window as any).__sdcBoostChatDialogCleanup) {
-      (window as any).__sdcBoostChatDialogCleanup();
-      delete (window as any).__sdcBoostChatDialogCleanup;
+
+    if (domEventCleanup) {
+      domEventCleanup();
+      domEventCleanup = null;
     }
   }
   

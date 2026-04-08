@@ -271,7 +271,7 @@ function openSenderProfile(n: FeedNotificationItem) {
                   {{ n.sender.account_id }}
                 </p>
                 <div
-                  class="notification-body-prose mt-1 text-xs leading-snug text-white/70 [&_a]:text-sky-400 [&_a]:underline [&_a:hover]:text-sky-300"
+                  class="mt-1 text-xs leading-snug text-white/70 [&_.feed-notification-account-name]:font-semibold [&_.feed-notification-account-name]:text-violet-300 [&_a]:text-sky-400 [&_a]:underline [&_a:hover]:text-sky-300 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-[0.25em]"
                   v-html="formatFeedNotificationBodyHtml(n.post.body, n.sender.account_id)"
                 />
                 <p class="mt-1 text-[11px] text-white/35">
@@ -298,19 +298,3 @@ function openSenderProfile(n: FeedNotificationItem) {
     </DropdownMenuContent>
   </DropdownMenu>
 </template>
-
-<style scoped>
-.notification-body-prose :deep(p) {
-  margin: 0.25em 0;
-}
-.notification-body-prose :deep(p:first-child) {
-  margin-top: 0;
-}
-.notification-body-prose :deep(p:last-child) {
-  margin-bottom: 0;
-}
-.notification-body-prose :deep(.feed-notification-account-name) {
-  color: #c4b5fd;
-  font-weight: 600;
-}
-</style>

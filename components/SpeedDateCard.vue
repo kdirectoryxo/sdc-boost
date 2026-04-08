@@ -126,102 +126,107 @@ const messagePreview = computed(() => {
   <component
     :is="profileHref ? 'a' : 'div'"
     :href="profileHref || undefined"
-    class="sd-card"
+    class="group cursor-pointer overflow-hidden rounded-[10px] border border-white/4 bg-[#1a1d21] transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-blue-500/30 hover:shadow-[0_8px_24px_rgba(0,0,0,0.3)]"
+    :class="profileHref ? 'block text-inherit no-underline outline-none' : ''"
     @click="handleClick"
   >
-    <div class="sd-card-photo">
+    <div class="relative aspect-square w-full overflow-hidden bg-[#131517]">
       <img
         :key="`${item.db_id}-${imageError}`"
         :src="displayImageUrl"
         :alt="item.account_id"
+        class="h-full w-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105"
         @error="handleImageError"
       />
-      <div v-if="item.online === 1" class="sd-card-online" />
-      <div class="sd-card-badges">
-        <div v-if="hasLifetimeStatus" class="sd-badge sd-badge-lifetime" title="Lifetime">
+      <div v-if="item.online === 1" class="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[#1a1d21] bg-green-500" />
+      <div class="absolute left-1.5 top-1.5 flex gap-1">
+        <div
+          v-if="hasLifetimeStatus"
+          class="flex h-5 w-5 items-center justify-center rounded-[5px] bg-[rgba(234,179,8,0.85)] backdrop-blur-md"
+          title="Lifetime"
+        >
           <Icon icon="mdi:star" width="12" height="12" />
         </div>
-        <div class="sd-badge sd-badge-speed" title="Speed Date">
+        <div
+          class="flex h-5 w-5 items-center justify-center rounded-[5px] bg-[rgba(139,92,246,0.85)] backdrop-blur-md"
+          title="Speed Date"
+        >
           <Icon icon="mdi:lightning-bolt" width="12" height="12" />
         </div>
       </div>
-      <div class="sd-type-pill">{{ typeLabel }}</div>
-      <div v-if="item.is_app_user || item.is_web_user" class="sd-card-device">
+      <div
+        class="absolute bottom-1.5 left-1.5 max-w-[calc(100%-12px)] rounded-md bg-black/65 px-2 py-0.5 text-[9px] font-semibold leading-tight text-white/95 backdrop-blur-md"
+      >
+        {{ typeLabel }}
+      </div>
+      <div
+        v-if="item.is_app_user || item.is_web_user"
+        class="absolute bottom-1.5 right-1.5 flex gap-0.5 rounded bg-black/60 px-1.5 py-0.5 backdrop-blur-md"
+      >
         <Icon v-if="item.is_app_user" icon="mdi:cellphone" width="12" height="12" />
         <Icon v-if="item.is_web_user" icon="mdi:monitor" width="12" height="12" />
       </div>
     </div>
 
-    <div class="sd-card-info" :style="{ borderTop: `3px solid ${profileTypeColor}` }">
-      <div class="sd-card-row">
-        <span class="sd-card-name">{{ item.account_id }}</span>
-        <div v-if="lookingForIcons.length > 0" class="sd-card-looking-for">
+    <div class="flex flex-col gap-1 p-2.5" :style="{ borderTop: `3px solid ${profileTypeColor}` }">
+      <div class="flex flex-row items-center gap-1.5">
+        <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold text-white">{{
+          item.account_id
+        }}</span>
+        <div v-if="lookingForIcons.length > 0" class="ml-auto flex shrink-0 flex-row items-center gap-0.5">
           <template v-for="(lf, index) in lookingForIcons" :key="index">
-            <div v-if="lf.type === 'couple-group'" class="sd-looking-couple">
+            <div v-if="lf.type === 'couple-group'" class="flex items-center [&>svg+svg]:-ml-2">
               <Icon
                 v-for="(ic, i) in lf.icons"
                 :key="i"
                 :icon="ic.icon"
                 width="12"
                 height="12"
-                :style="{ color: ic.color, marginLeft: i === 1 ? '-8px' : '0' }"
+                :style="{ color: ic.color }"
               />
             </div>
-            <Icon
-              v-else
-              :icon="lf.icon"
-              width="12"
-              height="12"
-              :style="{ color: lf.color }"
-            />
+            <Icon v-else :icon="lf.icon" width="12" height="12" :style="{ color: lf.color }" />
           </template>
         </div>
       </div>
 
-      <div class="sd-card-row">
-        <div class="sd-card-ages">
+      <div class="flex flex-row items-center gap-1.5">
+        <div class="flex items-center gap-0.5 text-[13px] font-semibold">
           <span v-if="ages.first" :style="{ color: getAgeColor(item.gender1) }">{{ ages.first }}</span>
-          <span
-            v-if="ages.first && ages.second && isGender2Real"
-            class="sd-age-sep"
-            >|</span
-          >
-          <span
-            v-if="ages.second && isGender2Real"
-            :style="{ color: getAgeColor(item.gender2) }"
-            >{{ ages.second }}</span
-          >
+          <span v-if="ages.first && ages.second && isGender2Real" class="text-[11px] text-white/20">|</span>
+          <span v-if="ages.second && isGender2Real" :style="{ color: getAgeColor(item.gender2) }">{{ ages.second }}</span>
         </div>
-        <span v-if="distanceText" class="sd-card-distance">{{ distanceText }}</span>
+        <span v-if="distanceText" class="ml-auto rounded px-1.5 py-0.5 text-[9px] font-medium text-blue-400 bg-blue-400/12">{{
+          distanceText
+        }}</span>
       </div>
 
-      <div v-if="item.date_list" class="sd-date-line">{{ item.date_list }}</div>
+      <div v-if="item.date_list" class="text-[10px] text-white/55">{{ item.date_list }}</div>
 
-      <div v-if="locationBlock.primary || locationBlock.secondary" class="sd-card-location">
-        <Icon icon="mdi:map-marker-outline" width="10" height="10" class="sd-loc-icon" />
-        <div class="sd-loc-text">
+      <div v-if="locationBlock.primary || locationBlock.secondary" class="flex items-start gap-1 text-[10px] text-gray-500">
+        <Icon icon="mdi:map-marker-outline" width="10" height="10" class="mt-px shrink-0 text-gray-600" />
+        <div class="flex min-w-0 flex-col gap-0.5 [&>span:first-child]:overflow-hidden [&>span:first-child]:text-ellipsis [&>span:first-child]:whitespace-nowrap">
           <span>{{ locationBlock.primary }}</span>
-          <span v-if="locationBlock.secondary" class="sd-loc-secondary">{{ locationBlock.secondary }}</span>
+          <span v-if="locationBlock.secondary" class="whitespace-normal text-[9px] leading-snug text-white/40">{{
+            locationBlock.secondary
+          }}</span>
         </div>
       </div>
 
-      <div v-if="messagePreview" class="sd-message">
+      <div v-if="messagePreview" class="line-clamp-4 text-[10px] leading-[1.35] text-white/78">
         {{ messagePreview }}
       </div>
 
-      <div
-        v-if="item.photo_count || item.likes_count || item.valid_count"
-        class="sd-card-stats"
-      >
-        <span v-if="item.photo_count" class="sd-stat">
+      <div v-if="item.photo_count || item.likes_count || item.valid_count" class="mt-1 flex items-center gap-1 border-t border-white/4 pt-1.5">
+        <span v-if="item.photo_count" class="flex items-center gap-0.5 text-[10px] text-gray-500">
           <Icon icon="mdi:image-outline" width="11" height="11" />
           {{ item.photo_count }}
         </span>
-        <span v-if="item.likes_count" class="sd-stat">
+        <span v-if="item.likes_count" class="flex items-center gap-0.5 text-[10px] text-gray-500">
           <Icon icon="mdi:heart-outline" width="11" height="11" />
           {{ item.likes_count }}
         </span>
-        <span v-if="item.valid_count" class="sd-stat">
+        <span v-if="item.valid_count" class="flex items-center gap-0.5 text-[10px] text-gray-500">
           <Icon icon="mdi:check-circle-outline" width="11" height="11" />
           {{ item.valid_count }}
         </span>
@@ -229,238 +234,3 @@ const messagePreview = computed(() => {
     </div>
   </component>
 </template>
-
-<style scoped>
-.sd-card {
-  background: #1a1d21;
-  border-radius: 10px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-a.sd-card {
-  display: block;
-  text-decoration: none;
-  color: inherit;
-  outline: none;
-}
-
-.sd-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(59, 130, 246, 0.3);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-}
-
-.sd-card-photo {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1;
-  background: #131517;
-  overflow: hidden;
-}
-
-.sd-card-photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.sd-card:hover .sd-card-photo img {
-  transform: scale(1.05);
-}
-
-.sd-card-online {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 10px;
-  height: 10px;
-  background: #22c55e;
-  border-radius: 50%;
-  border: 2px solid #1a1d21;
-}
-
-.sd-card-badges {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  display: flex;
-  gap: 4px;
-}
-
-.sd-badge {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 5px;
-  backdrop-filter: blur(8px);
-}
-
-.sd-badge-lifetime {
-  background: rgba(234, 179, 8, 0.85);
-}
-
-.sd-badge-speed {
-  background: rgba(139, 92, 246, 0.85);
-}
-
-.sd-type-pill {
-  position: absolute;
-  bottom: 6px;
-  left: 6px;
-  max-width: calc(100% - 12px);
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 9px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.95);
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(8px);
-  line-height: 1.2;
-}
-
-.sd-card-device {
-  position: absolute;
-  bottom: 6px;
-  right: 6px;
-  display: flex;
-  gap: 3px;
-  padding: 3px 5px;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  border-radius: 4px;
-}
-
-.sd-card-info {
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.sd-card-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-}
-
-.sd-card-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: white;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-}
-
-.sd-card-looking-for {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 3px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.sd-looking-couple {
-  display: flex;
-  align-items: center;
-}
-
-.sd-card-ages {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.sd-age-sep {
-  color: rgba(255, 255, 255, 0.2);
-  font-size: 11px;
-}
-
-.sd-card-distance {
-  font-size: 9px;
-  font-weight: 500;
-  color: #60a5fa;
-  background: rgba(96, 165, 250, 0.12);
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-left: auto;
-}
-
-.sd-date-line {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.sd-card-location {
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-  font-size: 10px;
-  color: #6b7280;
-}
-
-.sd-loc-icon {
-  flex-shrink: 0;
-  margin-top: 1px;
-  color: #4b5563;
-}
-
-.sd-loc-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.sd-loc-text span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sd-loc-secondary {
-  font-size: 9px;
-  color: rgba(255, 255, 255, 0.4);
-  white-space: normal;
-  line-height: 1.3;
-}
-
-.sd-message {
-  font-size: 10px;
-  line-height: 1.35;
-  color: rgba(255, 255, 255, 0.78);
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.sd-card-stats {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 4px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.sd-stat {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  color: #6b7280;
-}
-</style>

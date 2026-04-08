@@ -20,14 +20,18 @@ const indicatorStyle = computed(() => ({
 </script>
 
 <template>
-  <div class="newsfeed-tabs">
-    <div class="newsfeed-tabs-container">
-      <!-- Sliding indicator background -->
-      <div class="newsfeed-tabs-indicator" :style="indicatorStyle"></div>
-      
+  <div class="bg-[#1a1d21] px-4 pb-0 pt-2">
+    <div class="relative grid grid-cols-2 gap-0.5 rounded-md bg-white/[0.03] p-0.5">
+      <div
+        class="pointer-events-none absolute left-[3px] top-[3px] h-[calc(100%-6px)] w-[calc(50%-2.5px)] rounded-[5px] border border-blue-500/20 bg-gradient-to-br from-blue-500/15 to-blue-500/[0.08] transition-transform duration-[250ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+        :style="indicatorStyle"
+      />
+
       <button
+        type="button"
+        class="relative z-10 flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[5px] border-0 bg-transparent px-4 py-2 text-sm font-medium transition-colors"
+        :class="activeTab === 'feed' ? 'text-blue-400' : 'text-gray-500 hover:text-gray-400'"
         @click="setTab('feed')"
-        :class="['newsfeed-tab', { 'newsfeed-tab-active': activeTab === 'feed' }]"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 11a9 9 0 0 1 9 9" />
@@ -37,8 +41,10 @@ const indicatorStyle = computed(() => ({
         <span>Feed</span>
       </button>
       <button
+        type="button"
+        class="relative z-10 flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[5px] border-0 bg-transparent px-4 py-2 text-sm font-medium transition-colors"
+        :class="activeTab === 'admin' ? 'text-blue-400' : 'text-gray-500 hover:text-gray-400'"
         @click="setTab('admin')"
-        :class="['newsfeed-tab', { 'newsfeed-tab-active': activeTab === 'admin' }]"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -51,68 +57,3 @@ const indicatorStyle = computed(() => ({
     </div>
   </div>
 </template>
-
-<style scoped>
-.newsfeed-tabs {
-  background-color: #1a1d21;
-  padding: 8px 16px 0;
-}
-
-.newsfeed-tabs-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  position: relative;
-  background-color: rgba(255, 255, 255, 0.03);
-  border-radius: 6px;
-  padding: 3px;
-  gap: 2px;
-}
-
-.newsfeed-tabs-indicator {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: calc(50% - 2.5px);
-  height: calc(100% - 6px);
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: 5px;
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
-}
-
-.newsfeed-tab {
-  position: relative;
-  z-index: 1;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  transition: color 0.2s ease;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #6b7280;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border-radius: 5px;
-}
-
-.newsfeed-tab svg {
-  width: 16px;
-  height: 16px;
-}
-
-.newsfeed-tab:hover:not(.newsfeed-tab-active) {
-  color: #9ca3af;
-}
-
-.newsfeed-tab-active {
-  color: #60a5fa;
-}
-
-.newsfeed-tab svg {
-  flex-shrink: 0;
-}
-</style>

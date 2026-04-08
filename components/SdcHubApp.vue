@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, computed, onMounted, onUnmounted, provide, useTemplateRef, watch, nextTick } from 'vue';
 import { useColorMode } from '@vueuse/core';
-import { navigationWatcher } from '@/lib/modules/utils/NavigationWatcher';
+import { navigationWatcher } from '@/lib/navigation-watcher';
 import {
   getBoostViewPathFromLocation,
   isViewRouterActiveRoute,

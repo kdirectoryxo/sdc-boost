@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch, toRef, nextTick, computed, unref } from 'vue';
+import { ref, watch, toRef, nextTick, unref } from 'vue';
 import type { Ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import VueEasyLightbox from 'vue-easy-lightbox';
@@ -14,10 +14,8 @@ import { useChatWebSocket } from '@/lib/composables/chat/useChatWebSocket';
 import { useChatSync } from '@/lib/composables/chat/useChatSync';
 import { useChatSelection } from '@/lib/composables/chat/useChatSelection';
 import { useChatDialogLifecycle } from '@/lib/composables/chat/useChatDialogLifecycle';
-import { useProfileDialogs } from '@/lib/composables/chat/useProfileDialogs';
 import { useGroupDialogs } from '@/lib/composables/chat/useGroupDialogs';
 import { parseImageMessage, parseVideoMessage, parseGalleryMessage } from '@/lib/composables/chat/utils';
-import ChatDialogHeader from '@/components/chat/ChatDialogHeader.vue';
 import ChatFoldersSidebar from '@/components/chat/ChatFoldersSidebar.vue';
 import ChatListSidebar from '@/components/chat/ChatListSidebar.vue';
 import ChatMessagesArea from '@/components/chat/ChatMessagesArea.vue';
@@ -28,7 +26,6 @@ import TagDialog from '@/components/chat/TagDialog.vue';
 import SyncChoiceDialog from '@/components/chat/SyncChoiceDialog.vue';
 import VideoLightbox from '@/components/chat/VideoLightbox.vue';
 import NewChatSearchDialog from '@/components/chat/NewChatSearchDialog.vue';
-import ProfileDialog from '@/components/chat/ProfileDialog.vue';
 import GroupDialog from '@/components/chat/GroupDialog.vue';
 import ChatDialogSettings from '@/components/chat/ChatDialogSettings.vue';
 import AIChatDialog from '@/components/chat/AIChatDialog.vue';
@@ -38,26 +35,12 @@ import { startChat } from '@/lib/sdc-api';
 import { chatStorage } from '@/lib/chat-storage';
 import { syncProfilesForChats, hasFullProfileSyncDone } from '@/lib/profile-sync-service';
 import { getBoostProfilePath, navigateBoostViewRouterPath } from '@/lib/view-router/routes';
+import { toast } from '@/lib/toast';
 
-const props = withDefaults(
-  defineProps<{
-    /** Overlay (modal) vs full hub page under SiteHeader. */
-    variant?: 'overlay' | 'page';
-    /** When false, sync/WebSocket cleanup runs (e.g. modal closed). */
-    active: boolean;
-  }>(),
-  { variant: 'overlay' }
-);
-
-const emit = defineEmits<{
-  close: [];
+const props = defineProps<{
+  /** When false, sync/WebSocket cleanup runs (e.g. leaving chat page). */
+  active: boolean;
 }>();
-
-const rootClass = computed(() =>
-  props.variant === 'page'
-    ? 'flex min-h-0 flex-1 flex-col overflow-hidden bg-background'
-    : 'flex h-full min-h-0 flex-col overflow-hidden bg-background'
-);
 
 // Use composables
 const {
@@ -208,11 +191,6 @@ const { handleChatClick } = useChatSelection();
 // Initialize dialog lifecycle (handles mounting, URL watching, etc.)
 useChatDialogLifecycle(toRef(props, 'active'));
 
-function handleClose() {
-  typingManager.stopTyping();
-  emit('close');
-}
-
 // Handle message operations with error handling and dropdown closing
 async function handleDeleteMessageWrapper(message: typeof messages.value[0]) {
   await handleDeleteMessageWithError(message, () => {
@@ -301,28 +279,21 @@ function handleOpenFolderDialog(chat: MessengerChatItem) {
 }
 
 async function handleFolderSelected(folderId: number | null) {
-  const toast = (window as any).__sdcBoostToast;
   if (!folderDialogChat.value) return;
-  
+
   try {
     await moveChatToFolder(folderDialogChat.value.group_id, folderId);
-    if (toast) {
-      const folderName = folderId === null ? 'Inbox' : folders.value.find(f => f.id === folderId)?.name || 'folder';
-      toast.success(`Moved chat to ${folderName}`);
-    }
+    const folderName = folderId === null ? 'Inbox' : folders.value.find((f) => f.id === folderId)?.name || 'folder';
+    toast.success(`Moved chat to ${folderName}`);
   } catch (err) {
     console.error('[ChatDialog] Failed to move chat to folder:', err);
-    if (toast) {
-      toast.error('Failed to move chat to folder');
-    }
+    toast.error('Failed to move chat to folder');
   }
-  
+
   isFolderDialogOpen.value = false;
   folderDialogChat.value = null;
 }
 
-// Profile dialogs management
-const { profileDialogs, openProfileDialog, closeProfileDialog } = useProfileDialogs();
 const { groupDialogs, openGroupDialog, closeGroupDialog } = useGroupDialogs();
 
 // Track full profile sync status
@@ -351,8 +322,6 @@ function handleNewChat() {
 }
 
 async function handleStartChat(dbId: number) {
-  const toast = (window as any).__sdcBoostToast;
-  
   try {
     // Check if chat already exists with this user
     const existingChat = chatList.value.find(chat => chat.db_id === dbId && !chat.broadcast && chat.type !== 100);
@@ -361,9 +330,7 @@ async function handleStartChat(dbId: number) {
       // Chat already exists, just open it
       await handleChatClick(existingChat);
       showNewChatDialog.value = false;
-      if (toast) {
-        toast.success('Opened existing chat');
-      }
+      toast.success('Opened existing chat');
       return;
     }
     
@@ -407,21 +374,15 @@ async function handleStartChat(dbId: number) {
     
     // Close the dialog
     showNewChatDialog.value = false;
-    
-    if (toast) {
-      toast.success('Chat started');
-    }
+
+    toast.success('Chat started');
   } catch (err: any) {
     console.error('[ChatDialog] Failed to start chat:', err);
-    
+
     if (err.isBlockedChat) {
-      if (toast) {
-        toast.error('Cannot start chat: ' + (err.message || 'Chat is blocked'));
-      }
+      toast.error('Cannot start chat: ' + (err.message || 'Chat is blocked'));
     } else {
-      if (toast) {
-        toast.error('Failed to start chat: ' + (err.message || 'Unknown error'));
-      }
+      toast.error('Failed to start chat: ' + (err.message || 'Unknown error'));
     }
   }
 }
@@ -474,23 +435,11 @@ async function handleSyncChoice(choice: 'sync-unsynced' | 'resync-all' | 'resync
 }
 
 function handleOpenProfileDialog(userId: number) {
-  if (props.variant === 'page') {
-    navigateBoostViewRouterPath(getBoostProfilePath(userId));
-    return;
-  }
-  openProfileDialog(userId);
-}
-
-function handleCloseProfileDialog(dialogId: string) {
-  closeProfileDialog(dialogId);
+  navigateBoostViewRouterPath(getBoostProfilePath(userId));
 }
 
 function handleOpenProfileFromDialog(userId: number) {
-  if (props.variant === 'page') {
-    navigateBoostViewRouterPath(getBoostProfilePath(userId));
-    return;
-  }
-  openProfileDialog(userId);
+  navigateBoostViewRouterPath(getBoostProfilePath(userId));
 }
 
 function handleOpenGroupDialog(groupId: string) {
@@ -503,20 +452,7 @@ function handleCloseGroupDialog(dialogId: string) {
 </script>
 
 <template>
-  <div :class="rootClass">
-    <!-- Header (overlay / modal only — Hub uses folders sidebar footer) -->
-    <ChatDialogHeader
-      v-if="variant === 'overlay'"
-      :is-web-socket-connected="isWebSocketConnected"
-      :is-syncing-messages="isSyncingMessages || isRefreshing"
-      :selected-chat="selectedChat"
-      :full-profile-sync-done="fullProfileSyncDone"
-      :show-close="true"
-      @close="handleClose"
-      @sync-all-chats="handleSyncAllChats"
-      @open-settings="handleOpenSettings"
-    />
-
+  <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
     <!-- Main Content -->
     <div class="flex min-h-0 flex-1 overflow-hidden">
         <!-- Left Sidebar - Folders -->
@@ -527,7 +463,6 @@ function handleCloseGroupDialog(dialogId: string) {
           :get-total-unread-count="getTotalUnreadCount"
           :get-inbox-unread-count="getInboxUnreadCount"
           :get-folder-unread-count="getFolderUnreadCount"
-          :show-hub-toolbar="variant === 'page'"
           :is-web-socket-connected="isWebSocketConnected"
           :is-syncing-messages="isSyncingMessages || isRefreshing"
           @select-folder="handleSelectFolder"
@@ -751,18 +686,6 @@ function handleCloseGroupDialog(dialogId: string) {
   <ChatDialogSettings
     :model-value="isSettingsDialogOpen"
     @update:model-value="isSettingsDialogOpen = $event"
-  />
-  
-  <!-- Profile Dialogs (stacked) -->
-  <ProfileDialog
-    v-for="dialog in profileDialogs"
-    :key="dialog.id"
-    :visible="true"
-    :user-id="dialog.userId"
-    :stack-level="dialog.stackLevel"
-    :dialog-id="dialog.id"
-    @close="handleCloseProfileDialog(dialog.id)"
-    @open-profile="handleOpenProfileFromDialog"
   />
   
   <!-- Group Dialogs (stacked) -->

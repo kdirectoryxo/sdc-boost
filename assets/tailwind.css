@@ -10,9 +10,7 @@
 
   html,
   body {
-    @apply m-0 p-0 w-full bg-[#1a1a1a] text-[#e0e0e0] font-sans;
-    border: none !important;
-    outline: none !important;
+    @apply m-0 border-none p-0 font-sans !outline-none w-full bg-[#1a1a1a] text-[#e0e0e0];
   }
 
   /* Popup-specific styles */
@@ -26,9 +24,7 @@
   }
 
   #app {
-    @apply w-full m-0 p-0 block;
-    border: none !important;
-    outline: none !important;
+    @apply m-0 block w-full border-none p-0 !outline-none;
   }
 
   /* Popup app container */

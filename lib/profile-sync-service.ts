@@ -7,6 +7,7 @@ import { getProfileV2 } from './sdc-api/profile';
 import { profileStorage } from './profile-storage';
 import { db } from './db';
 import type { MessengerChatItem, ProfileUser } from './sdc-api-types';
+import { toast } from '@/lib/toast';
 
 /**
  * Silently sync a single profile without showing any toasts
@@ -130,10 +131,7 @@ export async function syncProfilesForChats(
 
     if (chatsToSync.length === 0) {
         console.log('[ProfileSyncService] No chats need syncing');
-        const toast = (window as any).__sdcBoostToast;
-        if (toast) {
-            toast.success('All profiles are already synced');
-        }
+        toast.success('All profiles are already synced');
         return;
     }
 
@@ -159,8 +157,6 @@ export async function syncProfilesForChats(
 
     console.log(`[ProfileSyncService] Syncing profiles for ${chatsToSync.length} chats (reset: ${reset})`);
 
-    // Access toast from global window
-    const toast = (window as any).__sdcBoostToast;
     let progressToast: { update: (current: number, total: number, message?: string) => void; dismiss: () => void } | null = null;
     
     // Cancel flag to stop sync operation
@@ -168,7 +164,7 @@ export async function syncProfilesForChats(
 
     try {
         // Show progress toast with cancel button
-        if (toast && toast.progress) {
+        if (toast.progress) {
             progressToast = toast.progress(chatsToSync.length, () => {
                 cancelled = true;
                 console.log('[ProfileSyncService] Sync cancelled by user');
@@ -297,9 +293,7 @@ export async function syncProfilesForChats(
 
         if (cancelled) {
             console.log(`[ProfileSyncService] Sync cancelled. Synced ${syncedCount}/${chatsToSync.length} profiles before cancellation`);
-            if (toast) {
-                toast.error(`Sync cancelled. Synced ${syncedCount} profile${syncedCount !== 1 ? 's' : ''} before cancellation`);
-            }
+            toast.error(`Sync cancelled. Synced ${syncedCount} profile${syncedCount !== 1 ? 's' : ''} before cancellation`);
         } else {
             console.log(`[ProfileSyncService] Successfully synced ${syncedCount}/${chatsToSync.length} profiles (${failedCount} failed)`);
             
@@ -309,12 +303,10 @@ export async function syncProfilesForChats(
                 await setFullProfileSyncDone();
             }
             
-            if (toast) {
-                if (failedCount > 0) {
-                    toast.error(`Synced ${syncedCount} profile${syncedCount !== 1 ? 's' : ''}, ${failedCount} failed`);
-                } else {
-                    toast.success(`Synced ${syncedCount} profile${syncedCount !== 1 ? 's' : ''}`);
-                }
+            if (failedCount > 0) {
+                toast.error(`Synced ${syncedCount} profile${syncedCount !== 1 ? 's' : ''}, ${failedCount} failed`);
+            } else {
+                toast.success(`Synced ${syncedCount} profile${syncedCount !== 1 ? 's' : ''}`);
             }
         }
     } catch (err) {
@@ -325,9 +317,7 @@ export async function syncProfilesForChats(
             progressToast.dismiss();
         }
         
-        if (toast) {
-            toast.error('Failed to sync profiles');
-        }
+        toast.error('Failed to sync profiles');
         throw err;
     }
 }

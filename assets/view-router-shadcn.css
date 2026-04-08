@@ -2,6 +2,36 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@keyframes hub-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes dash-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes live-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
 /*
  * WXT cssInjectionMode: "ui" injects this file into each ShadowRoot. Tailwind @theme is bound to
  * document :root; theme tokens must also exist on :host so utilities like bg-primary resolve
@@ -94,6 +124,10 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --animate-hub-shimmer: hub-shimmer 1.5s ease-in-out infinite;
+  --animate-dash-fade-in: dash-fade-in 0.3s ease both;
+  --animate-live-blink: live-blink 1.4s ease-in-out infinite;
 }
 
 @theme inline {
@@ -133,6 +167,10 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --animate-hub-shimmer: hub-shimmer 1.5s ease-in-out infinite;
+  --animate-dash-fade-in: dash-fade-in 0.3s ease both;
+  --animate-live-blink: live-blink 1.4s ease-in-out infinite;
 }
 
 @layer base {

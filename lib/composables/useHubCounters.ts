@@ -4,7 +4,7 @@ import { countersManager } from '@/lib/counters-manager';
 
 /**
  * Hub shell messenger badge: always the **raw API** `messenger` value from the last
- * counters fetch (same as {@link ChatDialogModule} / {@link useChatWebSocket}).
+ * counters fetch (same pattern as {@link useChatWebSocket}).
  *
  * Do **not** use `counters.messenger` from {@link countersManager.getCounters} for
  * display — after refresh it is overwritten with `Math.max(api, sum of local unread)`

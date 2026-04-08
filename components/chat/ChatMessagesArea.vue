@@ -463,8 +463,8 @@ const displayDistance = computed(() => {
         </h2>
         
         <!-- Broadcast Body HTML -->
-        <div 
-          class="broadcast-content prose max-w-none"
+        <div
+          class="max-w-none text-gray-800 leading-relaxed [&_.ql-align-center]:text-center [&_.ql-indent-1]:pl-4 [&_a]:text-blue-600 [&_a]:underline [&_a]:transition-colors [&_a:hover]:text-blue-700 [&_em]:italic [&_h1]:mb-3 [&_h1]:mt-6 [&_h1]:text-4xl [&_h1]:font-semibold [&_h1]:text-gray-900 [&_h2]:mb-3 [&_h2]:mt-6 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h3]:mb-3 [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h4]:mb-3 [&_h4]:mt-6 [&_h4]:font-semibold [&_h4]:text-gray-900 [&_h5]:mb-3 [&_h5]:mt-6 [&_h5]:font-semibold [&_h5]:text-gray-900 [&_h6]:mb-3 [&_h6]:mt-6 [&_h6]:font-semibold [&_h6]:text-gray-900 [&_img]:my-4 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-lg [&_li]:mb-2 [&_ol]:my-4 [&_ol]:pl-8 [&_ol]:text-gray-800 [&_p]:mb-4 [&_p]:text-gray-800 [&_strong]:font-semibold [&_strong]:text-gray-900 [&_u]:underline [&_ul]:my-4 [&_ul]:pl-8 [&_ul]:text-gray-800"
           v-html="selectedChat.body"
         ></div>
       </div>
@@ -600,88 +600,3 @@ const displayDistance = computed(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.broadcast-content {
-  color: #1f2937;
-  line-height: 1.6;
-}
-
-.broadcast-content :deep(h1),
-.broadcast-content :deep(h2),
-.broadcast-content :deep(h3),
-.broadcast-content :deep(h4),
-.broadcast-content :deep(h5),
-.broadcast-content :deep(h6) {
-  color: #111827;
-  font-weight: 600;
-  margin-top: 1.5em;
-  margin-bottom: 0.75em;
-}
-
-.broadcast-content :deep(h1) {
-  font-size: 2em;
-}
-
-.broadcast-content :deep(h2) {
-  font-size: 1.5em;
-}
-
-.broadcast-content :deep(h3) {
-  font-size: 1.25em;
-}
-
-.broadcast-content :deep(p) {
-  margin-bottom: 1em;
-  color: #1f2937;
-}
-
-.broadcast-content :deep(strong) {
-  color: #111827;
-  font-weight: 600;
-}
-
-.broadcast-content :deep(em) {
-  font-style: italic;
-}
-
-.broadcast-content :deep(u) {
-  text-decoration: underline;
-}
-
-.broadcast-content :deep(a) {
-  color: #2563eb;
-  text-decoration: underline;
-  transition: color 0.2s;
-}
-
-.broadcast-content :deep(a:hover) {
-  color: #1d4ed8;
-}
-
-.broadcast-content :deep(img) {
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
-  margin: 1em 0;
-}
-
-.broadcast-content :deep(ul),
-.broadcast-content :deep(ol) {
-  margin: 1em 0;
-  padding-left: 2em;
-  color: #1f2937;
-}
-
-.broadcast-content :deep(li) {
-  margin-bottom: 0.5em;
-}
-
-.broadcast-content :deep(.ql-align-center) {
-  text-align: center;
-}
-
-.broadcast-content :deep(.ql-indent-1) {
-  padding-left: 1em;
-}
-</style>

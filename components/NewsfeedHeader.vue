@@ -120,8 +120,8 @@ const clearAllActivityFilters = () => {
 </script>
 
 <template>
-  <div class="newsfeed-header">
-    <div class="newsfeed-header-filters">
+  <div class="px-3.5 py-2">
+    <div class="flex flex-wrap items-center gap-2">
       <!-- Content Type Filter Dropdown -->
       <DropdownMenu
         :open="contentFilterOpen"
@@ -131,26 +131,55 @@ const clearAllActivityFilters = () => {
           <button
             type="button"
             @click.stop
-            :class="['filter-chip', { 'filter-chip-active': activeContentCount > 0 }]"
+            :class="[
+              'inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-[5px] text-xs font-medium text-gray-200 transition-all duration-150',
+              activeContentCount > 0
+                ? 'border-blue-400/30 bg-blue-400/15'
+                : 'border-white/6 bg-white/4 hover:border-white/10 hover:bg-white/8',
+            ]"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              class="h-3 w-3 shrink-0"
+              :class="activeContentCount > 0 ? 'text-blue-400' : 'text-gray-500'"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
             </svg>
-            <span class="filter-chip-value">Algemeen</span>
-            <span v-if="activeContentCount > 0" class="filter-badge">{{ activeContentCount }}</span>
-            <svg class="filter-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <span class="text-white">Algemeen</span>
+            <span
+              v-if="activeContentCount > 0"
+              class="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-[5px] text-[10px] font-semibold text-white"
+            >{{ activeContentCount }}</span>
+            <svg
+              class="ml-auto h-3 w-3 shrink-0 opacity-50 transition-transform duration-200"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <polyline points="6 9 12 15 18 9"/>
             </svg>
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" :side-offset="4" class="w-64 p-0 border border-white/[0.06] shadow-lg z-50">
-          <div class="filter-dropdown">
-            <div class="filter-dropdown-header">
+        <DropdownMenuContent align="start" :side-offset="4" class="z-50 w-64 border border-white/6 p-0 shadow-lg">
+          <div class="p-1">
+            <div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
               <span>Algemeen</span>
-              <div class="filter-dropdown-actions">
+              <div class="flex items-center gap-1">
                 <button
                   type="button"
-                  class="filter-action-button"
+                  class="cursor-pointer rounded-sm border border-white/8 bg-white/4 px-1.5 py-0.5 text-[9px] font-medium whitespace-nowrap text-gray-400 transition-all duration-150 hover:border-white/12 hover:bg-white/6 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
                   @click.stop="clearAllContentFilters"
                   :disabled="activeContentCount === 0"
                 >
@@ -158,7 +187,7 @@ const clearAllActivityFilters = () => {
                 </button>
                 <button
                   type="button"
-                  class="filter-action-button"
+                  class="cursor-pointer rounded-sm border border-white/8 bg-white/4 px-1.5 py-0.5 text-[9px] font-medium whitespace-nowrap text-gray-400 transition-all duration-150 hover:border-white/12 hover:bg-white/6 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
                   @click.stop="selectAllContentFilters"
                   :disabled="allContentFiltersSelected"
                 >
@@ -166,17 +195,40 @@ const clearAllActivityFilters = () => {
                 </button>
               </div>
             </div>
-            <div class="filter-menu">
+            <div class="p-1">
               <button
                 v-for="filter in contentFilters"
                 :key="filter.key"
                 type="button"
                 @click="toggleContentFilter(filter.key)"
-                :class="['filter-menu-item', { active: isContentFilterActive(filter.key) }]"
+                :class="[
+                  'flex w-full cursor-pointer items-center gap-2 rounded border-0 px-3 py-2 text-left text-xs font-medium transition-all duration-100',
+                  isContentFilterActive(filter.key)
+                    ? 'bg-blue-500/15 text-blue-400'
+                    : 'bg-transparent text-gray-400 hover:bg-white/6 hover:text-white',
+                ]"
               >
-                <div class="filter-checkbox-wrapper">
-                  <div :class="['filter-checkbox', { 'filter-checkbox-checked': isContentFilterActive(filter.key) }]">
-                    <svg v-if="isContentFilterActive(filter.key)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <div class="shrink-0">
+                  <div
+                    :class="[
+                      'flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border-[1.5px] border-white/20 transition-all duration-150',
+                      isContentFilterActive(filter.key)
+                        ? 'border-blue-500 bg-linear-to-br from-blue-500 to-blue-600 text-white'
+                        : '',
+                    ]"
+                  >
+                    <svg
+                      v-if="isContentFilterActive(filter.key)"
+                      class="h-2.5 w-2.5 shrink-0"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
                       <polyline points="20 6 9 17 4 12"/>
                     </svg>
                   </div>
@@ -197,26 +249,55 @@ const clearAllActivityFilters = () => {
           <button
             type="button"
             @click.stop
-            :class="['filter-chip', { 'filter-chip-active': activeActivityCount > 0 }]"
+            :class="[
+              'inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-[5px] text-xs font-medium text-gray-200 transition-all duration-150',
+              activeActivityCount > 0
+                ? 'border-blue-400/30 bg-blue-400/15'
+                : 'border-white/6 bg-white/4 hover:border-white/10 hover:bg-white/8',
+            ]"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              class="h-3 w-3 shrink-0"
+              :class="activeActivityCount > 0 ? 'text-blue-400' : 'text-gray-500'"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
             </svg>
-            <span class="filter-chip-value">Vrienden</span>
-            <span v-if="activeActivityCount > 0" class="filter-badge">{{ activeActivityCount }}</span>
-            <svg class="filter-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <span class="text-white">Vrienden</span>
+            <span
+              v-if="activeActivityCount > 0"
+              class="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-[5px] text-[10px] font-semibold text-white"
+            >{{ activeActivityCount }}</span>
+            <svg
+              class="ml-auto h-3 w-3 shrink-0 opacity-50 transition-transform duration-200"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <polyline points="6 9 12 15 18 9"/>
             </svg>
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" :side-offset="4" class="w-64 p-0 border border-white/[0.06] shadow-lg z-50">
-          <div class="filter-dropdown">
-            <div class="filter-dropdown-header">
+        <DropdownMenuContent align="start" :side-offset="4" class="z-50 w-64 border border-white/6 p-0 shadow-lg">
+          <div class="p-1">
+            <div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
               <span>Vrienden</span>
-              <div class="filter-dropdown-actions">
+              <div class="flex items-center gap-1">
                 <button
                   type="button"
-                  class="filter-action-button"
+                  class="cursor-pointer rounded-sm border border-white/8 bg-white/4 px-1.5 py-0.5 text-[9px] font-medium whitespace-nowrap text-gray-400 transition-all duration-150 hover:border-white/12 hover:bg-white/6 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
                   @click.stop="clearAllActivityFilters"
                   :disabled="activeActivityCount === 0"
                 >
@@ -224,7 +305,7 @@ const clearAllActivityFilters = () => {
                 </button>
                 <button
                   type="button"
-                  class="filter-action-button"
+                  class="cursor-pointer rounded-sm border border-white/8 bg-white/4 px-1.5 py-0.5 text-[9px] font-medium whitespace-nowrap text-gray-400 transition-all duration-150 hover:border-white/12 hover:bg-white/6 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
                   @click.stop="selectAllActivityFilters"
                   :disabled="allActivityFiltersSelected"
                 >
@@ -232,17 +313,40 @@ const clearAllActivityFilters = () => {
                 </button>
               </div>
             </div>
-            <div class="filter-menu filter-menu-scrollable">
+            <div class="max-h-[280px] overflow-y-auto p-1 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1.5">
               <button
                 v-for="filter in activityFilters"
                 :key="filter.key"
                 type="button"
                 @click="toggleActivityFilter(filter.key)"
-                :class="['filter-menu-item', { active: isActivityFilterActive(filter.key) }]"
+                :class="[
+                  'flex w-full cursor-pointer items-center gap-2 rounded border-0 px-3 py-2 text-left text-xs font-medium transition-all duration-100',
+                  isActivityFilterActive(filter.key)
+                    ? 'bg-blue-500/15 text-blue-400'
+                    : 'bg-transparent text-gray-400 hover:bg-white/6 hover:text-white',
+                ]"
               >
-                <div class="filter-checkbox-wrapper">
-                  <div :class="['filter-checkbox', { 'filter-checkbox-checked': isActivityFilterActive(filter.key) }]">
-                    <svg v-if="isActivityFilterActive(filter.key)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <div class="shrink-0">
+                  <div
+                    :class="[
+                      'flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border-[1.5px] border-white/20 transition-all duration-150',
+                      isActivityFilterActive(filter.key)
+                        ? 'border-blue-500 bg-linear-to-br from-blue-500 to-blue-600 text-white'
+                        : '',
+                    ]"
+                  >
+                    <svg
+                      v-if="isActivityFilterActive(filter.key)"
+                      class="h-2.5 w-2.5 shrink-0"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
                       <polyline points="20 6 9 17 4 12"/>
                     </svg>
                   </div>
@@ -256,211 +360,3 @@ const clearAllActivityFilters = () => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.newsfeed-header {
-  padding: 8px 14px;
-}
-
-.newsfeed-header-filters {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* Filter Chips (Dropdowns) - matching PeopleDialog */
-.filter-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
-  color: #e5e7eb;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-
-.filter-chip:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.filter-chip svg {
-  color: #6b7280;
-  flex-shrink: 0;
-}
-
-.filter-chip-value {
-  color: white;
-}
-
-.filter-chip-active {
-  background: rgba(96, 165, 250, 0.15);
-  border-color: rgba(96, 165, 250, 0.3);
-}
-
-.filter-chip-active .filter-chip-value {
-  color: white;
-}
-
-.filter-chip-active svg:first-child {
-  color: #60a5fa;
-}
-
-.filter-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 5px;
-  background: #ef4444;
-  color: white;
-  border-radius: 8px;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.filter-chevron {
-  opacity: 0.5;
-  margin-left: auto;
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-}
-
-.filter-dropdown {
-  padding: 4px;
-}
-
-.filter-dropdown-header {
-  padding: 6px 8px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #6b7280;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.filter-dropdown-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.filter-action-button {
-  padding: 2px 6px;
-  font-size: 9px;
-  font-weight: 500;
-  color: #9ca3af;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-
-.filter-action-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #e5e7eb;
-}
-
-.filter-action-button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* Filter Menu - matching PeopleDialog */
-.filter-menu {
-  padding: 4px;
-}
-
-.filter-menu-scrollable {
-  max-height: 280px;
-  overflow-y: auto;
-}
-
-.filter-menu-scrollable::-webkit-scrollbar {
-  width: 6px;
-}
-
-.filter-menu-scrollable::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.filter-menu-scrollable::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-
-.filter-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  text-align: left;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: #9ca3af;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.1s ease;
-}
-
-.filter-menu-item .filter-checkbox-wrapper,
-.filter-menu-item svg {
-  flex-shrink: 0;
-}
-
-.filter-menu-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: white;
-}
-
-.filter-menu-item.active {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-}
-
-.filter-checkbox-wrapper {
-  flex-shrink: 0;
-}
-
-.filter-checkbox {
-  width: 16px;
-  height: 16px;
-  border: 1.5px solid rgba(255, 255, 255, 0.2);
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-}
-
-.filter-checkbox svg {
-  width: 10px;
-  height: 10px;
-  flex-shrink: 0;
-}
-
-.filter-checkbox-checked {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border-color: #3b82f6;
-  color: white;
-}
-
-</style>

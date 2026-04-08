@@ -75,11 +75,11 @@ const formatDate = (dateStr: string | undefined) => {
 const formatAvailableDates = () => {
   const availableDays = extraData.value?.AvailableDays;
   if (!availableDays) return '';
-  
+
   // Split by comma and filter out empty strings
   const dates = availableDays.split(',').filter((d: string) => d.trim());
   if (dates.length === 0) return '';
-  
+
   // Format each date and join with " - "
   const formattedDates = dates.map((date: string) => formatDate(date.trim())).filter((d: string) => d);
   return formattedDates.join(' - ');
@@ -104,7 +104,7 @@ const parseInterests = (interests: string | undefined) => {
       transgender: false,
     };
   }
-  
+
   const chars = interests.split('');
   return {
     coupleMaleFemale: chars[0] === '1',
@@ -132,13 +132,13 @@ const metInterests = computed(() => {
 
 // Get interests icons for profile (left side)
 // Only show couple icons if gender2 is real, otherwise filter them out
-type LookingForIcon = 
+type LookingForIcon =
   | { type: 'couple-group'; icons: Array<{ icon: string; color: string }> }
   | { type: 'single-female' | 'single-male'; icon: string; color: string };
 
 const profileInterestsIcons = computed((): LookingForIcon[] => {
   const icons: LookingForIcon[] = [];
-  
+
   // Only show couple icons if this is actually a couple (gender2 is real)
   if (isGender2Real.value && profileInterests.value.coupleMaleFemale) {
     icons.push({
@@ -149,7 +149,7 @@ const profileInterestsIcons = computed((): LookingForIcon[] => {
       ],
     });
   }
-  
+
   // Only show single icons if this is actually a single profile (gender2 is not real)
   if (!isGender2Real.value) {
     if (profileInterests.value.singleFemale) {
@@ -159,7 +159,7 @@ const profileInterestsIcons = computed((): LookingForIcon[] => {
         color: '#ff60df', // Pink
       });
     }
-    
+
     if (profileInterests.value.singleMale) {
       icons.push({
         type: 'single-male',
@@ -168,7 +168,7 @@ const profileInterestsIcons = computed((): LookingForIcon[] => {
       });
     }
   }
-  
+
   return icons;
 });
 
@@ -176,7 +176,7 @@ const profileInterestsIcons = computed((): LookingForIcon[] => {
 // MET section shows what they're looking for, so show all interests regardless of profile type
 const metInterestsIcons = computed((): LookingForIcon[] => {
   const icons: LookingForIcon[] = [];
-  
+
   if (metInterests.value.coupleMaleFemale) {
     icons.push({
       type: 'couple-group',
@@ -186,7 +186,7 @@ const metInterestsIcons = computed((): LookingForIcon[] => {
       ],
     });
   }
-  
+
   if (metInterests.value.singleFemale) {
     icons.push({
       type: 'single-female',
@@ -194,7 +194,7 @@ const metInterestsIcons = computed((): LookingForIcon[] => {
       color: '#ff60df', // Pink
     });
   }
-  
+
   if (metInterests.value.singleMale) {
     icons.push({
       type: 'single-male',
@@ -202,7 +202,7 @@ const metInterestsIcons = computed((): LookingForIcon[] => {
       color: '#3a97fe', // Blue
     });
   }
-  
+
   return icons;
 });
 
@@ -224,7 +224,7 @@ const isAction8 = computed(() => props.item.action === 8);
 // For action 8, use personal_text from extra_data
 const messageContent = computed(() => {
   let content = '';
-  
+
   // For action 8, use personal_text
   if (isAction8.value && extraData.value?.personal_text) {
     content = extraData.value.personal_text;
@@ -261,149 +261,156 @@ const speedDatingDistance = computed(() => {
   }
   return extraData.value?.distance;
 });
+
+const cardRootClass = computed(() => {
+  const isEven = props.index !== undefined && props.index % 2 === 0;
+  return [
+    'relative overflow-hidden rounded-[10px] border border-white/6 border-l-[3px] border-l-purple-500/40 transition-all duration-200 ease-in-out',
+    'hover:bg-white/5 hover:border-white/10 hover:border-l-purple-500/60',
+    isEven ? 'bg-white/[0.025]' : 'bg-white/[0.035]',
+  ];
+});
 </script>
 
 <template>
-  <div :class="['newsfeed-card', `newsfeed-card-${props.index !== undefined && props.index % 2 === 0 ? 'even' : 'odd'}`]">
+  <div :class="cardRootClass">
     <!-- Header -->
-    <div class="newsfeed-card-header">
-      <p class="newsfeed-card-header-text">
+    <div class="flex items-center justify-between border-b border-white/6 bg-white/2 px-3.5 py-2.5">
+      <p class="text-sm font-semibold tracking-tight text-white">
         Nieuwe speed date in jouw omgeving
       </p>
-      <p class="newsfeed-card-header-time">{{ item.timed }}</p>
+      <p class="text-xs font-medium text-gray-500">{{ item.timed }}</p>
     </div>
 
     <!-- Content -->
-    <div class="newsfeed-card-content">
+    <div class="grid grid-cols-1 gap-3 px-3.5 py-3 md:grid-cols-2">
       <!-- Left: Profile Info -->
-      <div class="newsfeed-card-section">
-        <div class="newsfeed-card-profile">
+      <div class="flex flex-col gap-2.5">
+        <div class="flex items-start gap-2.5">
           <img
             v-if="photoUrl"
             :src="photoUrl"
             :alt="receiver?.account_id"
-            class="newsfeed-card-profile-img"
+            class="h-[60px] w-[60px] shrink-0 rounded-lg border-2 border-purple-500/60 object-cover"
           />
-          <div class="newsfeed-card-profile-info">
-            <p class="newsfeed-card-profile-name">{{ receiver?.account_id }}</p>
-            
+          <div class="min-w-0 flex-1">
+            <p class="mb-1 text-sm font-semibold tracking-tight text-white">{{ receiver?.account_id }}</p>
+
             <!-- Age with colors and birthday icon -->
-            <div v-if="ages.first || (ages.second && isGender2Real)" class="newsfeed-card-age">
-              <div class="newsfeed-card-age-row">
-                <span 
-                  v-if="ages.first" 
-                  class="newsfeed-card-age-first"
+            <div v-if="ages.first || (ages.second && isGender2Real)" class="mt-1 flex flex-col gap-0.5 text-[13px]">
+              <div class="inline-block whitespace-nowrap">
+                <span
+                  v-if="ages.first"
+                  class="font-semibold"
                   :style="{ color: getAgeColor(receiver?.gender1) }"
                 >
                   {{ ages.first }}
                 </span>
-                <span v-if="ages.first && ages.second && isGender2Real" class="newsfeed-card-age-separator"> | </span>
-                <span 
-                  v-if="ages.second && isGender2Real" 
-                  class="newsfeed-card-age-second"
+                <span v-if="ages.first && ages.second && isGender2Real" class="mx-[3px] text-white/40"> | </span>
+                <span
+                  v-if="ages.second && isGender2Real"
+                  class="font-semibold"
                   :style="{ color: getAgeColor(receiver?.gender2) }"
                 >
                   {{ ages.second }}
                 </span>
               </div>
-              <div v-if="hasBirthdayFirst || hasBirthdaySecond" class="newsfeed-card-birthday-row">
-                <img 
-                  v-if="hasBirthdayFirst" 
-                  src="https://www.sdc.com/react/assets/female_birthday_icon.fe78472e.svg" 
-                  alt="cake" 
+              <div v-if="hasBirthdayFirst || hasBirthdaySecond" class="flex items-center gap-1.5">
+                <img
+                  v-if="hasBirthdayFirst"
+                  src="https://www.sdc.com/react/assets/female_birthday_icon.fe78472e.svg"
+                  alt="cake"
                   title="Is jarig"
-                  class="newsfeed-card-birthday-icon"
+                  class="h-3 w-3"
                 />
-                <img 
-                  v-if="hasBirthdaySecond" 
-                  src="https://www.sdc.com/react/assets/female_birthday_icon.fe78472e.svg" 
-                  alt="cake" 
+                <img
+                  v-if="hasBirthdaySecond"
+                  src="https://www.sdc.com/react/assets/female_birthday_icon.fe78472e.svg"
+                  alt="cake"
                   title="Is jarig"
-                  class="newsfeed-card-birthday-icon"
+                  class="h-3 w-3"
                 />
               </div>
             </div>
 
             <!-- Device Icons -->
-            <div v-if="receiver?.is_web_user || receiver?.speed || receiver?.online" class="newsfeed-card-device-icons">
-              <img 
-                v-if="receiver?.is_web_user" 
-                src="https://www.sdc.com/react/assets/web_user_icon.d5f27f46.svg" 
-                alt="is-web-user" 
-                class="newsfeed-card-device-icon"
+            <div v-if="receiver?.is_web_user || receiver?.speed || receiver?.online" class="float-right mt-1.5 flex items-center gap-1">
+              <img
+                v-if="receiver?.is_web_user"
+                src="https://www.sdc.com/react/assets/web_user_icon.d5f27f46.svg"
+                alt="is-web-user"
+                class="h-3.5 w-3.5 cursor-pointer opacity-80 transition-opacity duration-200 hover:opacity-100"
                 title="Web-gebruiker"
               />
-              <img 
-                v-if="receiver?.speed" 
-                src="https://www.sdc.com/react/assets/speed_white.3176d40b.svg" 
-                alt="is-speed-date" 
-                class="newsfeed-card-device-icon"
+              <img
+                v-if="receiver?.speed"
+                src="https://www.sdc.com/react/assets/speed_white.3176d40b.svg"
+                alt="is-speed-date"
+                class="h-3.5 w-3.5 cursor-pointer opacity-80 transition-opacity duration-200 hover:opacity-100"
                 title="Speed Date"
               />
-              <img 
-                v-if="receiver?.online === 1" 
-                src="https://www.sdc.com/react/assets/messenger_online_icon.0a87dd19.svg" 
-                alt="user-is-online" 
-                class="newsfeed-card-device-icon"
+              <img
+                v-if="receiver?.online === 1"
+                src="https://www.sdc.com/react/assets/messenger_online_icon.0a87dd19.svg"
+                alt="user-is-online"
+                class="h-3.5 w-3.5 cursor-pointer opacity-80 transition-opacity duration-200 hover:opacity-100"
                 title="Chat nu"
               />
             </div>
 
             <!-- Stats with icons -->
-            <div class="newsfeed-card-profile-stats">
-              <div v-if="receiver?.photo_count" class="newsfeed-card-stat">
-                <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="newsfeed-card-stat-icon" />
+            <div class="mt-1.5 flex items-center gap-2.5">
+              <div v-if="receiver?.photo_count" class="flex items-center gap-0.5 text-xs text-gray-400">
+                <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="h-3.5 w-3.5 opacity-80" />
                 <span>{{ receiver.photo_count }}</span>
               </div>
-              <div v-if="receiver?.video_count" class="newsfeed-card-stat">
-                <img src="https://www.sdc.com/react/assets/videos_white_icon.67fc13b6.svg" alt="Video's" class="newsfeed-card-stat-icon" />
+              <div v-if="receiver?.video_count" class="flex items-center gap-0.5 text-xs text-gray-400">
+                <img src="https://www.sdc.com/react/assets/videos_white_icon.67fc13b6.svg" alt="Video's" class="h-3.5 w-3.5 opacity-80" />
                 <span>{{ receiver.video_count }}</span>
               </div>
-              <div v-if="receiver?.valid_count" class="newsfeed-card-stat">
-                <img src="https://www.sdc.com/react/assets/validate_grid_card.d90f25d9.svg" alt="Validaties" class="newsfeed-card-stat-icon" />
+              <div v-if="receiver?.valid_count" class="flex items-center gap-0.5 text-xs text-gray-400">
+                <img src="https://www.sdc.com/react/assets/validate_grid_card.d90f25d9.svg" alt="Validaties" class="h-3.5 w-3.5 opacity-80" />
                 <span>{{ receiver.valid_count }}</span>
               </div>
-              <div v-if="receiver?.likes_count" class="newsfeed-card-stat">
-                <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="newsfeed-card-stat-icon" />
+              <div v-if="receiver?.likes_count" class="flex items-center gap-0.5 text-xs text-gray-400">
+                <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="h-3.5 w-3.5 opacity-80" />
                 <span>{{ receiver.likes_count }}</span>
               </div>
             </div>
 
             <!-- Location -->
-            <div v-if="receiver?.location" class="newsfeed-card-profile-location">
-              <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="newsfeed-card-location-icon" />
+            <div v-if="receiver?.location" class="mt-1.5 flex items-center gap-1 text-xs text-gray-400">
+              <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="h-3 w-3 opacity-70" />
               <span>{{ receiver.location }}</span>
-              <span v-if="item.location_how_far" class="newsfeed-card-profile-location-distance">
+              <span v-if="item.location_how_far" class="ml-1 text-gray-500">
                 {{ formatDistance(item.location_how_far) }}
               </span>
             </div>
 
             <!-- Interests -->
-            <div v-if="profileInterestsIcons.length > 0" class="newsfeed-card-interests">
-              <p class="newsfeed-card-interests-label">Interesses</p>
-              <div class="newsfeed-card-interests-icons">
-                <template v-for="(item, index) in profileInterestsIcons" :key="index">
+            <div v-if="profileInterestsIcons.length > 0" class="mt-1.5">
+              <p class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Interesses</p>
+              <div class="flex items-center gap-1.5">
+                <template v-for="(interestItem, interestIndex) in profileInterestsIcons" :key="interestIndex">
                   <!-- Couple group: display horizontally with overlapping -->
-                  <div v-if="item.type === 'couple-group'" class="flex items-center">
-                    <Icon 
-                      v-for="(icon, i) in item.icons" 
+                  <div v-if="interestItem.type === 'couple-group'" class="flex items-center">
+                    <Icon
+                      v-for="(icon, i) in interestItem.icons"
                       :key="i"
                       :icon="icon.icon"
                       width="16"
                       height="16"
-                      :style="{ 
-                        color: icon.color,
-                        marginLeft: i === 1 ? '-6px' : '0'
-                      }"
+                      :class="i === 1 ? '-ml-1.5' : ''"
+                      :style="{ color: icon.color }"
                     />
                   </div>
                   <!-- Single icons: render normally -->
-                  <Icon 
-                    v-else-if="item.type === 'single-female' || item.type === 'single-male'"
-                    :icon="item.icon"
+                  <Icon
+                    v-else-if="interestItem.type === 'single-female' || interestItem.type === 'single-male'"
+                    :icon="interestItem.icon"
                     width="16"
                     height="16"
-                    :style="{ color: item.color }"
+                    :style="{ color: interestItem.color }"
                   />
                 </template>
               </div>
@@ -413,61 +420,61 @@ const speedDatingDistance = computed(() => {
       </div>
 
       <!-- Right: Speed Dating Details -->
-      <div class="newsfeed-card-section">
-        <div class="newsfeed-card-party-info">
-          <p class="newsfeed-card-party-type">Privé locatie</p>
-          <div v-if="speedDatingDate" class="newsfeed-card-party-title-row">
-            <p class="newsfeed-card-party-title">{{ isAction8 ? 'WANNEER:' : 'Beschikbaar' }}</p>
-            <p class="newsfeed-card-party-date-inline">
+      <div class="flex flex-col gap-2.5">
+        <div
+          class="flex flex-col gap-1.5 rounded-lg border border-blue-500/15 bg-linear-to-br from-blue-500/8 to-blue-500/3 p-3"
+        >
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Privé locatie</p>
+          <div v-if="speedDatingDate" class="flex flex-wrap items-baseline justify-between gap-2">
+            <p class="min-w-0 flex-1 text-sm font-semibold leading-snug tracking-tight text-white">
+              {{ isAction8 ? 'WANNEER:' : 'Beschikbaar' }}
+            </p>
+            <p class="shrink-0 whitespace-nowrap text-[10px] font-medium text-gray-400">
               {{ speedDatingDate }}
-              <span v-if="isAction8 && speedDatingLocation" style="color: #6b7280; margin-left: 4px;">
-                at {{ speedDatingLocation }}
-              </span>
+              <span v-if="isAction8 && speedDatingLocation" class="ml-1 text-gray-500"> at {{ speedDatingLocation }} </span>
             </p>
           </div>
-          
+
           <!-- Message Content (only show once) -->
-          <div v-if="messageContent" class="newsfeed-card-message">
-            <p class="newsfeed-card-message-text">{{ messageContent }}</p>
+          <div v-if="messageContent" class="mt-2 rounded-md border-l-2 border-blue-500/40 bg-white/3 px-2.5 py-2">
+            <p class="text-[13px] leading-relaxed text-gray-200">{{ messageContent }}</p>
           </div>
 
           <!-- Location and Distance (for action 904, not action 8) -->
-          <div v-if="!isAction8 && speedDatingLocation" class="newsfeed-card-party-location">
-            <div class="newsfeed-card-party-location-text">
-              <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="newsfeed-card-location-icon-small" />
+          <div v-if="!isAction8 && speedDatingLocation" class="mt-1.5 flex items-center justify-between border-t border-white/6 pt-1.5">
+            <div class="flex items-center gap-1 text-[10px] text-gray-400">
+              <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="h-3 w-3 opacity-70" />
               <span>{{ speedDatingLocation }}</span>
             </div>
-            <span v-if="speedDatingDistance !== undefined" class="newsfeed-card-party-distance">
+            <span v-if="speedDatingDistance !== undefined" class="text-[10px] font-medium text-gray-500">
               {{ formatDistance(speedDatingDistance) }}
             </span>
           </div>
 
           <!-- Interests for speed date -->
-          <div v-if="metInterestsIcons.length > 0" class="newsfeed-card-party-interests">
-            <p class="newsfeed-card-party-interests-label">MET:</p>
-            <div class="newsfeed-card-party-interests-icons">
-              <template v-for="(item, index) in metInterestsIcons" :key="index">
+          <div v-if="metInterestsIcons.length > 0" class="mt-2 flex items-center gap-2 border-t border-white/6 pt-2">
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-500">MET:</p>
+            <div class="flex items-center gap-1.5">
+              <template v-for="(interestItem, interestIndex) in metInterestsIcons" :key="interestIndex">
                 <!-- Couple group: display horizontally with overlapping -->
-                <div v-if="item.type === 'couple-group'" class="flex items-center">
-                  <Icon 
-                    v-for="(icon, i) in item.icons" 
+                <div v-if="interestItem.type === 'couple-group'" class="flex items-center">
+                  <Icon
+                    v-for="(icon, i) in interestItem.icons"
                     :key="i"
                     :icon="icon.icon"
                     width="16"
                     height="16"
-                    :style="{ 
-                      color: icon.color,
-                      marginLeft: i === 1 ? '-6px' : '0'
-                    }"
+                    :class="i === 1 ? '-ml-1.5' : ''"
+                    :style="{ color: icon.color }"
                   />
                 </div>
                 <!-- Single icons: render normally -->
-                <Icon 
-                  v-else-if="item.type === 'single-female' || item.type === 'single-male'"
-                  :icon="item.icon"
+                <Icon
+                  v-else-if="interestItem.type === 'single-female' || interestItem.type === 'single-male'"
+                  :icon="interestItem.icon"
                   width="16"
                   height="16"
-                  :style="{ color: item.color }"
+                  :style="{ color: interestItem.color }"
                 />
               </template>
             </div>
@@ -477,330 +484,3 @@ const speedDatingDistance = computed(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.newsfeed-card {
-  background-color: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-left: 3px solid rgba(168, 85, 247, 0.4);
-  border-radius: 10px;
-  overflow: hidden;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.newsfeed-card-even {
-  background-color: rgba(255, 255, 255, 0.025);
-}
-
-.newsfeed-card-odd {
-  background-color: rgba(255, 255, 255, 0.035);
-}
-
-.newsfeed-card:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
-  border-left-color: rgba(168, 85, 247, 0.6);
-}
-
-.newsfeed-card-header {
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.newsfeed-card-header-text {
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: -0.01em;
-}
-
-.newsfeed-card-header-time {
-  color: #6b7280;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.newsfeed-card-content {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-  padding: 12px 14px;
-}
-
-@media (min-width: 768px) {
-  .newsfeed-card-content {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.newsfeed-card-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.newsfeed-card-profile {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.newsfeed-card-profile-img {
-  width: 60px;
-  height: 60px;
-  border-radius: 8px;
-  object-fit: cover;
-  border: 2px solid rgba(168, 85, 247, 0.6);
-  flex-shrink: 0;
-}
-
-.newsfeed-card-profile-info {
-  flex: 1;
-}
-
-.newsfeed-card-profile-name {
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 4px;
-  letter-spacing: -0.01em;
-}
-
-.newsfeed-card-age {
-  font-size: 13px;
-  margin-top: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.newsfeed-card-age-row {
-  display: inline-block;
-  white-space: nowrap;
-}
-
-.newsfeed-card-age-first {
-  font-weight: 600;
-}
-
-.newsfeed-card-age-separator {
-  color: rgba(255, 255, 255, 0.4);
-  margin: 0 3px;
-}
-
-.newsfeed-card-age-second {
-  font-weight: 600;
-}
-
-.newsfeed-card-birthday-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.newsfeed-card-birthday-icon {
-  width: 12px;
-  height: 12px;
-}
-
-.newsfeed-card-device-icons {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  float: right;
-}
-
-.newsfeed-card-device-icon {
-  width: 14px;
-  height: 14px;
-  cursor: pointer;
-  opacity: 0.8;
-  transition: opacity 0.2s ease;
-}
-
-.newsfeed-card-device-icon:hover {
-  opacity: 1;
-}
-
-.newsfeed-card-profile-stats {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 6px;
-}
-
-.newsfeed-card-stat {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-.newsfeed-card-stat-icon {
-  width: 14px;
-  height: 14px;
-  opacity: 0.8;
-}
-
-.newsfeed-card-profile-location {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-.newsfeed-card-location-icon {
-  width: 12px;
-  height: 12px;
-  opacity: 0.7;
-}
-
-.newsfeed-card-location-icon-small {
-  width: 12px;
-  height: 12px;
-  opacity: 0.7;
-}
-
-.newsfeed-card-profile-location-distance {
-  margin-left: 4px;
-  color: #6b7280;
-}
-
-.newsfeed-card-interests {
-  margin-top: 6px;
-}
-
-.newsfeed-card-interests-label {
-  font-size: 10px;
-  color: #6b7280;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 4px;
-}
-
-.newsfeed-card-interests-icons {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.newsfeed-card-interests-icon {
-  display: inline-block;
-  object-fit: contain;
-  flex-shrink: 0;
-}
-
-.newsfeed-card-party-info {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.03) 100%);
-  border: 1px solid rgba(59, 130, 246, 0.15);
-  border-radius: 8px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.newsfeed-card-party-type {
-  font-size: 10px;
-  color: #6b7280;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.newsfeed-card-party-title-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.newsfeed-card-party-title {
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: -0.01em;
-  line-height: 1.4;
-  flex: 1;
-  min-width: 0;
-}
-
-.newsfeed-card-party-date-inline {
-  color: #9ca3af;
-  font-size: 10px;
-  font-weight: 500;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.newsfeed-card-message {
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 6px;
-  border-left: 2px solid rgba(59, 130, 246, 0.4);
-}
-
-.newsfeed-card-message-text {
-  color: #e5e7eb;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.newsfeed-card-party-location {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.newsfeed-card-party-location-text {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #9ca3af;
-}
-
-.newsfeed-card-party-distance {
-  font-size: 10px;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.newsfeed-card-party-interests {
-  margin-top: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.newsfeed-card-party-interests-label {
-  font-size: 10px;
-  color: #6b7280;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.newsfeed-card-party-interests-icons {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-</style>

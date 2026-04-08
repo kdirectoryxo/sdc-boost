@@ -48,7 +48,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  showHubToolbar: false,
+  showHubToolbar: true,
   isWebSocketConnected: true,
   isSyncingMessages: false,
 });

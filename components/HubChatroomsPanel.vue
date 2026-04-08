@@ -51,11 +51,15 @@ function openExternal(url: string) {
       </div>
       <div
         v-else-if="loading"
-        class="chatroom-page-grid"
+        class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-6"
         aria-busy="true"
         aria-label="Loading chatrooms"
       >
-        <div v-for="n in 12" :key="n" class="hub-skeleton-chatroom-card">
+        <div
+          v-for="n in 12"
+          :key="n"
+          class="flex min-h-[268px] flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-[#16181c] px-2 pb-2 pt-3"
+        >
           <Skeleton class="mx-auto mb-2 h-4 w-[85%] rounded-md bg-white/10" />
           <Skeleton class="mx-auto mb-3 h-3 w-20 rounded-md bg-white/10" />
           <Skeleton
@@ -65,7 +69,7 @@ function openExternal(url: string) {
           <Skeleton class="mt-auto h-10 w-full rounded-lg bg-white/10" />
         </div>
       </div>
-      <div v-else class="chatroom-page-grid">
+      <div v-else class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-6">
         <!-- Official rooms — same imagery as sdc.com/react -->
         <Card
           v-for="room in fixedRooms"
@@ -140,30 +144,3 @@ function openExternal(url: string) {
     </div>
   </div>
 </template>
-
-<style scoped>
-.chatroom-page-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-@media (min-width: 640px) {
-  .chatroom-page-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .chatroom-page-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1280px) {
-  .chatroom-page-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-</style>

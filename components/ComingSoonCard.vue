@@ -54,158 +54,50 @@ const actionLabel = getActionLabel();
 </script>
 
 <template>
-  <div :class="['coming-soon-card', `coming-soon-card-${props.index !== undefined && props.index % 2 === 0 ? 'even' : 'odd'}`]">
-    <!-- Header -->
-    <div class="coming-soon-card-header">
-      <div class="coming-soon-card-header-content">
-        <span class="coming-soon-card-header-icon">🚧</span>
-        <p class="coming-soon-card-header-text">{{ actionLabel }}</p>
+  <div
+    class="relative overflow-hidden rounded-[10px] border border-white/[0.06] border-l-[3px] border-l-gray-500/40 transition-all duration-200 ease-in-out hover:border-white/10 hover:border-l-gray-500/60 hover:bg-white/[0.05]"
+    :class="
+      props.index !== undefined
+        ? props.index % 2 === 0
+          ? 'bg-white/[0.025]'
+          : 'bg-white/[0.035]'
+        : 'bg-white/[0.03]'
+    "
+  >
+    <div
+      class="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5"
+    >
+      <div class="flex items-center gap-2">
+        <span class="text-sm leading-none">🚧</span>
+        <p class="m-0 text-sm font-semibold tracking-tight text-white">{{ actionLabel }}</p>
       </div>
-      <p class="coming-soon-card-header-time">{{ item.timed }}</p>
+      <p class="m-0 text-xs font-medium text-gray-500">{{ item.timed }}</p>
     </div>
 
-    <!-- Content -->
-    <div class="coming-soon-card-content">
-      <div class="coming-soon-card-placeholder">
-        <div class="coming-soon-card-icon-large">⏳</div>
-        <p class="coming-soon-card-title">Coming Soon</p>
-        <p class="coming-soon-card-description">
+    <div class="flex items-center justify-center px-4 py-8">
+      <div class="max-w-[320px] text-center">
+        <div class="mb-3 text-4xl opacity-60 grayscale-[30%]">⏳</div>
+        <p class="m-0 mb-1.5 text-base font-semibold tracking-tight text-white">Coming Soon</p>
+        <p class="m-0 mb-4 text-[13px] leading-normal text-gray-400">
           Deze actie wordt binnenkort ondersteund. We werken eraan!
         </p>
-        <div class="coming-soon-card-details">
-          <p class="coming-soon-card-detail-label">Actie ID:</p>
-          <p class="coming-soon-card-detail-value">{{ item.action }}</p>
+        <div class="mt-2.5 flex flex-wrap items-center justify-center gap-2">
+          <p class="m-0 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Actie ID:</p>
+          <p
+            class="m-0 rounded border border-white/[0.08] bg-white/[0.05] px-2 py-1 font-mono text-[10px] font-medium text-gray-400"
+          >
+            {{ item.action }}
+          </p>
         </div>
-        <div v-if="item.action_id" class="coming-soon-card-details">
-          <p class="coming-soon-card-detail-label">Action ID:</p>
-          <p class="coming-soon-card-detail-value">{{ item.action_id }}</p>
+        <div v-if="item.action_id" class="mt-2.5 flex flex-wrap items-center justify-center gap-2">
+          <p class="m-0 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Action ID:</p>
+          <p
+            class="m-0 rounded border border-white/[0.08] bg-white/[0.05] px-2 py-1 font-mono text-[10px] font-medium text-gray-400"
+          >
+            {{ item.action_id }}
+          </p>
         </div>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.coming-soon-card {
-  background-color: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-left: 3px solid rgba(107, 114, 128, 0.4);
-  border-radius: 10px;
-  overflow: hidden;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.coming-soon-card-even {
-  background-color: rgba(255, 255, 255, 0.025);
-}
-
-.coming-soon-card-odd {
-  background-color: rgba(255, 255, 255, 0.035);
-}
-
-.coming-soon-card:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
-  border-left-color: rgba(107, 114, 128, 0.6);
-}
-
-.coming-soon-card-header {
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.coming-soon-card-header-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.coming-soon-card-header-icon {
-  font-size: 14px;
-  line-height: 1;
-}
-
-.coming-soon-card-header-text {
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-
-.coming-soon-card-header-time {
-  color: #6b7280;
-  font-size: 12px;
-  margin: 0;
-  font-weight: 500;
-}
-
-.coming-soon-card-content {
-  padding: 32px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.coming-soon-card-placeholder {
-  text-align: center;
-  max-width: 320px;
-}
-
-.coming-soon-card-icon-large {
-  font-size: 36px;
-  margin-bottom: 12px;
-  opacity: 0.6;
-  filter: grayscale(0.3);
-}
-
-.coming-soon-card-title {
-  color: white;
-  font-weight: 600;
-  font-size: 16px;
-  margin: 0 0 6px 0;
-  letter-spacing: -0.01em;
-}
-
-.coming-soon-card-description {
-  color: #9ca3af;
-  font-size: 13px;
-  margin: 0 0 16px 0;
-  line-height: 1.5;
-}
-
-.coming-soon-card-details {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 10px;
-  flex-wrap: wrap;
-}
-
-.coming-soon-card-detail-label {
-  color: #6b7280;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0;
-}
-
-.coming-soon-card-detail-value {
-  color: #9ca3af;
-  font-size: 10px;
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-  margin: 0;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-weight: 500;
-}
-</style>

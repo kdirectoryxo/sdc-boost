@@ -12,6 +12,7 @@ import { startChat } from '@/lib/sdc-api/messenger';
 import { chatStorage } from '@/lib/chat-storage';
 import { noteCache } from '@/lib/note-cache';
 import { navigateBoostHubChatWithGroupId } from '@/lib/view-router/routes';
+import { toast } from '@/lib/toast';
 import { Card, CardContent } from '@/lib/view-router/ui/card';
 import { Spinner } from '@/lib/view-router/ui/spinner';
 import { Tabs, TabsList, TabsTrigger } from '@/lib/view-router/ui/tabs';
@@ -705,8 +706,7 @@ async function handleOpenChat() {
   if (!profileData.value?.db_id || isStartingChat.value) return;
   
   isStartingChat.value = true;
-  const toast = (window as any).__sdcBoostToast;
-  
+
   try {
     // Check if chat already exists
     const existingChats = await chatStorage.getAllChats();
@@ -760,29 +760,16 @@ async function handleOpenChat() {
       await chatStorage.upsertChats([chatItem]);
     }
 
-    if (props.variant === 'page') {
-      navigateBoostHubChatWithGroupId(chatId);
-      isStartingChat.value = false;
-      return;
-    }
-
-    // Dialog / legacy: full navigation so ChatDialogWrapper restores from URL
-    const url = new URL(window.location.href);
-    url.searchParams.set('chat', 'open');
-    url.searchParams.set('chatId', chatId.toString());
-    window.location.assign(url.toString());
+    navigateBoostHubChatWithGroupId(chatId);
+    isStartingChat.value = false;
   } catch (err: any) {
     console.error('[ProfileDialog] Failed to open chat:', err);
     isStartingChat.value = false;
-    
+
     if (err.isBlockedChat) {
-      if (toast) {
-        toast.error('Cannot start chat: ' + (err.message || 'Chat is blocked'));
-      }
+      toast.error('Cannot start chat: ' + (err.message || 'Chat is blocked'));
     } else {
-      if (toast) {
-        toast.error('Failed to start chat: ' + (err.message || 'Unknown error'));
-      }
+      toast.error('Failed to start chat: ' + (err.message || 'Unknown error'));
     }
   }
 }
@@ -810,7 +797,6 @@ function cancelEditNote() {
 async function saveNote() {
   if (!profileData.value?.db_id || isSavingNote.value) return;
   
-  const toast = (window as any).__sdcBoostToast;
   isSavingNote.value = true;
   noteError.value = null;
   
@@ -833,19 +819,15 @@ async function saveNote() {
     
     isEditingNote.value = false;
     
-    if (toast) {
-      toast.success('Note saved successfully');
-    }
+    toast.success('Note saved successfully');
   } catch (err) {
     console.error('[ProfileDialog] Failed to save note:', err);
     noteError.value = err instanceof Error ? err.message : 'Failed to save note';
-    
+
     // Remove from cache on error (so it falls back to API value)
     noteCache.delete(dbId);
-    
-    if (toast) {
-      toast.error('Failed to save note: ' + (err instanceof Error ? err.message : 'Unknown error'));
-    }
+
+    toast.error('Failed to save note: ' + (err instanceof Error ? err.message : 'Unknown error'));
   } finally {
     isSavingNote.value = false;
   }
@@ -958,8 +940,7 @@ async function saveNote() {
       <Tabs v-model="activeTab" class="flex min-h-0 min-w-0 flex-1 flex-col gap-0">
         <!-- Tab Navigation -->
         <div
-          class="shrink-0 overflow-x-auto border-b border-white/[0.06] scrollbar-hide"
-          style="scrollbar-width: none; -ms-overflow-style: none;"
+          class="shrink-0 overflow-x-auto border-b border-white/[0.06] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           <TabsList
             class="inline-flex h-auto min-h-0 w-max min-w-full items-stretch justify-start gap-0 rounded-none border-0 bg-transparent p-0 px-4 text-[#999] shadow-none"
@@ -1073,7 +1054,10 @@ async function saveNote() {
                 <!-- Looking For -->
                 <div v-if="profileData.hope_to_find" class="flex items-start gap-2">
                   <Icon icon="mdi:heart-outline" width="20" height="20" class="text-purple-400 shrink-0 mt-0.5" />
-                  <div class="px-3 py-1.5 bg-purple-500/20 text-purple-300 rounded-lg text-sm font-medium profile-bio" v-html="profileData.hope_to_find"></div>
+                  <div
+                    class="rounded-lg bg-purple-500/20 px-3 py-1.5 text-sm font-medium text-purple-300 [&_br]:my-2 [&_br]:block [&_em]:italic [&_li]:mb-2 [&_ol]:mb-4 [&_ol]:ml-6 [&_p]:mb-4 [&_strong]:font-semibold [&_strong]:text-white [&_u]:underline [&_ul]:mb-4 [&_ul]:ml-6"
+                    v-html="profileData.hope_to_find"
+                  ></div>
                 </div>
 
                 <!-- Op zoek naar (Looking For) -->
@@ -1162,7 +1146,7 @@ async function saveNote() {
               About
             </h4>
             <div
-              class="text-sm text-[#ccc] profile-bio leading-relaxed"
+              class="text-sm leading-relaxed text-[#ccc] [&_br]:my-2 [&_br]:block [&_em]:italic [&_li]:mb-2 [&_ol]:mb-4 [&_ol]:ml-6 [&_p]:mb-4 [&_strong]:font-semibold [&_strong]:text-white [&_u]:underline [&_ul]:mb-4 [&_ul]:ml-6"
               v-html="profileData.profile_description"
             ></div>
           </div>
@@ -1821,48 +1805,3 @@ async function saveNote() {
     />
   </div>
 </template>
-
-<style scoped>
-.profile-bio {
-  color: #ccc;
-  line-height: 1.6;
-}
-
-.profile-bio :deep(p) {
-  margin-bottom: 1em;
-}
-
-.profile-bio :deep(br) {
-  display: block;
-  content: "";
-  margin-top: 0.5em;
-}
-
-.profile-bio :deep(strong) {
-  font-weight: 600;
-  color: #fff;
-}
-
-.profile-bio :deep(em) {
-  font-style: italic;
-}
-
-.profile-bio :deep(u) {
-  text-decoration: underline;
-}
-
-.profile-bio :deep(ul),
-.profile-bio :deep(ol) {
-  margin-left: 1.5em;
-  margin-bottom: 1em;
-}
-
-.profile-bio :deep(li) {
-  margin-bottom: 0.5em;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-</style>
-

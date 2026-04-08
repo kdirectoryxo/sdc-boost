@@ -187,62 +187,71 @@ const handleRemoveFromGuestList = () => {
 </script>
 
 <template>
-  <div :class="['newsfeed-card', `newsfeed-card-${props.index !== undefined && props.index % 2 === 0 ? 'even' : 'odd'}`]">
+  <div
+    :class="[
+      'relative overflow-hidden rounded-[10px] border border-white/6 border-l-[3px] border-l-[rgba(255,241,165,0.4)] transition-all duration-200 ease-in-out',
+      props.index !== undefined && props.index % 2 === 0 ? 'bg-white/2.5' : 'bg-white/3.5',
+      'hover:bg-white/5 hover:border-white/10 hover:border-l-[rgba(255,241,165,0.6)]',
+    ]"
+  >
     <!-- Header -->
-    <div class="newsfeed-card-header">
-      <p class="newsfeed-card-header-text">
+    <div class="flex items-center justify-between border-b border-white/6 bg-white/2 px-3.5 py-2.5">
+      <p class="text-sm font-semibold tracking-tight text-white">
         Lid is toegevoegd aan een gastenlijst
       </p>
-      <p class="newsfeed-card-header-time">{{ item.timed }}</p>
+      <p class="text-xs font-medium text-gray-500">{{ item.timed }}</p>
     </div>
 
     <!-- Content -->
-    <div class="newsfeed-card-content">
+    <div class="grid grid-cols-1 gap-2.5 p-2.5 px-3 md:grid-cols-2">
       <!-- Left: Member Profile -->
-      <div class="newsfeed-card-section">
-        <div class="newsfeed-card-profile">
+      <div class="flex flex-col gap-2">
+        <div class="flex items-start gap-2.5">
           <img
             v-if="photoUrl"
             :src="photoUrl"
             :alt="receiver?.account_id"
-            class="newsfeed-card-profile-img"
+            class="h-[60px] w-[60px] shrink-0 rounded-lg border-2 border-[rgba(255,241,165,0.6)] object-cover"
           />
-          <div v-else class="newsfeed-card-profile-placeholder">
-            <span>{{ receiver?.account_id?.charAt(0) || '?' }}</span>
+          <div
+            v-else
+            class="flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-lg border-2 border-[rgba(255,241,165,0.6)] bg-linear-to-br from-[rgba(255,241,165,0.15)] to-[rgba(255,241,165,0.05)]"
+          >
+            <span class="text-xl font-semibold text-amber-400">{{ receiver?.account_id?.charAt(0) || '?' }}</span>
           </div>
-          <div class="newsfeed-card-profile-info">
-            <div class="newsfeed-card-profile-header">
-              <p class="newsfeed-card-profile-name">{{ receiver?.account_id }}</p>
-              <div class="newsfeed-card-device-icons">
+          <div class="flex flex-1 flex-col gap-1">
+            <div class="flex items-center justify-between">
+              <p class="text-sm font-semibold tracking-tight text-white">{{ receiver?.account_id }}</p>
+              <div class="flex items-center gap-1">
                 <img 
                   v-if="receiver?.is_web_user" 
                   src="https://www.sdc.com/react/assets/web_user_icon.d5f27f46.svg" 
                   alt="is-web-user" 
-                  class="newsfeed-card-device-icon"
+                  class="h-3.5 w-3.5 cursor-pointer opacity-80 transition-opacity duration-200 ease-in-out hover:opacity-100"
                   title="Web-gebruiker"
                 />
                 <img 
                   v-if="receiver?.online === 1" 
                   src="https://www.sdc.com/react/assets/messenger_online_icon.0a87dd19.svg" 
                   alt="user-is-online" 
-                  class="newsfeed-card-device-icon"
+                  class="h-3.5 w-3.5 cursor-pointer opacity-80 transition-opacity duration-200 ease-in-out hover:opacity-100"
                   title="Chat nu"
                 />
               </div>
             </div>
             
             <!-- Age with colors - only show second if real -->
-            <div v-if="ages.first" class="newsfeed-card-age">
+            <div v-if="ages.first" class="inline-block text-[11px] font-medium">
               <span 
-                class="newsfeed-card-age-first"
+                class="font-semibold"
                 :style="{ color: getAgeColor(receiver?.gender1) }"
               >
                 {{ ages.first }}
               </span>
               <template v-if="isGender2Real">
-                <span class="newsfeed-card-age-separator"> | </span>
+                <span class="mx-[3px] text-white/40"> | </span>
                 <span 
-                  class="newsfeed-card-age-second"
+                  class="font-semibold"
                   :style="{ color: getAgeColor(receiver?.gender2) }"
                 >
                   {{ ages.second }}
@@ -251,21 +260,21 @@ const handleRemoveFromGuestList = () => {
             </div>
 
             <!-- Stats with icons -->
-            <div class="newsfeed-card-profile-stats">
-              <div v-if="receiver?.photo_count" class="newsfeed-card-stat">
-                <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="newsfeed-card-stat-icon" />
+            <div class="mt-1 flex items-center gap-2.5">
+              <div v-if="receiver?.photo_count" class="flex items-center gap-0.5 text-xs text-gray-400">
+                <img src="https://www.sdc.com/react/assets/photos_white_icon.1b15f7a9.svg" alt="Foto's" class="h-3.5 w-3.5 opacity-80" />
                 <span>{{ receiver.photo_count }}</span>
               </div>
-              <div v-if="receiver?.likes_count" class="newsfeed-card-stat">
-                <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="newsfeed-card-stat-icon" />
+              <div v-if="receiver?.likes_count" class="flex items-center gap-0.5 text-xs text-gray-400">
+                <img src="https://www.sdc.com/react/assets/like_grid_card.c46847a1.svg" alt="Likes" class="h-3.5 w-3.5 opacity-80" />
                 <span>{{ receiver.likes_count }}</span>
               </div>
             </div>
 
             <!-- Interests -->
-            <div v-if="receiverInterestsIcons.length > 0" class="newsfeed-card-interests">
-              <p class="newsfeed-card-interests-label">Interesses</p>
-              <div class="newsfeed-card-interests-icons">
+            <div v-if="receiverInterestsIcons.length > 0" class="flex items-center gap-2">
+              <p class="m-0 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Interesses</p>
+              <div class="flex items-center gap-[5px]">
                 <template v-for="(item, index) in receiverInterestsIcons" :key="index">
                   <!-- Couple group: display horizontally with overlapping -->
                   <div v-if="item.type === 'couple-group'" class="flex items-center">
@@ -275,10 +284,8 @@ const handleRemoveFromGuestList = () => {
                       :icon="icon.icon"
                       width="16"
                       height="16"
-                      :style="{ 
-                        color: icon.color,
-                        marginLeft: i === 1 ? '-6px' : '0'
-                      }"
+                      :class="i === 1 ? '-ml-[6px]' : ''"
+                      :style="{ color: icon.color }"
                     />
                   </div>
                   <!-- Single icons: render normally -->
@@ -294,10 +301,10 @@ const handleRemoveFromGuestList = () => {
             </div>
 
             <!-- Location -->
-            <div v-if="receiver?.location" class="newsfeed-card-profile-location">
-              <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="newsfeed-card-location-icon" />
+            <div v-if="receiver?.location" class="flex items-center gap-1 text-xs text-gray-400">
+              <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="h-3 w-3 opacity-70" />
               <span>{{ receiver.location }}</span>
-              <span v-if="item.location_how_far" class="newsfeed-card-profile-location-distance">
+              <span v-if="item.location_how_far" class="ml-1 text-gray-500">
                 {{ formatDistance(item.location_how_far) }}
               </span>
             </div>
@@ -306,20 +313,20 @@ const handleRemoveFromGuestList = () => {
       </div>
 
       <!-- Right: Party Event -->
-      <div class="newsfeed-card-section">
-        <div class="newsfeed-card-party-container">
-          <div class="newsfeed-card-party-info">
-            <p class="newsfeed-card-party-type">{{ party?.event_type === 1 ? 'Publieke Party' : 'Privé Party' }}</p>
-            <p class="newsfeed-card-party-title">{{ party?.title }}</p>
-            <p class="newsfeed-card-party-author">
-              door <span class="newsfeed-card-party-author-name">{{ party?.accountid }}</span>
+      <div class="flex flex-col gap-2">
+        <div class="relative min-h-[120px] rounded-md border border-blue-500/15 bg-linear-to-br from-blue-500/8 to-blue-500/3 p-2.5">
+          <div class="flex flex-col gap-1">
+            <p class="m-0 text-[10px] font-semibold uppercase tracking-wider text-gray-500">{{ party?.event_type === 1 ? 'Publieke Party' : 'Privé Party' }}</p>
+            <p class="m-0 text-sm font-semibold leading-snug tracking-tight text-white">{{ party?.title }}</p>
+            <p class="m-0 text-[10px] text-gray-400">
+              door <span class="wrap-break-word text-[10px] font-medium text-amber-400">{{ party?.accountid }}</span>
             </p>
-            <p class="newsfeed-card-party-date">{{ party?.date_str }}</p>
+            <p class="m-0 text-[10px] font-medium text-gray-400">{{ party?.date_str }}</p>
             
             <!-- Welcome Interests -->
-            <div v-if="partyInterestsIcons.length > 0" class="newsfeed-card-party-welcome">
-              <p class="newsfeed-card-party-welcome-label">Welkom</p>
-              <div class="newsfeed-card-party-welcome-icons">
+            <div v-if="partyInterestsIcons.length > 0" class="mt-1.5 flex items-center gap-1.5 border-t border-white/6 pt-1.5">
+              <p class="m-0 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Welkom</p>
+              <div class="flex items-center gap-[5px]">
                 <template v-for="(item, index) in partyInterestsIcons" :key="index">
                   <!-- Couple group: display horizontally with overlapping -->
                   <div v-if="item.type === 'couple-group'" class="flex items-center">
@@ -329,10 +336,8 @@ const handleRemoveFromGuestList = () => {
                       :icon="icon.icon"
                       width="16"
                       height="16"
-                      :style="{ 
-                        color: icon.color,
-                        marginLeft: i === 1 ? '-6px' : '0'
-                      }"
+                      :class="i === 1 ? '-ml-[6px]' : ''"
+                      :style="{ color: icon.color }"
                     />
                   </div>
                   <!-- Single icons: render normally -->
@@ -348,414 +353,35 @@ const handleRemoveFromGuestList = () => {
             </div>
 
             <!-- Location and Distance -->
-            <div v-if="party?.location" class="newsfeed-card-party-location">
-              <div class="newsfeed-card-party-location-text">
-                <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="newsfeed-card-location-icon-small" />
+            <div v-if="party?.location" class="mt-1.5 flex items-center justify-between border-t border-white/6 pt-1.5">
+              <div class="flex items-center gap-1 text-[10px] text-gray-400">
+                <img src="https://www.sdc.com/react/assets/location_icon.8dcd803b.svg" alt="location" class="h-3 w-3 opacity-70" />
                 <span>{{ party.location }}</span>
               </div>
-              <span v-if="party?.distance" class="newsfeed-card-party-distance">
+              <span v-if="party?.distance" class="text-[10px] font-medium text-gray-500">
                 {{ formatDistance(party.distance) }}
               </span>
             </div>
 
             <!-- Remove Button -->
-            <!-- <div class="newsfeed-card-party-actions">
-              <button class="newsfeed-card-remove-button" @click="handleRemoveFromGuestList">
-                <img src="https://www.sdc.com/react/assets/remove_white_icon.f1e5b75d.svg" alt="remove_me_from_guest_list" class="newsfeed-card-remove-icon" />
+            <!-- <div class="mt-1.5 border-t border-white/6 pt-1.5">
+              <button
+                type="button"
+                class="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-[5px] border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-[11px] font-medium text-red-400 transition-all duration-200 ease-in-out hover:border-red-500/30 hover:bg-red-500/[0.15] hover:text-red-300"
+                @click="handleRemoveFromGuestList"
+              >
+                <img src="https://www.sdc.com/react/assets/remove_white_icon.f1e5b75d.svg" alt="remove_me_from_guest_list" class="h-3 w-3" />
                 <span>verwijder mij</span>
               </button>
             </div> -->
           </div>
           
           <!-- Party Icon -->
-          <div class="newsfeed-card-party-icon-wrapper">
-            <img src="https://www.sdc.com/react/assets/parties_blue_icon.2df43137.svg" alt="party" class="newsfeed-card-party-icon" />
+          <div class="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded border border-blue-500/25 bg-blue-500/15">
+            <img src="https://www.sdc.com/react/assets/parties_blue_icon.2df43137.svg" alt="party" class="h-3 w-3" />
           </div>
         </div>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.newsfeed-card {
-  background-color: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-left: 3px solid rgba(255, 241, 165, 0.4);
-  border-radius: 10px;
-  overflow: hidden;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.newsfeed-card-even {
-  background-color: rgba(255, 255, 255, 0.025);
-}
-
-.newsfeed-card-odd {
-  background-color: rgba(255, 255, 255, 0.035);
-}
-
-.newsfeed-card:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
-  border-left-color: rgba(255, 241, 165, 0.6);
-}
-
-.newsfeed-card-header {
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.newsfeed-card-header-text {
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: -0.01em;
-}
-
-.newsfeed-card-header-time {
-  color: #6b7280;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.newsfeed-card-content {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-  padding: 10px 12px;
-}
-
-@media (min-width: 768px) {
-  .newsfeed-card-content {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.newsfeed-card-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* Left Side: Profile */
-.newsfeed-card-profile {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.newsfeed-card-profile-img {
-  width: 60px;
-  height: 60px;
-  border-radius: 8px;
-  object-fit: cover;
-  border: 2px solid rgba(255, 241, 165, 0.6);
-  flex-shrink: 0;
-}
-
-.newsfeed-card-profile-placeholder {
-  width: 60px;
-  height: 60px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, rgba(255, 241, 165, 0.15) 0%, rgba(255, 241, 165, 0.05) 100%);
-  border: 2px solid rgba(255, 241, 165, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.newsfeed-card-profile-placeholder span {
-  color: #fbbf24;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.newsfeed-card-profile-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.newsfeed-card-profile-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.newsfeed-card-profile-name {
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: -0.01em;
-}
-
-.newsfeed-card-device-icons {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.newsfeed-card-device-icon {
-  width: 14px;
-  height: 14px;
-  cursor: pointer;
-  opacity: 0.8;
-  transition: opacity 0.2s ease;
-}
-
-.newsfeed-card-device-icon:hover {
-  opacity: 1;
-}
-
-.newsfeed-card-age {
-  font-size: 11px;
-  display: inline-block;
-  font-weight: 500;
-}
-
-.newsfeed-card-age-first {
-  font-weight: 600;
-}
-
-.newsfeed-card-age-separator {
-  color: rgba(255, 255, 255, 0.4);
-  margin: 0 3px;
-}
-
-.newsfeed-card-age-second {
-  font-weight: 600;
-}
-
-.newsfeed-card-interests {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.newsfeed-card-interests-label {
-  font-size: 10px;
-  color: #6b7280;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0;
-}
-
-.newsfeed-card-interests-icons {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.newsfeed-card-interests-icon {
-  display: inline-block;
-}
-
-.newsfeed-card-profile-location {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-.newsfeed-card-location-icon {
-  width: 12px;
-  height: 12px;
-  opacity: 0.7;
-}
-
-.newsfeed-card-profile-location-distance {
-  margin-left: 4px;
-  color: #6b7280;
-}
-
-.newsfeed-card-profile-stats {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.newsfeed-card-stat {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-.newsfeed-card-stat-icon {
-  width: 14px;
-  height: 14px;
-  opacity: 0.8;
-}
-
-/* Right Side: Party */
-.newsfeed-card-party-container {
-  position: relative;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.03) 100%);
-  border: 1px solid rgba(59, 130, 246, 0.15);
-  border-radius: 6px;
-  padding: 10px;
-  min-height: 120px;
-}
-
-.newsfeed-card-party-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.newsfeed-card-party-type {
-  font-size: 10px;
-  color: #6b7280;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0;
-}
-
-.newsfeed-card-party-title {
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  margin: 0;
-  letter-spacing: -0.01em;
-  line-height: 1.4;
-}
-
-.newsfeed-card-party-author {
-  font-size: 10px;
-  color: #9ca3af;
-  margin: 0;
-}
-
-.newsfeed-card-party-author-name {
-  color: #fbbf24;
-  font-size: 10px;
-  font-weight: 500;
-  overflow-wrap: break-word;
-}
-
-.newsfeed-card-party-date {
-  font-size: 10px;
-  color: #9ca3af;
-  margin: 0;
-  font-weight: 500;
-}
-
-.newsfeed-card-party-welcome {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.newsfeed-card-party-welcome-label {
-  font-size: 10px;
-  color: #6b7280;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0;
-}
-
-.newsfeed-card-party-welcome-icons {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.newsfeed-card-party-location {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.newsfeed-card-party-location-text {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #9ca3af;
-}
-
-.newsfeed-card-location-icon-small {
-  width: 12px;
-  height: 12px;
-  opacity: 0.7;
-}
-
-.newsfeed-card-party-distance {
-  font-size: 10px;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.newsfeed-card-party-actions {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.newsfeed-card-remove-button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background-color: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: #f87171;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 6px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  width: 100%;
-  justify-content: center;
-}
-
-.newsfeed-card-remove-button:hover {
-  background-color: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
-}
-
-.newsfeed-card-remove-icon {
-  width: 12px;
-  height: 12px;
-}
-
-.newsfeed-card-party-icon-wrapper {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(59, 130, 246, 0.15);
-  border-radius: 4px;
-  border: 1px solid rgba(59, 130, 246, 0.25);
-}
-
-.newsfeed-card-party-icon {
-  width: 12px;
-  height: 12px;
-}
-</style>

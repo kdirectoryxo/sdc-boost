@@ -11,6 +11,10 @@ import type {
     MessengerChatItem,
     MessengerMessage,
 } from './sdc-api-types';
+import { toast } from '@/lib/toast';
+
+/** Dedupe \"deleted chat\" toasts when the same removal is processed more than once */
+const deletedChatToastGroupIds = new Set<number>();
 
 /** Next batch of older messages: `info.next_token` only (`-1` means done). */
 function getNextChatDetailsCursor(info: MessengerChatDetailsInfo): string | null {
@@ -322,20 +326,11 @@ async function handleDeletedChat(chat: MessengerChatItem): Promise<void> {
     
     console.log(`[MessageService] Removed deleted chat ${chat.group_id} from storage`);
     
-    // Mark that we've shown a toast for this deletion (to avoid duplicates)
-    // Store in a Set to track which chats we've shown toast for
-    if (!(window as any).__sdcBoostDeletedChatToasts) {
-        (window as any).__sdcBoostDeletedChatToasts = new Set<number>();
-    }
-    const deletedChatToasts = (window as any).__sdcBoostDeletedChatToasts as Set<number>;
-    
-    // Show toast only if we haven't shown one for this chat yet
-    if (!deletedChatToasts.has(chat.group_id)) {
-        deletedChatToasts.add(chat.group_id);
-        const toast = (window as any).__sdcBoostToast;
-        if (toast) {
-            toast.error('Dit profiel is niet langer beschikbaar. Het account van het lid is mogelijk inactief of verwijderd.');
-        }
+    if (!deletedChatToastGroupIds.has(chat.group_id)) {
+        deletedChatToastGroupIds.add(chat.group_id);
+        toast.error(
+            'Dit profiel is niet langer beschikbaar. Het account van het lid is mogelijk inactief of verwijderd.'
+        );
     }
 }
 

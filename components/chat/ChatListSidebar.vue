@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, ref, watch, nextTick } from 'vue';
 import ChatListItem from '@/components/ChatListItem.vue';
 import {
   DropdownMenu,
@@ -92,6 +92,62 @@ function handleClearSort(e: Event) {
   emit('clear-sort');
   emit('update:isSortDropdownOpen', false);
 }
+
+/**
+ * Keeps the chat list scroll position when selecting a chat.
+ * List reorders (e.g. after marking read) break the old "same first/last key" heuristic.
+ * We capture scroll on pointerdown (before click handlers / DB updates) and restore after
+ * selectedChat actually changes to a different conversation (ignore same-key object refresh).
+ */
+const chatListScrollEl = ref<HTMLElement | null>(null);
+let pendingListScrollSnapshot: number | null = null;
+
+function onChatListPointerDownCapture(e: PointerEvent) {
+  if (e.button !== 0) return;
+  const el = chatListScrollEl.value;
+  if (!el?.contains(e.target as Node)) return;
+  pendingListScrollSnapshot = el.scrollTop;
+}
+
+function applyListScrollTop(top: number): void {
+  const el = chatListScrollEl.value;
+  if (!el) return;
+  el.scrollTop = top;
+}
+
+watch(
+  () => props.selectedChat,
+  async (newChat, oldChat) => {
+    if (pendingListScrollSnapshot === null) return;
+
+    if (!newChat) {
+      pendingListScrollSnapshot = null;
+      return;
+    }
+
+    // Same conversation, new object (e.g. chatList sync) — keep snapshot for the next update.
+    if (oldChat && getChatKey(newChat) === getChatKey(oldChat)) {
+      return;
+    }
+
+    const top = pendingListScrollSnapshot;
+    pendingListScrollSnapshot = null;
+
+    await nextTick();
+    // Layout + focus in the message pane can run late; re-apply a few times.
+    applyListScrollTop(top);
+    requestAnimationFrame(() => {
+      applyListScrollTop(top);
+      requestAnimationFrame(() => {
+        applyListScrollTop(top);
+        setTimeout(() => applyListScrollTop(top), 0);
+        setTimeout(() => applyListScrollTop(top), 50);
+        setTimeout(() => applyListScrollTop(top), 150);
+      });
+    });
+  },
+  { flush: 'post' }
+);
 </script>
 
 <template>
@@ -598,7 +654,11 @@ function handleClearSort(e: Event) {
     </div>
 
     <!-- Chat List -->
-    <div class="flex-1 overflow-y-auto relative z-0">
+    <div
+      ref="chatListScrollEl"
+      class="flex-1 overflow-y-auto overscroll-y-contain relative z-0"
+      @pointerdown.capture="onChatListPointerDownCapture"
+    >
       <div v-if="isLoading && filteredChats.length === 0" class="flex items-center justify-center h-full">
         <div class="flex flex-col items-center gap-4 px-6 max-w-sm">
           <div class="w-12 h-12 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>

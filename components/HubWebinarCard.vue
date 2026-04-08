@@ -29,55 +29,55 @@ function open() {
 
 <template>
   <Card
-    class="wcard gap-0 overflow-hidden rounded-[10px] border border-white/[0.04] bg-[#1a1d21] p-0 py-0 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-500/30 hover:shadow-lg"
+    class="group flex w-full cursor-pointer flex-col gap-0 overflow-hidden rounded-[10px] border border-white/[0.04] bg-[#1a1d21] p-0 py-0 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-500/30 hover:shadow-lg"
     @click="open"
   >
-    <div class="wcard-poster">
+    <div class="relative aspect-video w-full overflow-hidden bg-[#131517]">
       <img
         v-if="item.flyer"
         :src="item.flyer"
         :alt="item.title"
+        class="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105"
       />
-      <div v-else class="wcard-poster-empty">
+      <div v-else class="flex h-full w-full items-center justify-center text-white/[0.15]">
         <Icon icon="mdi:presentation-play" width="28" height="28" />
       </div>
 
-      <!-- Live pill -->
       <Badge
         v-if="item.live"
         variant="destructive"
-        class="wcard-live-pill border-0 bg-[rgba(239,68,68,0.85)] px-[7px] py-0.5 pl-[5px] text-[9px] font-bold uppercase tracking-wide text-white backdrop-blur-md hover:bg-[rgba(239,68,68,0.85)]"
+        class="absolute left-1.5 top-1.5 inline-flex items-center gap-1 border-0 bg-[rgba(239,68,68,0.85)] px-[7px] py-0.5 pl-[5px] text-[9px] font-bold uppercase tracking-wide text-white backdrop-blur-md hover:bg-[rgba(239,68,68,0.85)]"
       >
-        <span class="wcard-live-dot" />
+        <span class="size-[5px] animate-live-blink rounded-full bg-white" />
         LIVE
       </Badge>
     </div>
 
-    <div class="wcard-body">
-      <p class="wcard-title">{{ item.title }}</p>
+    <div class="flex flex-1 flex-col gap-1 p-2.5">
+      <p class="line-clamp-2 text-xs font-semibold leading-snug text-white">{{ item.title }}</p>
 
-      <p v-if="item.account_id" class="wcard-host">
+      <p v-if="item.account_id" class="truncate text-[11px] font-medium text-violet-300">
         {{ item.account_id }}
       </p>
 
-      <div class="wcard-meta">
-        <span v-if="whenLabel" class="wcard-meta-item">
+      <div class="flex flex-wrap items-center gap-2">
+        <span v-if="whenLabel" class="inline-flex items-center gap-0.5 text-[10px] text-gray-500 group-hover:text-gray-400">
           <Icon icon="mdi:calendar-clock-outline" width="11" height="11" />
           {{ whenLabel }}
         </span>
-        <span v-if="peopleCount != null" class="wcard-meta-item">
+        <span v-if="peopleCount != null" class="inline-flex items-center gap-0.5 text-[10px] text-gray-500 group-hover:text-gray-400">
           <Icon icon="mdi:account-group-outline" width="11" height="11" />
           {{ peopleCount }}
         </span>
       </div>
 
-      <p v-if="categoryLine" class="wcard-category">
+      <p v-if="categoryLine" class="line-clamp-1 text-[10px] text-gray-500">
         {{ categoryLine }}
       </p>
 
-      <div v-if="audienceIcons.length" class="wcard-audience">
+      <div v-if="audienceIcons.length" class="mt-auto flex flex-wrap items-center gap-0.5 border-t border-white/[0.04] pt-1.5">
         <template v-for="(a, index) in audienceIcons" :key="index">
-          <div v-if="a.type === 'couple-group'" class="wcard-couple">
+          <div v-if="a.type === 'couple-group'" class="flex items-center">
             <Icon
               v-for="(ic, i) in a.icons"
               :key="i"
@@ -99,142 +99,3 @@ function open() {
     </div>
   </Card>
 </template>
-
-<style scoped>
-.wcard {
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Poster */
-.wcard-poster {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: #131517;
-  overflow: hidden;
-}
-
-.wcard-poster img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.wcard:hover .wcard-poster img {
-  transform: scale(1.05);
-}
-
-.wcard-poster-empty {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.15);
-}
-
-.wcard-live-pill {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 7px 2px 5px;
-  background: rgba(239, 68, 68, 0.85);
-  backdrop-filter: blur(6px);
-  border-radius: 4px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: white;
-}
-
-.wcard-live-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: white;
-  animation: live-blink 1.4s ease-in-out infinite;
-}
-
-@keyframes live-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-
-/* Body */
-.wcard-body {
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-}
-
-.wcard-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: white;
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.wcard-host {
-  font-size: 11px;
-  font-weight: 500;
-  color: #a78bfa;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.wcard-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.wcard-meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  color: #6b7280;
-}
-
-.wcard:hover .wcard-meta-item {
-  color: #9ca3af;
-}
-
-.wcard-category {
-  font-size: 10px;
-  color: #6b7280;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.wcard-audience {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 3px;
-  margin-top: auto;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.wcard-couple {
-  display: flex;
-  align-items: center;
-}
-</style>

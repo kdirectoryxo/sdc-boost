@@ -110,8 +110,12 @@ onMounted(() => {
       >
         <section>
           <Skeleton class="mb-3 h-3 w-28 rounded-md bg-white/10" />
-          <div class="webinar-grid">
-            <div v-for="n in 6" :key="`sk-live-${n}`" class="hub-skeleton-webinar-card">
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
+            <div
+              v-for="n in 6"
+              :key="`sk-live-${n}`"
+              class="overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]"
+            >
               <Skeleton class="aspect-video w-full rounded-t-xl bg-white/10" />
               <div class="space-y-2 p-3">
                 <Skeleton class="h-4 w-full rounded-md bg-white/10" />
@@ -129,8 +133,12 @@ onMounted(() => {
         </section>
         <section>
           <Skeleton class="mb-3 h-3 w-32 rounded-md bg-white/10" />
-          <div class="webinar-grid">
-            <div v-for="n in PAGE_SIZE" :key="`sk-up-${n}`" class="hub-skeleton-webinar-card">
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
+            <div
+              v-for="n in PAGE_SIZE"
+              :key="`sk-up-${n}`"
+              class="overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]"
+            >
               <Skeleton class="aspect-video w-full rounded-t-xl bg-white/10" />
               <div class="space-y-2 p-3">
                 <Skeleton class="h-4 w-full rounded-md bg-white/10" />
@@ -147,8 +155,12 @@ onMounted(() => {
         </section>
         <section>
           <Skeleton class="mb-3 h-3 w-24 rounded-md bg-white/10" />
-          <div class="webinar-grid">
-            <div v-for="n in PAGE_SIZE" :key="`sk-past-${n}`" class="hub-skeleton-webinar-card">
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
+            <div
+              v-for="n in PAGE_SIZE"
+              :key="`sk-past-${n}`"
+              class="overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]"
+            >
               <Skeleton class="aspect-video w-full rounded-t-xl bg-white/10" />
               <div class="space-y-2 p-3">
                 <Skeleton class="h-4 w-full rounded-md bg-white/10" />
@@ -167,27 +179,27 @@ onMounted(() => {
       <div v-else class="flex flex-col gap-10">
         <section v-if="webinarLive.length">
           <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-emerald-400/90">Live now</h3>
-          <div class="webinar-grid">
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
             <HubWebinarCard v-for="w in webinarLive" :key="`live-${w.id}`" :item="w" />
           </div>
         </section>
 
         <section v-if="webinarUpcoming.length">
           <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-white/40">Upcoming</h3>
-          <div class="webinar-grid">
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
             <HubWebinarCard v-for="w in webinarUpcoming" :key="`up-${w.id}`" :item="w" />
           </div>
         </section>
 
         <section v-if="webinarPast.length || hasMorePast">
           <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-white/40">Past</h3>
-          <div class="webinar-grid">
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
             <HubWebinarCard v-for="w in webinarPast" :key="`past-${w.id}`" :item="w" />
             <template v-if="loadingMorePast">
               <div
                 v-for="n in PAGE_SIZE"
                 :key="`sk-past-more-${n}`"
-                class="hub-skeleton-webinar-card"
+                class="overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]"
                 aria-hidden="true"
               >
                 <Skeleton class="aspect-video w-full rounded-t-xl bg-white/10" />
@@ -240,11 +252,3 @@ onMounted(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.webinar-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-}
-</style>

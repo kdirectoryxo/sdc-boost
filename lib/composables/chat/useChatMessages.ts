@@ -9,6 +9,7 @@ import { useChatState } from './useChatState';
 import { useChatFilters } from './useChatFilters';
 import { highlightText } from './utils';
 import { confirm } from '@/lib/confirm';
+import { toast } from '@/lib/toast';
 import { useLiveQuery } from '@/lib/composables/useLiveQuery';
 import { db } from '@/lib/db';
 
@@ -546,20 +547,12 @@ export const useChatMessages = createGlobalState(() => {
    * Handle message copy
    */
   function handleCopyMessage(message: MessengerMessage): void {
-    // Access toast from global window
-    const toast = (window as any).__sdcBoostToast;
-    
     navigator.clipboard.writeText(message.message).then(() => {
       console.log('[useChatMessages] Message copied to clipboard');
-      // Show success toast notification
-      if (toast) {
-        toast.success('Message copied to clipboard');
-      }
+      toast.success('Message copied to clipboard');
     }).catch(err => {
       console.error('[useChatMessages] Failed to copy message:', err);
-      if (toast) {
-        toast.error('Failed to copy message');
-      }
+      toast.error('Failed to copy message');
     });
   }
   

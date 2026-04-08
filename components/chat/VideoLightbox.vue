@@ -564,7 +564,7 @@ onUnmounted(() => {
               @mouseup="handleSeekEnd"
               @touchstart="handleSeekStart"
               @touchend="handleSeekEnd"
-              class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+              class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-700 active:[&::-webkit-slider-thumb]:scale-125 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-blue-500 [&::-moz-range-thumb]:shadow-md active:[&::-moz-range-thumb]:scale-125 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:transition-transform"
               :style="{ background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${duration > 0 ? (currentTime / duration) * 100 : 0}%, #4b5563 ${duration > 0 ? (currentTime / duration) * 100 : 0}%, #4b5563 100%)` }"
             />
           </div>
@@ -627,7 +627,9 @@ onUnmounted(() => {
         v-if="!isFullscreen"
         class="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm p-2 sm:p-4 z-20"
       >
-        <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+        <div
+          class="flex gap-3 overflow-x-auto pb-2 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:bg-gray-400/50 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400/70"
+        >
           <div
             v-for="(video, index) in videos"
             :key="video.id"
@@ -692,54 +694,3 @@ onUnmounted(() => {
     </DialogContent>
   </Dialog>
 </template>
-
-<style scoped>
-/* Custom scrollbar styles */
-.scrollbar-thin::-webkit-scrollbar {
-  height: 6px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.5);
-  border-radius: 3px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.7);
-}
-
-/* Custom range slider styles */
-.slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #3b82f6;
-  cursor: pointer;
-  border: 2px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #3b82f6;
-  cursor: pointer;
-  border: 2px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.slider:active::-webkit-slider-thumb {
-  transform: scale(1.2);
-}
-
-.slider:active::-moz-range-thumb {
-  transform: scale(1.2);
-}
-</style>
-
