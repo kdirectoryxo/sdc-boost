@@ -623,6 +623,8 @@ export interface MessengerChatDetailsInfo {
     primary_photo?: string;
     admin?: boolean;
     url_more?: string | null;
+    /** Cursor for older messages; `-1` or missing/empty means no more batches (chat history pagination). */
+    next_token?: string | number;
     report_spam?: number;
     isBotHelpSession?: number;
     blockUMedia?: number;

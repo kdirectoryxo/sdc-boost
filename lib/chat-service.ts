@@ -75,8 +75,7 @@ export function sendTypingEvent(chat: MessengerChatItem, typing: boolean): boole
     }
 
     try {
-        // Check if this is a group (group_type === 1 or string group_id)
-        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        const isGroup = chat.group_type === 1;
         
         websocketManager.send('typing', {
             account_id: userInfo.accountId,
@@ -136,8 +135,7 @@ export async function sendSeenEvent(chat: MessengerChatItem): Promise<boolean> {
     }
 
     try {
-        // Check if this is a group (group_type === 1 or string group_id)
-        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        const isGroup = chat.group_type === 1;
         
         websocketManager.send('seen', {
             db_id: parseInt(userInfo.dbId),
@@ -171,8 +169,7 @@ export function sendMessage(chat: MessengerChatItem, messageText: string): boole
     }
 
     try {
-        // Check if this is a group (group_type === 1 or string group_id)
-        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        const isGroup = chat.group_type === 1;
         
         // Generate tempId for pending message
         const tempId = crypto.randomUUID();
@@ -239,8 +236,7 @@ export function sendQuotedMessage(chat: MessengerChatItem, messageText: string, 
     }
 
     try {
-        // Check if this is a group (group_type === 1 or string group_id)
-        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        const isGroup = chat.group_type === 1;
         
         // Generate tempId for pending message
         const tempId = crypto.randomUUID();
@@ -309,8 +305,7 @@ export function sendMessageWithImage(
     }
 
     try {
-        // Check if this is a group (group_type === 1 or string group_id)
-        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        const isGroup = chat.group_type === 1;
         
         // Generate tempId for pending message
         const tempId = crypto.randomUUID();
@@ -386,8 +381,7 @@ export function sendAlbums(
     }
 
     try {
-        // Check if this is a group (group_type === 1 or string group_id)
-        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
+        const isGroup = chat.group_type === 1;
         
         // Generate tempId for pending message
         const tempId = crypto.randomUUID();

@@ -64,7 +64,7 @@ async function fetchGroupData(groupId: string) {
   
   try {
     // First, fetch group chat details to get target_db_id
-    const chatDetailsResponse = await getMessengerGroupChatDetails(groupId, 0);
+    const chatDetailsResponse = await getMessengerGroupChatDetails(groupId);
     
     if (chatDetailsResponse.info.code !== '200' && chatDetailsResponse.info.code !== 200) {
       error.value = chatDetailsResponse.info.message || 'Failed to load group chat details';

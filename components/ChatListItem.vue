@@ -90,7 +90,7 @@ function safeHandleDragStart(source: string, ev: PointerEvent): void {
 
 // Check if this is a group
 const isGroup = computed(() => {
-  return props.chat.group_type === 1 || typeof props.chat.group_id === 'string';
+  return props.chat.group_type === 1;
 });
 
 // Fetch profile data for ages and distances (skip for broadcasts and groups)

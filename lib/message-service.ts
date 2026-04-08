@@ -6,7 +6,27 @@
 import { getMessengerChatDetails, getMessengerGroupChatDetails } from './sdc-api';
 import { messageStorage } from './message-storage';
 import { chatStorage } from './chat-storage';
-import type { MessengerChatItem, MessengerMessage } from './sdc-api-types';
+import type {
+    MessengerChatDetailsInfo,
+    MessengerChatItem,
+    MessengerMessage,
+} from './sdc-api-types';
+
+/** Next batch of older messages: `info.next_token` only (`-1` means done). */
+function getNextChatDetailsCursor(info: MessengerChatDetailsInfo): string | null {
+    const nt = info.next_token;
+    if (nt === undefined || nt === null) {
+        return null;
+    }
+    if (typeof nt === 'number' && nt === -1) {
+        return null;
+    }
+    if (String(nt) === '-1') {
+        return null;
+    }
+    const s = String(nt).trim();
+    return s.length > 0 ? s : null;
+}
 
 /**
  * Load messages for a chat
@@ -68,23 +88,28 @@ export async function fetchAllMessages(
     onProgress?: (messages: MessengerMessage[]) => void
 ): Promise<MessengerMessage[]> {
     console.log(`[MessageService] Fetching all messages for chat ${chat.group_id}...`);
-    let page = 0;
+    let nextToken: string | null = null;
     let hasMore = true;
+    let isFirstBatch = true;
     const allMessages: MessengerMessage[] = [];
+    /** DM/broadcast: API may normalize `DB_ID` / `GroupID` in the response — use for subsequent pages (matches official `next_token` flow). */
+    let dbId = chat.db_id;
+    let groupId: number | string = chat.group_id;
 
     while (hasMore) {
         try {
-            // Check if this is a group (group_type === 1 or string group_id)
-            const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
-            
+            // Real messenger groups only (`group_type === 1`). DMs/broadcasts use composite string group_id but are not groups.
+            const isGroup = chat.group_type === 1;
+
             const response = isGroup
-                ? await getMessengerGroupChatDetails(String(chat.group_id), page)
+                ? await getMessengerGroupChatDetails(String(chat.group_id), undefined, nextToken)
                 : await getMessengerChatDetails(
-                    chat.db_id,
-                    Number(chat.group_id),
-                    chat.group_type || 0,
-                    page
-                );
+                      dbId,
+                      groupId,
+                      chat.group_type || 0,
+                      undefined,
+                      nextToken
+                  );
 
             const responseCode = response.info.code;
             if (responseCode === '200' || responseCode === 200) {
@@ -98,11 +123,11 @@ export async function fetchAllMessages(
                 // Store messages immediately after each page
                 await messageStorage.upsertMessages(chat.group_id, pageMessages);
                 
-                // If this is page 0 (latest page), delete all optimistic messages
-                // Fresh data from API replaces optimistic messages
-                if (page === 0 && pageMessages.length > 0) {
+                // If this is the latest batch (first request), delete all optimistic messages
+                if (isFirstBatch && pageMessages.length > 0) {
                     await messageStorage.deleteAllOptimisticMessages(chat.group_id);
                 }
+                isFirstBatch = false;
                 
                 // Clear blocked status if chat was previously blocked (messages are now available)
                 if ((chat as any).isBlocked) {
@@ -118,24 +143,23 @@ export async function fetchAllMessages(
                 if (onProgress) {
                     onProgress(sortedMessages);
                 }
-                
-                // Check if there are more pages
-                const urlMore = response.info.url_more;
-                if (!urlMore || urlMore === '-1' || urlMore === '') {
-                    hasMore = false;
-                } else {
-                    // Extract next page number from url_more
-                    const match = urlMore.match(/page=(\d+)/);
-                    if (match) {
-                        const nextPage = parseInt(match[1], 10);
-                        if (nextPage > page) {
-                            page = nextPage;
-                        } else {
-                            hasMore = false;
-                        }
-                    } else {
-                        hasMore = false;
+
+                if (!isGroup) {
+                    const info = response.info;
+                    if (info.target_db_id != null) {
+                        dbId = info.target_db_id;
                     }
+                    const gid = info.group_id as string | number | undefined;
+                    if (gid !== undefined && gid !== null && String(gid).length > 0) {
+                        groupId = gid;
+                    }
+                }
+
+                const cursor = getNextChatDetailsCursor(response.info);
+                if (cursor) {
+                    nextToken = cursor;
+                } else {
+                    hasMore = false;
                 }
             } else if (responseCode === '402' || responseCode === 402) {
                 // Blocked chat - this should have been caught by getMessengerChatDetails, but handle it here too
@@ -174,7 +198,7 @@ export async function fetchAllMessages(
                 await handleDeletedChat(chat);
                 throw err; // Re-throw so UI layer can show toast and deselect
             }
-            console.error(`[MessageService] Failed to fetch page ${page}:`, err);
+            console.error(`[MessageService] Failed to fetch chat history batch:`, err);
             hasMore = false;
         }
     }
@@ -189,7 +213,7 @@ export async function fetchAllMessages(
 }
 
 /**
- * Refresh latest page (page 0) in background
+ * Refresh latest messages in background (no `next_token` — current window only).
  * Used when WebSocket message is received to get any updates
  */
 export async function refreshLatestPage(
@@ -197,16 +221,14 @@ export async function refreshLatestPage(
     onUpdate?: (messages: MessengerMessage[]) => void
 ): Promise<void> {
     try {
-        // Check if this is a group (group_type === 1 or string group_id)
-        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
-        
+        const isGroup = chat.group_type === 1;
+
         const response = isGroup
-            ? await getMessengerGroupChatDetails(String(chat.group_id), 0)
+            ? await getMessengerGroupChatDetails(String(chat.group_id))
             : await getMessengerChatDetails(
                 chat.db_id,
-                Number(chat.group_id),
-                chat.group_type || 0,
-                0
+                chat.group_id,
+                chat.group_type || 0
             );
 
         const responseCode = response.info.code;
@@ -319,7 +341,7 @@ async function handleDeletedChat(chat: MessengerChatItem): Promise<void> {
 
 /**
  * Fetch only new messages (for already fetched chats)
- * Only fetches page 0 (latest page) which contains the newest messages
+ * Single request without `next_token` (latest batch from the API).
  */
 export async function fetchNewMessagesOnly(
     chat: MessengerChatItem,
@@ -336,17 +358,14 @@ export async function fetchNewMessagesOnly(
     }
 
     try {
-        // Check if this is a group (group_type === 1 or string group_id)
-        const isGroup = chat.group_type === 1 || typeof chat.group_id === 'string';
-        
-        // Only fetch page 0 (latest page)
+        const isGroup = chat.group_type === 1;
+
         const response = isGroup
-            ? await getMessengerGroupChatDetails(String(chat.group_id), 0)
+            ? await getMessengerGroupChatDetails(String(chat.group_id))
             : await getMessengerChatDetails(
                 chat.db_id,
-                Number(chat.group_id),
-                chat.group_type || 0,
-                0
+                chat.group_id,
+                chat.group_type || 0
             );
 
         const responseCode = response.info.code;

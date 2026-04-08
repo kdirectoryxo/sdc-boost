@@ -406,19 +406,21 @@ export async function syncFolderChats(folderId: number, onPageSynced?: () => voi
 
 /**
  * Get messenger_chat_details data (messages for a specific chat)
- * @param dbId The DB_ID of the other user/chat
- * @param groupId The GroupID of the chat
+ * Use for DMs and broadcasts (`group_type === 0`): pass composite string GroupID (e.g. "8056664-8092113").
+ * Pagination: first request omits `next_token`; older messages use `next_token` from the previous `info.next_token` (no `page` param).
+ * @param dbId The DB_ID of the other party (counterparty or sender)
+ * @param groupId The GroupID of the chat (numeric legacy or composite string)
  * @param type The type of chat (default: 0)
- * @param page Page number (default: 0)
  * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @param nextToken Cursor from previous `info.next_token` for older messages
  * @returns Chat details with messages
  */
 export async function getMessengerChatDetails(
     dbId: number,
-    groupId: number,
+    groupId: number | string,
     type: number = 0,
-    page: number = 0,
-    muid?: string | null
+    muid?: string | null,
+    nextToken?: string | null
 ): Promise<MessengerChatDetailsResponse> {
     const currentMuid = await resolveMuidOrAwait(muid);
 
@@ -430,8 +432,10 @@ export async function getMessengerChatDetails(
     url.searchParams.set('muid', currentMuid);
     url.searchParams.set('DB_ID', dbId.toString());
     url.searchParams.set('type', type.toString());
-    url.searchParams.set('GroupID', groupId.toString());
-    url.searchParams.set('page', page.toString());
+    url.searchParams.set('GroupID', String(groupId));
+    if (nextToken) {
+        url.searchParams.set('next_token', nextToken);
+    }
 
     try {
         const response = await fetch(url.toString(), {
@@ -1345,16 +1349,18 @@ export async function getMessengerGroups(
 }
 
 /**
- * Get messenger_chat_details_gm data (messages for a specific group)
- * @param groupId The GroupID of the group (string)
- * @param page Page number (default: 0)
+ * Get messenger_chat_details_gm data (messages for a real messenger group only: `group_type === 1`).
+ * Official SDC client sends the literal string "undefined" for DB_ID with type=1 — do not substitute a numeric id.
+ * @param groupId The GroupID of the group (opaque string, e.g. "1772385890445-489e498f")
+ * Pagination: first request omits `next_token`; older messages use `next_token` from the previous response (no `page` param).
  * @param muid Optional MUID (will be extracted from cookies if not provided)
+ * @param nextToken Cursor from previous `info.next_token` for older messages.
  * @returns Chat details with messages
  */
 export async function getMessengerGroupChatDetails(
     groupId: string,
-    page: number = 0,
-    muid?: string | null
+    muid?: string | null,
+    nextToken?: string | null
 ): Promise<MessengerChatDetailsResponse> {
     const currentMuid = await resolveMuidOrAwait(muid);
 
@@ -1364,10 +1370,13 @@ export async function getMessengerGroupChatDetails(
 
     const url = new URL('https://api.sdc.com/v1/messenger_chat_details_gm');
     url.searchParams.set('muid', currentMuid);
+    // Parity with official app — only valid for group_type === 1 rows
     url.searchParams.set('DB_ID', 'undefined');
     url.searchParams.set('type', '1');
     url.searchParams.set('GroupID', groupId);
-    url.searchParams.set('page', page.toString());
+    if (nextToken) {
+        url.searchParams.set('next_token', nextToken);
+    }
 
     try {
         const response = await fetch(url.toString(), {

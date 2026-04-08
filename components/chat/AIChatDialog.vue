@@ -52,7 +52,7 @@ const conversationHistory = ref<Array<{ role: 'user' | 'assistant'; content: str
 // Group chat support
 const isGroupChat = computed(() => {
   if (!props.selectedChat) return false;
-  return props.selectedChat.group_type === 1 || typeof props.selectedChat.group_id === 'string';
+  return props.selectedChat.group_type === 1;
 });
 
 const groupInfo = ref<{ name: string; users: MessengerGroupUser[]; admins: MessengerGroupAdmin[] } | null>(null);
@@ -190,7 +190,7 @@ async function loadData() {
         : String(props.selectedChat.group_id);
       
       // First, fetch group chat details to get target_db_id
-      const chatDetailsResponse = await getMessengerGroupChatDetails(groupId, 0);
+      const chatDetailsResponse = await getMessengerGroupChatDetails(groupId);
       
       if (chatDetailsResponse.info.code !== '200' && chatDetailsResponse.info.code !== 200) {
         error.value = chatDetailsResponse.info.message || 'Failed to load group chat details';

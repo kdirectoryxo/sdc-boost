@@ -119,7 +119,7 @@ const messageId = computed(() => {
 // Check if this is a group chat
 const isGroupChat = computed(() => {
   if (!props.selectedChat) return false;
-  return props.selectedChat.group_type === 1 || typeof props.selectedChat.group_id === 'string';
+  return props.selectedChat.group_type === 1;
 });
 
 // Name color based on gender (same logic as ChatMessagesArea)
